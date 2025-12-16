@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Label;
+use OffloadProject\Mandate\Attributes\PermissionsSet;
+
+#[PermissionsSet('{{ set }}')]
+final class {{ class }}
+{
+    #[Label('View {{ resource }}')]
+    public const string VIEW = '{{ set }}.view';
+
+    #[Label('Create {{ resource }}')]
+    public const string CREATE = '{{ set }}.create';
+
+    #[Label('Update {{ resource }}')]
+    public const string UPDATE = '{{ set }}.update';
+
+    #[Label('Delete {{ resource }}')]
+    public const string DELETE = '{{ set }}.delete';
+}

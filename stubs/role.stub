@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Label;
+use OffloadProject\Mandate\Attributes\RoleSet;
+
+#[RoleSet('{{ set }}')]
+final class {{ class }}
+{
+    #[Label('Administrator')]
+    public const string ADMINISTRATOR = 'administrator';
+
+    #[Label('User')]
+    public const string USER = 'user';
+}

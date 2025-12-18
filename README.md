@@ -38,6 +38,7 @@ Publish the configuration:
 
 ```bash
 php artisan vendor:publish --tag=mandate-config
+php artisan vendor:publish --tag=mandate-migrations
 ```
 
 ## Quick Start

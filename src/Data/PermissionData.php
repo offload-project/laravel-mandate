@@ -129,12 +129,12 @@ final class PermissionData extends Data
     /**
      * Generate a label from a permission name.
      *
-     * Handles both dot notation (users.view -> View Users) and
+     * Handles both dot notation (view users -> View Users) and
      * SCREAMING_SNAKE_CASE/snake_case/kebab-case.
      */
     protected static function generateLabel(string $name): string
     {
-        // Handle dot notation: users.view -> View Users
+        // Handle dot notation: view users -> View Users
         if (str_contains($name, '.')) {
             $parts = explode('.', $name);
             $action = ucfirst(end($parts));

@@ -13,8 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
  * Middleware to check permissions with feature flag awareness.
  *
  * Usage in routes:
- *   Route::get('/users/export', ...)->middleware('mandate.permission:users.export');
- *   Route::get('/users', ...)->middleware('mandate.permission:users.view,users.list');
+ *   Route::get('/users/export', ...)->middleware('mandate.permission:export users');
+ *   Route::get('/users', ...)->middleware('mandate.permission:view users,list users');
  *
  * Usage with constant (in route service provider or controller):
  *   $this->middleware(MandatePermission::using(UserPermissions::EXPORT));

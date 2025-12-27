@@ -87,7 +87,7 @@ test('it creates copy with updated status via withStatus()', function () {
         set: 'testing',
         guard: 'web',
         feature: 'SomeFeature',
-        permissions: ['users.view', 'users.create'],
+        permissions: ['view users', 'create users'],
         metadata: ['icon' => 'shield'],
     );
 
@@ -108,7 +108,7 @@ test('it creates copy with updated status via withStatus()', function () {
     expect($updated->set)->toBe('testing');
     expect($updated->guard)->toBe('web');
     expect($updated->feature)->toBe('SomeFeature');
-    expect($updated->permissions)->toBe(['users.view', 'users.create']);
+    expect($updated->permissions)->toBe(['view users', 'create users']);
     expect($updated->metadata)->toBe(['icon' => 'shield']);
 });
 
@@ -151,8 +151,8 @@ test('it creates role data with permissions array', function () {
     $data = new RoleData(
         name: 'admin',
         label: 'Administrator',
-        permissions: ['users.view', 'users.create', 'users.delete'],
+        permissions: ['view users', 'create users', 'delete users'],
     );
 
-    expect($data->permissions)->toBe(['users.view', 'users.create', 'users.delete']);
+    expect($data->permissions)->toBe(['view users', 'create users', 'delete users']);
 });

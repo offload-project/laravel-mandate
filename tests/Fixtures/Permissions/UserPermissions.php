@@ -12,17 +12,17 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 final class UserPermissions
 {
     #[Label('View Users')]
-    public const string VIEW = 'users.view';
+    public const string VIEW = 'view users';
 
     #[Label('Create Users')]
-    public const string CREATE = 'users.create';
+    public const string CREATE = 'create users';
 
     #[Label('Update Users')]
-    public const string UPDATE = 'users.update';
+    public const string UPDATE = 'update users';
 
     #[Label('Delete Users')]
-    public const string DELETE = 'users.delete';
+    public const string DELETE = 'delete users';
 
     #[Label('Export Users'), Description('Export user data to CSV')]
-    public const string EXPORT = 'users.export';
+    public const string EXPORT = 'export users';
 }

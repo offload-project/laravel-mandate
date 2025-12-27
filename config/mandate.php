@@ -18,10 +18,10 @@ return [
     | final class UserPermissions
     | {
     |     #[Label('View Users')]
-    |     public const VIEW = 'users.view';
+    |     public const VIEW = 'view users';
     |
     |     #[Label('Create Users')]
-    |     public const CREATE = 'users.create';
+    |     public const CREATE = 'create users';
     | }
     |
     */
@@ -95,8 +95,8 @@ return [
     |     ],
     |
     |     'viewer' => [                  // String role name also works
-    |         'posts.view',
-    |         'users.view',
+    |         'view posts',
+    |         'view users',
     |     ],
     | ],
     |

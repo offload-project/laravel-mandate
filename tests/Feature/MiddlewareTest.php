@@ -24,12 +24,12 @@ describe('MandatePermission Middleware', function () {
 
     it('generates correct middleware string with using() helper for single permission', function () {
         expect(MandatePermission::using(UserPermissions::VIEW))
-            ->toBe('mandate.permission:users.view');
+            ->toBe('mandate.permission:view users');
     });
 
     it('generates correct middleware string with using() helper for multiple permissions', function () {
         expect(MandatePermission::using(UserPermissions::VIEW, UserPermissions::UPDATE))
-            ->toBe('mandate.permission:users.view,users.update');
+            ->toBe('mandate.permission:view users,update users');
     });
 
     it('generates correct middleware string with using() helper for all permissions', function () {
@@ -38,7 +38,7 @@ describe('MandatePermission Middleware', function () {
             UserPermissions::CREATE,
             UserPermissions::UPDATE,
             UserPermissions::DELETE
-        ))->toBe('mandate.permission:users.view,users.create,users.update,users.delete');
+        ))->toBe('mandate.permission:view users,create users,update users,delete users');
     });
 });
 

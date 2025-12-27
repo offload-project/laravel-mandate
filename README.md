@@ -65,19 +65,19 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 final class UserPermissions
 {
     #[Label('View Users')]
-    public const string VIEW = 'users.view';
+    public const string VIEW = 'view users';
 
     #[Label('Create Users')]
-    public const string CREATE = 'users.create';
+    public const string CREATE = 'create users';
 
     #[Label('Update Users')]
-    public const string UPDATE = 'users.update';
+    public const string UPDATE = 'update users';
 
     #[Label('Delete Users')]
-    public const string DELETE = 'users.delete';
+    public const string DELETE = 'delete users';
 
     #[Label('Export Users'), Description('Export user data to CSV')]
-    public const string EXPORT = 'users.export';
+    public const string EXPORT = 'export users';
 }
 ```
 
@@ -214,7 +214,7 @@ use OffloadProject\Mandate\Http\Middleware\MandateRole;
 
 // String-based (in routes)
 Route::get('/users/export', ExportController::class)
-    ->middleware('mandate.permission:users.export');
+    ->middleware('mandate.permission:export users');
 
 Route::get('/admin', AdminController::class)
     ->middleware('mandate.role:administrator');
@@ -224,7 +224,7 @@ Route::get('/premium', PremiumController::class)
 
 // Multiple permissions/roles (OR logic)
 Route::get('/users', UserController::class)
-    ->middleware('mandate.permission:users.view,users.list');
+    ->middleware('mandate.permission:view users,users.list');
 
 // Type-safe with constants
 Route::get('/users/export', ExportController::class)
@@ -525,7 +525,7 @@ use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 public function test_something_with_permissions()
 {
     $mockRegistry = Mockery::mock(PermissionRegistryContract::class);
-    $mockRegistry->shouldReceive('can')->with($user, 'users.view')->andReturn(true);
+    $mockRegistry->shouldReceive('can')->with($user, 'view users')->andReturn(true);
 
     $this->app->instance(PermissionRegistryContract::class, $mockRegistry);
 

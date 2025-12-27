@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use OffloadProject\Mandate\Services\MandateManager;
-use OffloadProject\Mandate\Tests\Fixtures\Permissions\UserPermissions;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -44,14 +42,14 @@ test('syncRoles without seed flag does not overwrite existing role permissions',
     $originalPermissionCount = $adminRole->permissions->count();
 
     // Remove a permission via "database/UI"
-    $adminRole->revokePermissionTo('users.delete');
+    $adminRole->revokePermissionTo('delete users');
 
     // Clear Spatie's cache
     app()[Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
     // Verify permission was removed
     $adminRole->refresh();
-    expect($adminRole->hasPermissionTo('users.delete'))->toBeFalse();
+    expect($adminRole->hasPermissionTo('delete users'))->toBeFalse();
     expect($adminRole->permissions->count())->toBe($originalPermissionCount - 1);
 
     // Run sync WITHOUT seed flag
@@ -63,7 +61,7 @@ test('syncRoles without seed flag does not overwrite existing role permissions',
 
     // Permission should still be revoked (database is authoritative)
     $adminRole->refresh();
-    expect($adminRole->hasPermissionTo('users.delete'))->toBeFalse();
+    expect($adminRole->hasPermissionTo('delete users'))->toBeFalse();
     expect($adminRole->permissions->count())->toBe($originalPermissionCount - 1);
 });
 
@@ -79,14 +77,14 @@ test('syncRoles with seed flag overwrites existing role permissions', function (
     $originalPermissionCount = $adminRole->permissions->count();
 
     // Remove a permission via "database/UI"
-    $adminRole->revokePermissionTo('users.delete');
+    $adminRole->revokePermissionTo('delete users');
 
     // Clear Spatie's cache
     app()[Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
     // Verify permission was removed
     $adminRole->refresh();
-    expect($adminRole->hasPermissionTo('users.delete'))->toBeFalse();
+    expect($adminRole->hasPermissionTo('delete users'))->toBeFalse();
 
     // Run sync WITH seed flag
     $mandate->clearCache();
@@ -97,7 +95,7 @@ test('syncRoles with seed flag overwrites existing role permissions', function (
 
     // Permission should be restored from config
     $adminRole->refresh();
-    expect($adminRole->hasPermissionTo('users.delete'))->toBeTrue();
+    expect($adminRole->hasPermissionTo('delete users'))->toBeTrue();
     expect($adminRole->permissions->count())->toBe($originalPermissionCount);
 });
 

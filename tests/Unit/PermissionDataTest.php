@@ -8,7 +8,7 @@ use OffloadProject\Mandate\Tests\Fixtures\Permissions\UserPermissions;
 test('it creates permission data from class constant', function () {
     $data = PermissionData::fromClassConstant(UserPermissions::class, 'VIEW');
 
-    expect($data->name)->toBe('users.view');
+    expect($data->name)->toBe('view users');
     expect($data->label)->toBe('View Users');
     expect($data->set)->toBe('users');
 });
@@ -16,15 +16,15 @@ test('it creates permission data from class constant', function () {
 test('it creates permission data with description', function () {
     $data = PermissionData::fromClassConstant(UserPermissions::class, 'EXPORT');
 
-    expect($data->name)->toBe('users.export');
+    expect($data->name)->toBe('export users');
     expect($data->label)->toBe('Export Users');
     expect($data->description)->toBe('Export user data to CSV');
 });
 
 test('it creates simple permission from name', function () {
-    $data = PermissionData::simple('posts.create', 'Create Posts', 'posts');
+    $data = PermissionData::simple('create posts', 'Create Posts', 'posts');
 
-    expect($data->name)->toBe('posts.create');
+    expect($data->name)->toBe('create posts');
     expect($data->label)->toBe('Create Posts');
     expect($data->set)->toBe('posts');
 });
@@ -162,10 +162,10 @@ test('withMetadata() overwrites existing keys', function () {
 });
 
 test('it generates label from dot notation name', function () {
-    $data = PermissionData::simple('users.view');
+    $data = PermissionData::simple('view users');
     expect($data->label)->toBe('View Users');
 
-    $data2 = PermissionData::simple('posts.create');
+    $data2 = PermissionData::simple('create posts');
     expect($data2->label)->toBe('Create Posts');
 });
 

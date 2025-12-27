@@ -24,7 +24,7 @@ test('it creates feature data with basic properties', function () {
 });
 
 test('it creates feature data with permissions and roles', function () {
-    $permission = new PermissionData(name: 'users.export', label: 'Export Users');
+    $permission = new PermissionData(name: 'export users', label: 'Export Users');
     $role = new RoleData(name: 'exporter', label: 'Exporter');
 
     $data = new FeatureData(
@@ -36,7 +36,7 @@ test('it creates feature data with permissions and roles', function () {
     );
 
     expect($data->permissions)->toHaveCount(1);
-    expect($data->permissions[0]->name)->toBe('users.export');
+    expect($data->permissions[0]->name)->toBe('export users');
     expect($data->roles)->toHaveCount(1);
     expect($data->roles[0]->name)->toBe('exporter');
 });

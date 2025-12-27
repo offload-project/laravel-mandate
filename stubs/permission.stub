@@ -10,15 +10,18 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 #[PermissionsSet('{{ set }}')]
 final class {{ class }}
 {
+    #[Label('View all {{ resource }}')]
+    public const string VIEW_ALL = 'view any {{ resource }}';
+
     #[Label('View {{ resource }}')]
-    public const string VIEW = '{{ set }}.view';
+    public const string VIEW = 'view {{ resource }}';
 
     #[Label('Create {{ resource }}')]
-    public const string CREATE = '{{ set }}.create';
+    public const string CREATE = 'create {{ resource }}';
 
     #[Label('Update {{ resource }}')]
-    public const string UPDATE = '{{ set }}.update';
+    public const string UPDATE = 'update {{ resource }}';
 
     #[Label('Delete {{ resource }}')]
-    public const string DELETE = '{{ set }}.delete';
+    public const string DELETE = 'delete {{ resource }}';
 }

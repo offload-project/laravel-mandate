@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/offload-project/laravel-mandate/compare/v1.1.0...v1.2.0) (2025-12-28)
+
+
+### Features
+
+* typescript generation for roles, permissions, and features for … ([#6](https://github.com/offload-project/laravel-mandate/issues/6)) ([00f7ebc](https://github.com/offload-project/laravel-mandate/commit/00f7ebc164d1da43fcd767ee470cbf8fb95dac00))
+* typescript generation for roles, permissions, and features for use in the ui ([00f7ebc](https://github.com/offload-project/laravel-mandate/commit/00f7ebc164d1da43fcd767ee470cbf8fb95dac00))
+
 ## [1.1.0](https://github.com/offload-project/laravel-mandate/compare/v1.0.0...v1.1.0) (2025-12-27)
 
 

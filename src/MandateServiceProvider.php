@@ -10,6 +10,7 @@ use OffloadProject\Hoist\Services\FeatureDiscovery;
 use OffloadProject\Mandate\Console\Commands\MandateSyncCommand;
 use OffloadProject\Mandate\Console\Commands\PermissionMakeCommand;
 use OffloadProject\Mandate\Console\Commands\RoleMakeCommand;
+use OffloadProject\Mandate\Console\Commands\TypescriptGenerateCommand;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
@@ -45,6 +46,7 @@ final class MandateServiceProvider extends ServiceProvider
                 MandateSyncCommand::class,
                 PermissionMakeCommand::class,
                 RoleMakeCommand::class,
+                TypescriptGenerateCommand::class,
             ]);
 
             $this->publishes([

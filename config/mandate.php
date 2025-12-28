@@ -148,4 +148,17 @@ return [
 
     'auto_sync' => env('MANDATE_AUTO_SYNC', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | TypeScript Export Path
+    |--------------------------------------------------------------------------
+    |
+    | The path where the TypeScript permissions/roles file will be generated
+    | when running the mandate:typescript command. Set to null to require
+    | the --output option to be specified.
+    |
+    */
+
+    'typescript_path' => resource_path('js/permissions.ts'),
+
 ];

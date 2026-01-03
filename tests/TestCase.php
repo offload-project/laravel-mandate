@@ -74,6 +74,9 @@ abstract class TestCase extends BaseTestCase
             'driver' => 'eloquent',
             'model' => User::class,
         ]);
+
+        // Enable Spatie wildcard permissions
+        $app['config']->set('permission.enable_wildcard_permission', true);
     }
 
     protected function defineDatabaseMigrations(): void

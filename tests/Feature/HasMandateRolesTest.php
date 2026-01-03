@@ -5,8 +5,10 @@ declare(strict_types=1);
 use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Services\MandateManager;
+use OffloadProject\Mandate\Tests\Fixtures\Features\DeleteFeature;
 use OffloadProject\Mandate\Tests\Fixtures\Features\ExportFeature;
 use OffloadProject\Mandate\Tests\Fixtures\MandateUser;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
@@ -136,9 +138,9 @@ describe('HasMandateRoles Assignment Methods', function () {
     it('keeps givePermissionTo from Spatie unchanged', function () {
         $user = MandateUser::create(['email' => 'test@example.com']);
 
-        // Assignment uses Spatie directly
+        // Assignment uses Spatie directly (using non-feature-gated permissions)
         $user->givePermissionTo('users.view');
-        $user->givePermissionTo(['users.create', 'users.delete']);
+        $user->givePermissionTo(['users.create', 'posts.view']);
 
         app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         $user = $user->fresh();
@@ -146,7 +148,7 @@ describe('HasMandateRoles Assignment Methods', function () {
         // Verify permissions were assigned
         expect($user->hasPermissionTo('users.view'))->toBeTrue();
         expect($user->hasPermissionTo('users.create'))->toBeTrue();
-        expect($user->hasPermissionTo('users.delete'))->toBeTrue();
+        expect($user->hasPermissionTo('posts.view'))->toBeTrue();
     });
 
     it('keeps assignRole from Spatie unchanged', function () {
@@ -194,5 +196,108 @@ describe('HasMandateRoles Assignment Methods', function () {
         $user = $user->fresh();
 
         expect($user->hasRole('admin'))->toBeFalse();
+    });
+});
+
+describe('HasMandateRoles Wildcard Permissions with Feature Flags', function () {
+    it('respects feature flags when checking specific permission matched by Spatie wildcard', function () {
+        // Verify users.delete is gated by DeleteFeature
+        $permissionRegistry = app(PermissionRegistryContract::class);
+        $deletePermission = $permissionRegistry->find('users.delete');
+
+        if ($deletePermission === null || $deletePermission->feature === null) {
+            $this->markTestSkipped('Feature discovery not configured for this test environment');
+        }
+
+        // Create the wildcard permission in Spatie
+        Permission::findOrCreate('users.*', 'web');
+
+        // User 1 has feature enabled
+        $user1 = MandateUser::create(['email' => 'user1@example.com']);
+        $user1->givePermissionTo('users.*');
+
+        // User 2 does NOT have feature enabled
+        $user2 = MandateUser::create(['email' => 'user2@example.com']);
+        $user2->givePermissionTo('users.*');
+
+        // Manually activate/deactivate the feature
+        Feature::for($user1)->activate(DeleteFeature::class);
+        Feature::for($user2)->deactivate(DeleteFeature::class);
+
+        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $user1 = $user1->fresh();
+        $user2 = $user2->fresh();
+
+        // User 1 has feature enabled - wildcard should grant access to users.delete
+        expect($user1->hasPermissionTo('users.delete'))->toBeTrue();
+
+        // User 2 has feature disabled - wildcard matches but feature blocks access
+        expect($user2->hasPermissionTo('users.delete'))->toBeFalse();
+    });
+
+    it('allows non-feature-gated permissions when matched by Spatie wildcard', function () {
+        // Create the wildcard permission in Spatie
+        Permission::findOrCreate('users.*', 'web');
+
+        $user = MandateUser::create(['email' => 'test@example.com']);
+        $user->givePermissionTo('users.*');
+
+        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $user = $user->fresh();
+
+        // users.view is NOT feature-gated, so wildcard should grant access
+        expect($user->hasPermissionTo('users.view'))->toBeTrue();
+        expect($user->hasPermissionTo('users.create'))->toBeTrue();
+    });
+
+    it('denies feature-gated permission when user lacks wildcard and feature is active', function () {
+        $permissionRegistry = app(PermissionRegistryContract::class);
+        $deletePermission = $permissionRegistry->find('users.delete');
+
+        if ($deletePermission === null || $deletePermission->feature === null) {
+            $this->markTestSkipped('Feature discovery not configured for this test environment');
+        }
+
+        $user = MandateUser::create(['email' => 'test@example.com']);
+        // User has users.view but NOT users.* or users.delete
+        $user->givePermissionTo('users.view');
+
+        Feature::for($user)->activate(DeleteFeature::class);
+
+        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $user = $user->fresh();
+
+        // Even with feature active, user doesn't have the permission via Spatie
+        expect($user->hasPermissionTo('users.delete'))->toBeFalse();
+        // But users.view works
+        expect($user->hasPermissionTo('users.view'))->toBeTrue();
+    });
+
+    it('handles mixed feature-gated and non-gated permissions with wildcard', function () {
+        $permissionRegistry = app(PermissionRegistryContract::class);
+        $deletePermission = $permissionRegistry->find('users.delete');
+
+        if ($deletePermission === null || $deletePermission->feature === null) {
+            $this->markTestSkipped('Feature discovery not configured for this test environment');
+        }
+
+        // Create the wildcard permission in Spatie
+        Permission::findOrCreate('users.*', 'web');
+
+        $user = MandateUser::create(['email' => 'test@example.com']);
+        $user->givePermissionTo('users.*');
+
+        // Deactivate the delete feature
+        Feature::for($user)->deactivate(DeleteFeature::class);
+
+        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $user = $user->fresh();
+
+        // Non-gated permissions should work with wildcard
+        expect($user->hasPermissionTo('users.view'))->toBeTrue();
+        expect($user->hasPermissionTo('users.create'))->toBeTrue();
+
+        // Feature-gated permission should be blocked even though wildcard matches
+        expect($user->hasPermissionTo('users.delete'))->toBeFalse();
     });
 });

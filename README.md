@@ -316,7 +316,8 @@ class User extends Authenticatable
 }
 ```
 
-This wraps Spatie's trait, making all check methods feature-aware:
+This wraps Spatie's trait, adding feature-awareness on top. All Spatie features work normally, including
+[wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions):
 
 ```php
 // These now respect feature flags:
@@ -324,6 +325,10 @@ $user->hasPermissionTo('export users');  // Checks permission + feature flag
 $user->hasRole('premium-editor');         // Checks role + feature flag
 $user->hasAnyRole(['admin', 'editor']);   // Feature-aware
 $user->hasAllRoles(['admin', 'manager']); // Feature-aware
+
+// Spatie's wildcard permissions work too:
+$user->givePermissionTo('posts.*');       // Grant wildcard
+$user->hasPermissionTo('posts.create');   // true (posts.* implies it) + feature check
 
 // Assignment methods remain unchanged (use Spatie directly):
 $user->givePermissionTo('users.view');
@@ -759,7 +764,17 @@ This means the database role will have all permissions (direct + inherited) assi
 
 ## Wildcard Permissions
 
-Mandate supports wildcard patterns for permission matching, allowing flexible permission checks and role configuration.
+Mandate supports wildcard patterns for config expansion and `Mandate::can()` checks. This is separate from
+[Spatie's wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions) which
+work at storage time.
+
+| Feature | Spatie Wildcards | Mandate Wildcards |
+|---------|------------------|-------------------|
+| Usage | Store `posts.*` in DB, check `posts.create` | Check pattern `users.*` against stored permissions |
+| Direction | Wildcard implies specific | Specific matches pattern |
+| Where | `$user->hasPermissionTo()` | `Mandate::can()`, config, middleware |
+
+Both can be used together. If using `HasMandateRoles`, Spatie's wildcards are fully supported with feature-awareness.
 
 ### Wildcard Patterns
 

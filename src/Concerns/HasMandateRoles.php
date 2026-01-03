@@ -8,59 +8,49 @@ use Illuminate\Support\Collection;
 use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
-use OffloadProject\Mandate\Support\WildcardMatcher;
 use Spatie\Permission\Contracts\Permission;
 use Spatie\Permission\Contracts\Role;
-use Spatie\Permission\Traits\HasPermissions;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Feature-aware roles and permissions trait.
  *
- * This trait wraps Spatie's HasRoles trait, routing permission and role
- * checks through Mandate's feature-flag aware system while keeping all
- * assignment methods (givePermissionTo, assignRole, etc.) unchanged.
+ * This trait wraps Spatie's HasRoles trait, adding feature-flag awareness
+ * to permission and role checks while keeping all assignment methods
+ * (givePermissionTo, assignRole, etc.) unchanged.
+ *
+ * Spatie's wildcard permissions are fully supported - this trait just adds
+ * the feature gate check on top of Spatie's result.
  *
  * Use this trait instead of Spatie's HasRoles for feature-aware authorization.
  */
 trait HasMandateRoles
 {
-    use HasPermissions {
-        HasPermissions::hasPermissionTo as spatieHasPermissionTo;
-    }
     use HasRoles {
+        HasRoles::hasPermissionTo as spatieHasPermissionTo;
         HasRoles::hasRole as spatieHasRole;
         HasRoles::hasAnyRole as spatieHasAnyRole;
         HasRoles::hasAllRoles as spatieHasAllRoles;
-
-        // Avoid conflict - HasRoles uses HasPermissions internally
-        HasRoles::hasPermissionTo as private spatieHasPermissionToFromRoles;
     }
 
     /**
      * Check if the model has a permission (feature-aware).
      *
      * Returns true only if:
-     * 1. The model has the permission via Spatie
+     * 1. The model has the permission via Spatie (including wildcard matching)
      * 2. The permission's feature flag is active (if gated by a feature)
      *
      * @param  string|Permission  $permission
      */
     public function hasPermissionTo($permission, ?string $guardName = null): bool
     {
-        $permissionName = is_string($permission) ? $permission : $permission->name;
-
-        // Handle wildcard patterns
-        if (WildcardMatcher::isWildcard($permissionName)) {
-            return $this->hasWildcardPermission($permissionName);
-        }
-
-        // Check if user has the permission via Spatie
+        // Let Spatie handle all permission logic including wildcards
         if (! $this->spatieHasPermissionTo($permission, $guardName)) {
             return false;
         }
 
         // Check if permission is gated by a feature
+        $permissionName = is_string($permission) ? $permission : $permission->name;
         $permissionRegistry = app(PermissionRegistryContract::class);
         $permissionData = $permissionRegistry->find($permissionName);
 
@@ -100,7 +90,7 @@ trait HasMandateRoles
             return $this->hasFeatureAwareRole($roleName, $guard);
         }
 
-        // For arrays/collections, check if model has any of the roles
+        // For arrays/collections, check if model has ANY of the roles (matches Spatie's behavior)
         $roles = collect($roles)->map(fn ($role) => is_string($role) ? $role : $role->name);
 
         foreach ($roles as $role) {
@@ -142,40 +132,6 @@ trait HasMandateRoles
         }
 
         return true;
-    }
-
-    /**
-     * Check if the model has any permission matching a wildcard pattern.
-     */
-    private function hasWildcardPermission(string $pattern): bool
-    {
-        $permissionRegistry = app(PermissionRegistryContract::class);
-
-        // Get user's permissions once to avoid repeated lookups
-        $userPermissionNames = $this->getAllPermissions()->pluck('name')->flip();
-
-        foreach ($permissionRegistry->all() as $permissionData) {
-            if (! WildcardMatcher::matches($pattern, $permissionData->name)) {
-                continue;
-            }
-
-            // Check if user has this permission (O(1) lookup)
-            if (! $userPermissionNames->has($permissionData->name)) {
-                continue;
-            }
-
-            // Check feature flag if gated
-            if ($permissionData->feature !== null) {
-                if (! Feature::for($this)->active($permissionData->feature)) {
-                    continue;
-                }
-            }
-
-            // Found a matching, granted permission
-            return true;
-        }
-
-        return false;
     }
 
     /**

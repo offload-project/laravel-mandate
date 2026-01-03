@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/offload-project/laravel-mandate/compare/v1.2.0...v1.3.0) (2026-01-03)
+
+
+### Features
+
+* role permission inheritance ([#8](https://github.com/offload-project/laravel-mandate/issues/8)) ([1208b21](https://github.com/offload-project/laravel-mandate/commit/1208b21abfa175fd79b2f7d28de6dbdc102fb7be))
+
 ## [1.2.0](https://github.com/offload-project/laravel-mandate/compare/v1.1.0...v1.2.0) (2025-12-28)
 
 

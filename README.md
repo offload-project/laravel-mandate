@@ -30,10 +30,12 @@ and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
 
 - PHP 8.4+
 - Laravel 11+
+- Spatie Laravel Permission 6.0+
+
+### Optional
+
 - Laravel Pennant 1.0+
 - Laravel Hoist 1.0+
-- Spatie Laravel Permission 6.0+
-- Spatie Laravel Data 4.0+
 
 ## Installation
 
@@ -643,13 +645,13 @@ This means the database role will have all permissions (direct + inherited) assi
 
 ### Role Classes
 
-| Attribute                      | Target            | Description                                  |
-|--------------------------------|-------------------|----------------------------------------------|
-| `#[RoleSet('name')]`           | Class             | Groups roles together (required)             |
-| `#[Label('Human Name')]`       | Constant          | Human-readable label                         |
-| `#[Description('Details')]`    | Constant          | Detailed description                         |
-| `#[Guard('web')]`              | Class or Constant | Auth guard to use                            |
-| `#[Inherits('parent', ...)]`   | Constant          | Parent role(s) to inherit permissions from   |
+| Attribute                    | Target            | Description                                |
+|------------------------------|-------------------|--------------------------------------------|
+| `#[RoleSet('name')]`         | Class             | Groups roles together (required)           |
+| `#[Label('Human Name')]`     | Constant          | Human-readable label                       |
+| `#[Description('Details')]`  | Constant          | Detailed description                       |
+| `#[Guard('web')]`            | Class or Constant | Auth guard to use                          |
+| `#[Inherits('parent', ...)]` | Constant          | Parent role(s) to inherit permissions from |
 
 ## Artisan Commands
 

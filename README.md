@@ -70,6 +70,17 @@ class User extends Authenticatable
 }
 ```
 
+Or use `HasMandateRoles` for feature-aware permission checks (see [HasMandateRoles Trait](#hasmandateroles-trait)):
+
+```php
+use OffloadProject\Mandate\Concerns\HasMandateRoles;
+
+class User extends Authenticatable
+{
+    use HasMandateRoles;
+}
+```
+
 Define roles and permissions in config:
 
 ```php
@@ -298,6 +309,41 @@ $user->can(ExportFeature::class)            // By class
 @can('export') // Blade
 ->middleware('can:export')
 ```
+
+### HasMandateRoles Trait
+
+For feature-aware permission and role checks directly on the model, use `HasMandateRoles` instead of Spatie's
+`HasRoles`:
+
+```php
+use OffloadProject\Mandate\Concerns\HasMandateRoles;
+
+class User extends Authenticatable
+{
+    use HasMandateRoles;  // Instead of HasRoles
+}
+```
+
+This wraps Spatie's trait, making all check methods feature-aware:
+
+```php
+// These now respect feature flags:
+$user->hasPermissionTo('export users');  // Checks permission + feature flag
+$user->hasRole('premium-editor');         // Checks role + feature flag
+$user->hasAnyRole(['admin', 'editor']);   // Feature-aware
+$user->hasAllRoles(['admin', 'manager']); // Feature-aware
+
+// Assignment methods remain unchanged (use Spatie directly):
+$user->givePermissionTo('users.view');
+$user->assignRole('editor');
+$user->revokePermissionTo('users.delete');
+$user->removeRole('admin');
+```
+
+**When to use which:**
+
+- `HasRoles` - Standard Spatie behavior, use `Mandate::can()` for feature-aware checks
+- `HasMandateRoles` - All `hasPermissionTo`/`hasRole` calls are automatically feature-aware
 
 ### Middleware
 

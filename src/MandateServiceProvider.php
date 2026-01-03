@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -178,6 +179,11 @@ final class MandateServiceProvider extends ServiceProvider
         }
 
         Gate::before(function ($user, $ability) {
+            // Mandate requires an Eloquent model for permission/feature checks
+            if (! $user instanceof Model) {
+                return null;
+            }
+
             $permissionRegistry = $this->app->make(PermissionRegistryContract::class);
             $featureRegistry = $this->app->make(FeatureRegistryContract::class);
 

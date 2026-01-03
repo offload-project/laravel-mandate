@@ -33,10 +33,12 @@ and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
 - Laravel 11+
 - Spatie Laravel Permission 6.0+
 
-### Optional
+### Works With
 
-- Laravel Pennant 1.0+
-- Laravel Hoist 1.0+
+Mandate integrates with these packages for optional feature flag support:
+
+- [Laravel Pennant](https://laravel.com/docs/pennant) 1.0+ - Gate permissions/roles behind feature flags
+- [Laravel Hoist](https://github.com/offload-project/laravel-hoist) 1.0+ - Enhanced feature flag management
 
 ## Installation
 
@@ -50,14 +52,54 @@ Publish the configuration:
 
 ```bash
 php artisan vendor:publish --tag=mandate-config
+```
+
+Optionally, publish migrations if you want to store `set`, `label`, or `description` columns:
+
+```bash
 php artisan vendor:publish --tag=mandate-migrations
 ```
 
 ## Quick Start
 
-### 1. Create Permission Classes
+Define roles and permissions directly in config - no classes required:
 
-> These are OPTIONAL but useful for use throughout the codebase)
+```php
+// config/mandate.php
+'role_permissions' => [
+    'viewer' => [
+        'users.view',
+        'posts.view',
+    ],
+
+    'editor' => [
+        'users.view',
+        'posts.view',
+        'posts.create',
+        'posts.update',
+    ],
+
+    'admin' => [
+        'users.*',      // Wildcard: all user permissions
+        'posts.*',      // Wildcard: all post permissions
+    ],
+],
+```
+
+Then sync to database:
+
+```bash
+php artisan mandate:sync --seed
+```
+
+That's it! For type-safe constants and IDE autocompletion,
+see [Defining Classes](#defining-roles-and-permissions-using-classes).
+
+## Defining Roles and Permissions Using Classes
+
+For larger applications, define permissions and roles as classes for type-safety and IDE support.
+
+### Permission Classes
 
 ```bash
 php artisan mandate:permission UserPermissions --set=users
@@ -73,25 +115,23 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 final class UserPermissions
 {
     #[Label('View Users')]
-    public const string VIEW = 'view users';
+    public const string VIEW = 'users.view';
 
     #[Label('Create Users')]
-    public const string CREATE = 'create users';
+    public const string CREATE = 'users.create';
 
     #[Label('Update Users')]
-    public const string UPDATE = 'update users';
+    public const string UPDATE = 'users.update';
 
     #[Label('Delete Users')]
-    public const string DELETE = 'delete users';
+    public const string DELETE = 'users.delete';
 
     #[Label('Export Users'), Description('Export user data to CSV')]
-    public const string EXPORT = 'export users';
+    public const string EXPORT = 'users.export';
 }
 ```
 
-### 2. Create Role Classes
-
-> These are OPTIONAL but useful for use throughout the codebase)
+### Role Classes
 
 ```bash
 php artisan mandate:role SystemRoles --set=system
@@ -120,9 +160,10 @@ final class SystemRoles
 }
 ```
 
-### 3. Map Roles to Permissions (Config)
+### Map Roles to Permissions (Config)
 
-> This is OPTIONAL but necessary for [sync and seed](#database-sync-with-hierarchy).
+With inheritance defined in role classes, only specify *direct* permissions - inherited permissions resolve
+automatically:
 
 ```php
 // config/mandate.php
@@ -131,28 +172,29 @@ use App\Permissions\PostPermissions;
 use App\Roles\SystemRoles;
 
 'role_permissions' => [
-    SystemRoles::ADMINISTRATOR => [
-        UserPermissions::class,     // All user permissions
-        PostPermissions::class,     // All post permissions
-    ],
-
-    SystemRoles::EDITOR => [
-        UserPermissions::VIEW,
-        PostPermissions::VIEW,
-        PostPermissions::CREATE,
-        PostPermissions::UPDATE,
-    ],
-
+    // Viewer gets base permissions
     SystemRoles::VIEWER => [
         UserPermissions::VIEW,
         PostPermissions::VIEW,
     ],
+
+    // Editor inherits Viewer permissions, only add Editor-specific
+    SystemRoles::EDITOR => [
+        PostPermissions::CREATE,
+        PostPermissions::UPDATE,
+    ],
+
+    // Administrator inherits Editor (and transitively Viewer)
+    SystemRoles::ADMINISTRATOR => [
+        UserPermissions::class,     // All user permissions
+        PostPermissions::DELETE,
+    ],
 ],
 ```
 
-### 4. Define Feature Gates (Optional)
+## Feature Gates (Optional)
 
-Features can control which permissions/roles are available:
+Features control which permissions/roles are available (requires [Pennant or Hoist](#works-with)):
 
 ```php
 // app/Features/ExportFeature.php
@@ -183,7 +225,7 @@ class ExportFeature
 }
 ```
 
-### 5. Sync to Database
+## Sync to Database
 
 ```bash
 # Initial setup - seeds role permissions from config

@@ -7,10 +7,7 @@
 # Laravel Mandate
 
 A unified authorization management system for Laravel that brings together roles, permissions, and feature flags into a
-single, type-safe API. Built
-on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission). Integrates
-with [Laravel Pennant](https://laravel.com/docs/pennant)
-and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
+single, type-safe API. Built on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission).
 
 ## Features
 
@@ -62,7 +59,18 @@ php artisan vendor:publish --tag=mandate-migrations
 
 ## Quick Start
 
-Define roles and permissions directly in config - no classes required:
+Add the `HasRoles` trait to your User model:
+
+```php
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    use HasRoles;
+}
+```
+
+Define roles and permissions in config:
 
 ```php
 // config/mandate.php
@@ -90,6 +98,13 @@ Then sync to database:
 
 ```bash
 php artisan mandate:sync --seed
+```
+
+Assign roles/permissions using [Spatie's methods](https://spatie.be/docs/laravel-permission/v6/basic-usage/basic-usage):
+
+```php
+$user->assignRole('editor');
+$user->givePermissionTo('posts.create');
 ```
 
 That's it! For type-safe constants and IDE autocompletion,
@@ -257,6 +272,31 @@ if (Mandate::hasRole($user, SystemRoles::ADMINISTRATOR)) {
 // Direct Spatie usage still works
 $user->hasPermissionTo(UserPermissions::VIEW);
 $user->hasRole(SystemRoles::EDITOR);
+```
+
+### Gate Integration
+
+Enable Gate integration to use Laravel's standard authorization with Mandate:
+
+```php
+// config/mandate.php
+'gate_integration' => true,
+```
+
+This routes Laravel's authorization through Mandate for both permissions and features:
+
+```php
+// Permission checks (with feature flag awareness):
+$user->can('users.view')
+Gate::allows('users.view')
+@can('users.view') // Blade
+->middleware('can:users.view')
+
+// Feature checks (by name or class):
+$user->can('export')                        // By feature name
+$user->can(ExportFeature::class)            // By class
+@can('export') // Blade
+->middleware('can:export')
 ```
 
 ### Middleware

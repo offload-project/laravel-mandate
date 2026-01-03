@@ -161,4 +161,29 @@ return [
 
     'typescript_path' => resource_path('js/permissions.ts'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gate Integration
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate registers a Gate::before() hook that routes
+    | Laravel's authorization checks through Mandate for permissions and features.
+    |
+    | Permission checks (with feature flag awareness):
+    |   $user->can('users.view')       // Checks permission + feature flag
+    |   Gate::allows('users.view')
+    |   @can('users.view')             // Blade
+    |   ->middleware('can:users.view')
+    |
+    | Feature checks (by name or class):
+    |   $user->can('export')           // By feature name
+    |   $user->can(ExportFeature::class)
+    |   @can('export')                 // Blade
+    |
+    | When disabled, use Mandate::can() directly for feature-aware checks.
+    |
+    */
+
+    'gate_integration' => env('MANDATE_GATE_INTEGRATION', false),
+
 ];

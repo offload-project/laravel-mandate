@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate;
 
 use Illuminate\Routing\Router;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use OffloadProject\Hoist\Services\FeatureDiscovery;
 use OffloadProject\Mandate\Console\Commands\MandateSyncCommand;
@@ -41,6 +42,7 @@ final class MandateServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerMiddleware();
+        $this->registerGateIntegration();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -161,5 +163,42 @@ final class MandateServiceProvider extends ServiceProvider
         $router->aliasMiddleware('mandate.permission', MandatePermission::class);
         $router->aliasMiddleware('mandate.role', MandateRole::class);
         $router->aliasMiddleware('mandate.feature', MandateFeature::class);
+    }
+
+    /**
+     * Register the Gate integration for Laravel's authorization.
+     *
+     * When enabled, this routes Laravel's can/Gate checks through Mandate's
+     * feature-aware permission system and also checks features.
+     */
+    private function registerGateIntegration(): void
+    {
+        if (! config('mandate.gate_integration', false)) {
+            return;
+        }
+
+        Gate::before(function ($user, $ability) {
+            $permissionRegistry = $this->app->make(PermissionRegistryContract::class);
+            $featureRegistry = $this->app->make(FeatureRegistryContract::class);
+
+            // Check if this is a Mandate-managed permission
+            if ($permissionRegistry->find($ability) !== null) {
+                return $this->app->make(MandateManager::class)->can($user, $ability);
+            }
+
+            // Check if this is a feature (by class name)
+            if ($featureRegistry->find($ability) !== null) {
+                return $featureRegistry->isActive($user, $ability);
+            }
+
+            // Check if this is a feature (by name)
+            $featureByName = $featureRegistry->all()->firstWhere('name', $ability);
+            if ($featureByName !== null) {
+                return $featureRegistry->isActive($user, $featureByName->class);
+            }
+
+            // Not a Mandate permission or feature - let other Gate handlers deal with it
+            return null;
+        });
     }
 }

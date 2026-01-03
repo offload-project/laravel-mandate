@@ -111,6 +111,14 @@ final class FeatureRegistry implements FeatureRegistryContract
     }
 
     /**
+     * Check if a feature is active for a model.
+     */
+    public function isActive(Model $model, string $class): bool
+    {
+        return Feature::for($model)->active($class);
+    }
+
+    /**
      * Clear the cached features.
      */
     public function clearCache(): void

@@ -8,7 +8,8 @@
 
 A unified authorization management system for Laravel that brings together roles, permissions, and feature flags into a
 single, type-safe API. Built
-on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission), [Laravel Pennant](https://laravel.com/docs/pennant),
+on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission). Integrates
+with [Laravel Pennant](https://laravel.com/docs/pennant)
 and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
 
 ## Features
@@ -30,10 +31,14 @@ and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
 
 - PHP 8.4+
 - Laravel 11+
-- Laravel Pennant 1.0+
-- Laravel Hoist 1.0+
 - Spatie Laravel Permission 6.0+
-- Spatie Laravel Data 4.0+
+
+### Works With
+
+Mandate integrates with these packages for optional feature flag support:
+
+- [Laravel Pennant](https://laravel.com/docs/pennant) 1.0+ - Gate permissions/roles behind feature flags
+- [Laravel Hoist](https://github.com/offload-project/laravel-hoist) 1.0+ - Enhanced feature flag management
 
 ## Installation
 
@@ -47,14 +52,54 @@ Publish the configuration:
 
 ```bash
 php artisan vendor:publish --tag=mandate-config
+```
+
+Optionally, publish migrations if you want to store `set`, `label`, or `description` columns:
+
+```bash
 php artisan vendor:publish --tag=mandate-migrations
 ```
 
 ## Quick Start
 
-### 1. Create Permission Classes
+Define roles and permissions directly in config - no classes required:
 
-> These are OPTIONAL but useful for use throughout the codebase)
+```php
+// config/mandate.php
+'role_permissions' => [
+    'viewer' => [
+        'users.view',
+        'posts.view',
+    ],
+
+    'editor' => [
+        'users.view',
+        'posts.view',
+        'posts.create',
+        'posts.update',
+    ],
+
+    'admin' => [
+        'users.*',      // Wildcard: all user permissions
+        'posts.*',      // Wildcard: all post permissions
+    ],
+],
+```
+
+Then sync to database:
+
+```bash
+php artisan mandate:sync --seed
+```
+
+That's it! For type-safe constants and IDE autocompletion,
+see [Defining Classes](#defining-roles-and-permissions-using-classes).
+
+## Defining Roles and Permissions Using Classes
+
+For larger applications, define permissions and roles as classes for type-safety and IDE support.
+
+### Permission Classes
 
 ```bash
 php artisan mandate:permission UserPermissions --set=users
@@ -70,23 +115,23 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 final class UserPermissions
 {
     #[Label('View Users')]
-    public const string VIEW = 'view users';
+    public const string VIEW = 'users.view';
 
     #[Label('Create Users')]
-    public const string CREATE = 'create users';
+    public const string CREATE = 'users.create';
 
     #[Label('Update Users')]
-    public const string UPDATE = 'update users';
+    public const string UPDATE = 'users.update';
 
     #[Label('Delete Users')]
-    public const string DELETE = 'delete users';
+    public const string DELETE = 'users.delete';
 
     #[Label('Export Users'), Description('Export user data to CSV')]
-    public const string EXPORT = 'export users';
+    public const string EXPORT = 'users.export';
 }
 ```
 
-### 2. Create Role Classes
+### Role Classes
 
 ```bash
 php artisan mandate:role SystemRoles --set=system
@@ -115,7 +160,10 @@ final class SystemRoles
 }
 ```
 
-### 3. Map Roles to Permissions (Config)
+### Map Roles to Permissions (Config)
+
+With inheritance defined in role classes, only specify *direct* permissions - inherited permissions resolve
+automatically:
 
 ```php
 // config/mandate.php
@@ -124,28 +172,29 @@ use App\Permissions\PostPermissions;
 use App\Roles\SystemRoles;
 
 'role_permissions' => [
-    SystemRoles::ADMINISTRATOR => [
-        UserPermissions::class,     // All user permissions
-        PostPermissions::class,     // All post permissions
-    ],
-
-    SystemRoles::EDITOR => [
-        UserPermissions::VIEW,
-        PostPermissions::VIEW,
-        PostPermissions::CREATE,
-        PostPermissions::UPDATE,
-    ],
-
+    // Viewer gets base permissions
     SystemRoles::VIEWER => [
         UserPermissions::VIEW,
         PostPermissions::VIEW,
     ],
+
+    // Editor inherits Viewer permissions, only add Editor-specific
+    SystemRoles::EDITOR => [
+        PostPermissions::CREATE,
+        PostPermissions::UPDATE,
+    ],
+
+    // Administrator inherits Editor (and transitively Viewer)
+    SystemRoles::ADMINISTRATOR => [
+        UserPermissions::class,     // All user permissions
+        PostPermissions::DELETE,
+    ],
 ],
 ```
 
-### 4. Define Feature Gates (Optional)
+## Feature Gates (Optional)
 
-Features control which permissions/roles are available:
+Features control which permissions/roles are available (requires [Pennant or Hoist](#works-with)):
 
 ```php
 // app/Features/ExportFeature.php
@@ -176,7 +225,7 @@ class ExportFeature
 }
 ```
 
-### 5. Sync to Database
+## Sync to Database
 
 ```bash
 # Initial setup - seeds role permissions from config
@@ -630,6 +679,103 @@ php artisan mandate:sync --seed
 
 This means the database role will have all permissions (direct + inherited) assigned via Spatie.
 
+## Wildcard Permissions
+
+Mandate supports wildcard patterns for permission matching, allowing flexible permission checks and role configuration.
+
+### Wildcard Patterns
+
+The `*` wildcard matches a single segment (does not cross dots):
+
+| Pattern        | Matches                                 | Does Not Match                     |
+|----------------|-----------------------------------------|------------------------------------|
+| `users.*`      | `users.view`, `users.create`            | `posts.view`, `users.admin.view`   |
+| `*.view`       | `users.view`, `posts.view`              | `users.create`, `admin.users.view` |
+| `users.*.view` | `users.admin.view`, `users.public.view` | `users.view`, `posts.admin.view`   |
+
+### Using Wildcards in Permission Checks
+
+Check if a user has any permission matching a pattern:
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+// Check if user has any users.* permission
+if (Mandate::can($user, 'users.*')) {
+    // User has at least one permission like users.view, users.create, etc.
+}
+
+// Check if user has any *.view permission
+if (Mandate::can($user, '*.view')) {
+    // User has at least one view permission (users.view, posts.view, etc.)
+}
+```
+
+### Using Wildcards in Config
+
+Assign multiple permissions to a role using wildcards:
+
+```php
+// config/mandate.php
+'role_permissions' => [
+    'viewer' => [
+        '*.view',           // All view permissions (users.view, posts.view, etc.)
+    ],
+
+    'user-admin' => [
+        'users.*',          // All user permissions
+        'reports.view',     // Plus specific permission
+    ],
+
+    'super-admin' => [
+        UserPermissions::class,  // All from class
+        '*.delete',              // Plus all delete permissions
+    ],
+],
+```
+
+Wildcards are expanded at sync time to the actual matching permissions.
+
+### Using Wildcards in Middleware
+
+Protect routes with wildcard permission patterns:
+
+```php
+use OffloadProject\Mandate\Http\Middleware\MandatePermission;
+
+// String-based
+Route::get('/users', UserController::class)
+    ->middleware('mandate.permission:users.*');
+
+Route::get('/reports', ReportController::class)
+    ->middleware('mandate.permission:*.view');
+
+// Using the helper
+Route::get('/users', UserController::class)
+    ->middleware(MandatePermission::using('users.*'));
+```
+
+### Dot-Notation Permissions
+
+For best wildcard support, use dot-notation for permission names:
+
+```php
+#[PermissionsSet('users')]
+final class UserPermissions
+{
+    public const string VIEW = 'users.view';
+    public const string CREATE = 'users.create';
+    public const string UPDATE = 'users.update';
+    public const string DELETE = 'users.delete';
+}
+```
+
+This naming convention enables powerful patterns:
+
+- `users.*` - All user permissions
+- `*.view` - All view permissions across modules
+- `*.delete` - All delete permissions (for admin roles)
+
 ## Attributes
 
 ### Permission Classes
@@ -643,13 +789,13 @@ This means the database role will have all permissions (direct + inherited) assi
 
 ### Role Classes
 
-| Attribute                      | Target            | Description                                  |
-|--------------------------------|-------------------|----------------------------------------------|
-| `#[RoleSet('name')]`           | Class             | Groups roles together (required)             |
-| `#[Label('Human Name')]`       | Constant          | Human-readable label                         |
-| `#[Description('Details')]`    | Constant          | Detailed description                         |
-| `#[Guard('web')]`              | Class or Constant | Auth guard to use                            |
-| `#[Inherits('parent', ...)]`   | Constant          | Parent role(s) to inherit permissions from   |
+| Attribute                    | Target            | Description                                |
+|------------------------------|-------------------|--------------------------------------------|
+| `#[RoleSet('name')]`         | Class             | Groups roles together (required)           |
+| `#[Label('Human Name')]`     | Constant          | Human-readable label                       |
+| `#[Description('Details')]`  | Constant          | Detailed description                       |
+| `#[Guard('web')]`            | Class or Constant | Auth guard to use                          |
+| `#[Inherits('parent', ...)]` | Constant          | Parent role(s) to inherit permissions from |
 
 ## Artisan Commands
 

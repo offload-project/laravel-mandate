@@ -85,8 +85,13 @@ trait HasMandateRoles
     public function hasRole($roles, ?string $guard = null): bool
     {
         if (is_int($roles)) {
-            // Fall back to Spatie for ID-based lookups
-            return $this->spatieHasRole($roles, $guard);
+            // Resolve ID to role name for consistent feature-aware behavior
+            $roleModel = $this->getRoleClass()::find($roles);
+            if ($roleModel === null) {
+                return false;
+            }
+
+            return $this->hasFeatureAwareRole($roleModel->name, $guard);
         }
 
         if (is_string($roles) || $roles instanceof Role) {
@@ -146,13 +151,16 @@ trait HasMandateRoles
     {
         $permissionRegistry = app(PermissionRegistryContract::class);
 
+        // Get user's permissions once to avoid repeated lookups
+        $userPermissionNames = $this->getAllPermissions()->pluck('name')->flip();
+
         foreach ($permissionRegistry->all() as $permissionData) {
             if (! WildcardMatcher::matches($pattern, $permissionData->name)) {
                 continue;
             }
 
-            // Check if user has this permission via Spatie
-            if (! $this->spatieHasPermissionTo($permissionData->name)) {
+            // Check if user has this permission (O(1) lookup)
+            if (! $userPermissionNames->has($permissionData->name)) {
                 continue;
             }
 

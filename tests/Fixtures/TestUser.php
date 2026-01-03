@@ -10,7 +10,7 @@ use Illuminate\Foundation\Auth\Access\Authorizable;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
- * Test user model with HasRoles trait and explicit guard.
+ * Test user model with HasRoles trait, explicit guard, and Laravel authorization (Authorizable).
  */
 final class TestUser extends Model implements AuthorizableContract
 {

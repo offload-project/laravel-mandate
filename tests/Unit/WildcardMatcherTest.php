@@ -123,8 +123,8 @@ test('matches handles special regex characters in permission names', function ()
 });
 
 test('matches works with space-separated permission format', function () {
-    // The package also supports space-separated permissions like "view users"
-    // Wildcards should work if users adopt a dot-notation convention
+    // Wildcards also work with space-separated permissions like "view users"
+    // The * matches any word (non-dot characters) so it works with spaces too
     expect(WildcardMatcher::matches('view *', 'view users'))->toBeTrue();
     expect(WildcardMatcher::matches('view *', 'view posts'))->toBeTrue();
     expect(WildcardMatcher::matches('* users', 'view users'))->toBeTrue();

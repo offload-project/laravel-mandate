@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/offload-project/laravel-mandate/compare/v1.3.0...v1.4.0) (2026-01-03)
+
+
+### Features
+
+* add wildcard support ([#11](https://github.com/offload-project/laravel-mandate/issues/11)) ([94d66d6](https://github.com/offload-project/laravel-mandate/commit/94d66d6a9875d12092ce443f7157fde31f0d3c4a))
+
 ## [1.3.0](https://github.com/offload-project/laravel-mandate/compare/v1.2.0...v1.3.0) (2026-01-03)
 
 

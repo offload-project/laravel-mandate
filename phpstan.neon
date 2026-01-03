@@ -6,3 +6,9 @@ parameters:
         - src
     level: 7
     tmpDir: /tmp/phpstan
+    ignoreErrors:
+        # Traits are meant to be used by package consumers
+        - identifier: trait.unused
+          path: src/Concerns/HasMandateRoles.php
+          message: '#^Trait OffloadProject\\Mandate\\Concerns\\HasMandateRoles is used zero times and is not analysed\.$#'
+          count: 1

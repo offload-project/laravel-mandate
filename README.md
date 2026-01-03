@@ -7,10 +7,7 @@
 # Laravel Mandate
 
 A unified authorization management system for Laravel that brings together roles, permissions, and feature flags into a
-single, type-safe API. Built
-on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission). Integrates
-with [Laravel Pennant](https://laravel.com/docs/pennant)
-and [Laravel Hoist](https://github.com/offload-project/laravel-hoist).
+single, type-safe API. Built on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission).
 
 ## Features
 
@@ -62,7 +59,21 @@ php artisan vendor:publish --tag=mandate-migrations
 
 ## Quick Start
 
-Define roles and permissions directly in config - no classes required:
+Add the `HasRoles` trait to your User model:
+
+```php
+use Spatie\Permission\Traits\HasRoles;
+
+class User extends Authenticatable
+{
+    use HasRoles;
+}
+```
+
+> **Tip:** If you're using feature flags, see [HasMandateRoles Trait](#hasmandateroles-trait) for feature-aware
+> `$user->hasPermissionTo()` checks.
+
+Define roles and permissions in config:
 
 ```php
 // config/mandate.php
@@ -90,6 +101,13 @@ Then sync to database:
 
 ```bash
 php artisan mandate:sync --seed
+```
+
+Assign roles/permissions using [Spatie's methods](https://spatie.be/docs/laravel-permission/v6/basic-usage/basic-usage):
+
+```php
+$user->assignRole('editor');
+$user->givePermissionTo('posts.create');
 ```
 
 That's it! For type-safe constants and IDE autocompletion,
@@ -258,6 +276,76 @@ if (Mandate::hasRole($user, SystemRoles::ADMINISTRATOR)) {
 $user->hasPermissionTo(UserPermissions::VIEW);
 $user->hasRole(SystemRoles::EDITOR);
 ```
+
+### Gate Integration
+
+Enable Gate integration to use Laravel's standard authorization with Mandate:
+
+```php
+// config/mandate.php
+'gate_integration' => true,
+```
+
+This routes Laravel's authorization through Mandate for both permissions and features:
+
+```php
+// Permission checks (with feature flag awareness):
+$user->can('users.view')
+Gate::allows('users.view')
+@can('users.view') // Blade
+->middleware('can:users.view')
+
+// Feature checks (by name or class):
+$user->can('export')                        // By feature name
+$user->can(ExportFeature::class)            // By class
+@can('export') // Blade
+->middleware('can:export')
+```
+
+> Note: Gate-based **feature** checks (such as `$user->can('export')` or `@can('export')`) require
+> [Laravel Pennant](https://laravel.com/docs/pennant) to be installed and configured. You may still enable
+> `gate_integration` for permission checks alone, but attempting to perform feature checks without Pennant
+> can result in runtime errors.
+
+### HasMandateRoles Trait
+
+For feature-aware permission and role checks directly on the model, use `HasMandateRoles` instead of Spatie's
+`HasRoles`:
+
+```php
+use OffloadProject\Mandate\Concerns\HasMandateRoles;
+
+class User extends Authenticatable
+{
+    use HasMandateRoles;  // Instead of HasRoles
+}
+```
+
+This wraps Spatie's trait, adding feature-awareness on top. All Spatie features work normally, including
+[wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions):
+
+```php
+// These now respect feature flags:
+$user->hasPermissionTo('export users');  // Checks permission + feature flag
+$user->hasRole('premium-editor');         // Checks role + feature flag
+$user->hasAnyRole(['admin', 'editor']);   // Feature-aware
+$user->hasAllRoles(['admin', 'manager']); // Feature-aware
+
+// Spatie's wildcard permissions work too:
+$user->givePermissionTo('posts.*');       // Grant wildcard
+$user->hasPermissionTo('posts.create');   // true (posts.* implies it) + feature check
+
+// Assignment methods remain unchanged (use Spatie directly):
+$user->givePermissionTo('users.view');
+$user->assignRole('editor');
+$user->revokePermissionTo('users.delete');
+$user->removeRole('admin');
+```
+
+**When to use which:**
+
+- `HasRoles` - Standard Spatie behavior, use `Mandate::can()` for feature-aware checks
+- `HasMandateRoles` - All `hasPermissionTo`/`hasRole` calls are automatically feature-aware (with Laravel Pennant)
 
 ### Middleware
 
@@ -681,7 +769,17 @@ This means the database role will have all permissions (direct + inherited) assi
 
 ## Wildcard Permissions
 
-Mandate supports wildcard patterns for permission matching, allowing flexible permission checks and role configuration.
+Mandate supports wildcard patterns for config expansion and `Mandate::can()` checks. This is separate from
+[Spatie's wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions) which
+work at storage time.
+
+| Feature   | Spatie Wildcards                            | Mandate Wildcards                                  |
+|-----------|---------------------------------------------|----------------------------------------------------|
+| Usage     | Store `posts.*` in DB, check `posts.create` | Check pattern `users.*` against stored permissions |
+| Direction | Wildcard implies specific                   | Specific matches pattern                           |
+| Where     | `$user->hasPermissionTo()`                  | `Mandate::can()`, config, middleware               |
+
+Both can be used together. If using `HasMandateRoles`, Spatie's wildcards are fully supported with feature-awareness.
 
 ### Wildcard Patterns
 

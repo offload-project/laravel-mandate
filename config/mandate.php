@@ -161,4 +161,49 @@ return [
 
     'typescript_path' => resource_path('js/permissions.ts'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Gate Integration
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate registers a Gate::before() hook that routes
+    | Laravel's authorization checks through Mandate for permissions and features.
+    |
+    | Permission checks (with feature flag awareness):
+    |   $user->can('users.view')       // Checks permission + feature flag
+    |   Gate::allows('users.view')
+    |   @can('users.view')             // Blade
+    |   ->middleware('can:users.view')
+    |
+    | Feature checks (by name or class):
+    |   $user->can('export')           // By feature name
+    |   $user->can(ExportFeature::class)
+    |   @can('export')                 // Blade
+    |
+    | When disabled, use Mandate::can() directly for feature-aware checks.
+    |
+    */
+
+    'gate_integration' => env('MANDATE_GATE_INTEGRATION', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wildcard Permissions
+    |--------------------------------------------------------------------------
+    |
+    | Enable Spatie's wildcard permission feature. When enabled, you can assign
+    | wildcard permissions like 'users.*' that match specific permissions like
+    | 'users.view' or 'users.create'.
+    |
+    | Example:
+    |   $user->grantPermission('users.*');
+    |   $user->holdsPermission('users.view');  // true
+    |   $user->holdsPermission('users.create'); // true
+    |
+    | See: https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions
+    |
+    */
+
+    'wildcard_permissions' => env('MANDATE_WILDCARD_PERMISSIONS', false),
+
 ];

@@ -74,6 +74,10 @@ abstract class TestCase extends BaseTestCase
             'driver' => 'eloquent',
             'model' => User::class,
         ]);
+
+        // Enable wildcard permissions
+        $app['config']->set('mandate.wildcard_permissions', true);
+        $app['config']->set('permission.enable_wildcard_permission', true);
     }
 
     protected function defineDatabaseMigrations(): void

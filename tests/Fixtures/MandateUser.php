@@ -7,15 +7,15 @@ namespace OffloadProject\Mandate\Tests\Fixtures;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\Access\Authorizable;
-use Spatie\Permission\Traits\HasRoles;
+use OffloadProject\Mandate\Concerns\HasMandateRoles;
 
 /**
- * Test user model with HasRoles trait, explicit guard, and Laravel authorization (Authorizable).
+ * Test user model with HasMandateRoles trait for feature-aware authorization.
  */
-final class TestUser extends Model implements AuthorizableContract
+final class MandateUser extends Model implements AuthorizableContract
 {
     use Authorizable;
-    use HasRoles;
+    use HasMandateRoles;
 
     protected $table = 'users';
 

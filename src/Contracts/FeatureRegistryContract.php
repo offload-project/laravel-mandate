@@ -49,6 +49,11 @@ interface FeatureRegistryContract
     public function roles(string $class): Collection;
 
     /**
+     * Check if a feature is active for a model.
+     */
+    public function isActive(Model $model, string $class): bool;
+
+    /**
      * Clear the cached features.
      */
     public function clearCache(): void;

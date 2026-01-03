@@ -24,8 +24,12 @@ final class RoleData extends Data
         public ?string $feature = null,
         public ?bool $active = null,
         public ?bool $featureActive = null,
-        /** @var array<string> */
+        /** @var array<string> Direct permissions explicitly assigned to this role */
         public array $permissions = [],
+        /** @var array<string> Permissions inherited from parent roles */
+        public array $inheritedPermissions = [],
+        /** @var array<string> Parent role names this role inherits from */
+        public array $inheritsFrom = [],
         /**
          * Additional metadata for extensibility.
          *
@@ -56,7 +60,38 @@ final class RoleData extends Data
             guard: $meta['guard'],
             feature: $feature,
             permissions: $permissions,
+            inheritsFrom: $meta['inheritsFrom'],
         );
+    }
+
+    /**
+     * Get all effective permissions (direct + inherited, deduplicated).
+     *
+     * @return array<string>
+     */
+    public function allPermissions(): array
+    {
+        return array_values(array_unique(
+            array_merge($this->permissions, $this->inheritedPermissions)
+        ));
+    }
+
+    /**
+     * Check if this role has a specific permission (direct or inherited).
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->permissions, true)
+            || in_array($permission, $this->inheritedPermissions, true);
+    }
+
+    /**
+     * Check if a permission is inherited (not directly assigned).
+     */
+    public function isInheritedPermission(string $permission): bool
+    {
+        return in_array($permission, $this->inheritedPermissions, true)
+            && ! in_array($permission, $this->permissions, true);
     }
 
     /**
@@ -94,6 +129,8 @@ final class RoleData extends Data
             active: $active,
             featureActive: $featureActive,
             permissions: $this->permissions,
+            inheritedPermissions: $this->inheritedPermissions,
+            inheritsFrom: $this->inheritsFrom,
             metadata: $this->metadata,
         );
     }
@@ -115,7 +152,33 @@ final class RoleData extends Data
             active: $this->active,
             featureActive: $this->featureActive,
             permissions: $this->permissions,
+            inheritedPermissions: $this->inheritedPermissions,
+            inheritsFrom: $this->inheritsFrom,
             metadata: array_merge($this->metadata, $metadata),
+        );
+    }
+
+    /**
+     * Create a copy with resolved inheritance.
+     *
+     * @param  array<string>  $inheritedPermissions
+     * @param  array<string>  $inheritsFrom
+     */
+    public function withInheritance(array $inheritedPermissions, array $inheritsFrom): self
+    {
+        return new self(
+            name: $this->name,
+            label: $this->label,
+            description: $this->description,
+            set: $this->set,
+            guard: $this->guard,
+            feature: $this->feature,
+            active: $this->active,
+            featureActive: $this->featureActive,
+            permissions: $this->permissions,
+            inheritedPermissions: $inheritedPermissions,
+            inheritsFrom: $inheritsFrom,
+            metadata: $this->metadata,
         );
     }
 }

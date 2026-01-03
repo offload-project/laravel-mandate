@@ -21,6 +21,7 @@ use OffloadProject\Mandate\Services\DatabaseSyncer;
 use OffloadProject\Mandate\Services\FeatureRegistry;
 use OffloadProject\Mandate\Services\MandateManager;
 use OffloadProject\Mandate\Services\PermissionRegistry;
+use OffloadProject\Mandate\Services\RoleHierarchyResolver;
 use OffloadProject\Mandate\Services\RoleRegistry;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -99,13 +100,24 @@ final class MandateServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the role hierarchy resolver.
+     */
+    private function registerRoleHierarchyResolver(): void
+    {
+        $this->app->singleton(RoleHierarchyResolver::class);
+    }
+
+    /**
      * Register the role registry.
      */
     private function registerRoleRegistry(): void
     {
+        $this->registerRoleHierarchyResolver();
+
         $this->app->singleton(RoleRegistry::class, function ($app) {
             return new RoleRegistry(
                 $app->make(FeatureRegistryContract::class),
+                $app->make(RoleHierarchyResolver::class),
             );
         });
 

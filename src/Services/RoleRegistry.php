@@ -30,6 +30,7 @@ final class RoleRegistry implements RoleRegistryContract
 
     public function __construct(
         private readonly FeatureRegistryContract $featureRegistry,
+        private readonly RoleHierarchyResolver $hierarchyResolver,
     ) {}
 
     /**
@@ -54,6 +55,9 @@ final class RoleRegistry implements RoleRegistryContract
 
         // Apply permission mappings from config
         $roles = $this->applyPermissionMappings($roles);
+
+        // Resolve role hierarchy and inherited permissions
+        $roles = $this->hierarchyResolver->resolve($roles);
 
         $this->cachedRoles = $roles->unique('name')->values();
 
@@ -159,6 +163,36 @@ final class RoleRegistry implements RoleRegistryContract
     public function feature(string $role): ?string
     {
         return $this->find($role)?->feature;
+    }
+
+    /**
+     * Get parent roles for a given role.
+     *
+     * @return Collection<int, RoleData>
+     */
+    public function parents(string $role): Collection
+    {
+        $roleData = $this->find($role);
+
+        if ($roleData === null || empty($roleData->inheritsFrom)) {
+            return collect();
+        }
+
+        return $this->all()->filter(
+            fn (RoleData $r) => in_array($r->name, $roleData->inheritsFrom, true)
+        )->values();
+    }
+
+    /**
+     * Get child roles that inherit from a given role.
+     *
+     * @return Collection<int, RoleData>
+     */
+    public function children(string $role): Collection
+    {
+        return $this->all()->filter(
+            fn (RoleData $r) => in_array($role, $r->inheritsFrom, true)
+        )->values();
     }
 
     /**

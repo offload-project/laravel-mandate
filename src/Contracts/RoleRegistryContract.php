@@ -71,6 +71,20 @@ interface RoleRegistryContract
     public function feature(string $role): ?string;
 
     /**
+     * Get parent roles for a given role.
+     *
+     * @return Collection<int, RoleData>
+     */
+    public function parents(string $role): Collection;
+
+    /**
+     * Get child roles that inherit from a given role.
+     *
+     * @return Collection<int, RoleData>
+     */
+    public function children(string $role): Collection;
+
+    /**
      * Clear the cached roles.
      */
     public function clearCache(): void;

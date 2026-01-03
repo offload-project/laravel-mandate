@@ -10,8 +10,10 @@ use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Attributes\RoleSet;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
+use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
 use OffloadProject\Mandate\Data\RoleData;
+use OffloadProject\Mandate\Support\WildcardMatcher;
 use ReflectionClass;
 use ReflectionClassConstant;
 
@@ -311,7 +313,10 @@ final class RoleRegistry implements RoleRegistryContract
     }
 
     /**
-     * Resolve permissions from config (can be permission classes or strings).
+     * Resolve permissions from config (can be permission classes, strings, or wildcards).
+     *
+     * Supports wildcard patterns like 'users.*' or '*.view' which will be expanded
+     * to all matching permissions from the permission registry.
      *
      * @param  array<mixed>  $items
      * @return array<string>
@@ -319,6 +324,7 @@ final class RoleRegistry implements RoleRegistryContract
     private function resolvePermissions(array $items): array
     {
         $permissions = [];
+        $allPermissionNames = null; // Lazy-load for performance
 
         foreach ($items as $item) {
             if (is_string($item) && class_exists($item)) {
@@ -333,12 +339,31 @@ final class RoleRegistry implements RoleRegistryContract
                     }
                 }
             } elseif (is_string($item)) {
-                // String permission name
-                $permissions[] = $item;
+                if (WildcardMatcher::isWildcard($item)) {
+                    // Wildcard pattern - expand to matching permissions
+                    if ($allPermissionNames === null) {
+                        $allPermissionNames = $this->getAllPermissionNames();
+                    }
+                    $expanded = WildcardMatcher::expand($item, $allPermissionNames);
+                    $permissions = array_merge($permissions, $expanded);
+                } else {
+                    // String permission name
+                    $permissions[] = $item;
+                }
             }
         }
 
         return $permissions;
+    }
+
+    /**
+     * Get all permission names from the permission registry.
+     *
+     * @return array<string>
+     */
+    private function getAllPermissionNames(): array
+    {
+        return app(PermissionRegistryContract::class)->names();
     }
 
     /**

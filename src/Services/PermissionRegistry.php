@@ -12,6 +12,7 @@ use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Data\PermissionData;
+use OffloadProject\Mandate\Support\WildcardMatcher;
 use ReflectionClass;
 use ReflectionClassConstant;
 
@@ -109,9 +110,18 @@ final class PermissionRegistry implements PermissionRegistryContract
 
     /**
      * Check if a model has a specific permission (considering feature flags).
+     *
+     * Supports wildcard patterns:
+     *   - 'users.*' matches any permission starting with 'users.'
+     *   - '*.view' matches any permission ending with '.view'
      */
     public function can(Model $model, string $permission): bool
     {
+        // Check if this is a wildcard pattern
+        if (WildcardMatcher::isWildcard($permission)) {
+            return $this->canWithWildcard($model, $permission);
+        }
+
         $permissionData = $this->forModel($model)->firstWhere('name', $permission);
 
         if ($permissionData === null) {
@@ -165,6 +175,23 @@ final class PermissionRegistry implements PermissionRegistryContract
     {
         $this->cachedPermissions = null;
         $this->featureMap = null;
+        WildcardMatcher::clearCache();
+    }
+
+    /**
+     * Check if a model has any permission matching a wildcard pattern.
+     */
+    private function canWithWildcard(Model $model, string $pattern): bool
+    {
+        foreach ($this->forModel($model) as $permissionData) {
+            if (WildcardMatcher::matches($pattern, $permissionData->name)) {
+                if ($permissionData->isGranted()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

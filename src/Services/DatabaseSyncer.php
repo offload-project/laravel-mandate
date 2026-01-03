@@ -129,17 +129,21 @@ final class DatabaseSyncer
                 $spatieRole = $roleClass::create($data);
                 $created++;
 
-                // For newly created roles, always seed permissions from config
-                if (! empty($role->permissions)) {
-                    $spatieRole->syncPermissions($role->permissions);
-                    $permissionsSynced += count($role->permissions);
+                // For newly created roles, always seed permissions (direct + inherited)
+                $allPermissions = $role->allPermissions();
+                if (! empty($allPermissions)) {
+                    $spatieRole->syncPermissions($allPermissions);
+                    $permissionsSynced += count($allPermissions);
                 }
             }
 
             // Only sync permissions for existing roles when explicitly seeding
-            if ($seed && $spatieRole->wasRecentlyCreated === false && ! empty($role->permissions)) {
-                $spatieRole->syncPermissions($role->permissions);
-                $permissionsSynced += count($role->permissions);
+            if ($seed && $spatieRole->wasRecentlyCreated === false) {
+                $allPermissions = $role->allPermissions();
+                if (! empty($allPermissions)) {
+                    $spatieRole->syncPermissions($allPermissions);
+                    $permissionsSynced += count($allPermissions);
+                }
             }
         }
 

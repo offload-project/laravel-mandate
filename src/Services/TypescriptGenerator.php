@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
+use OffloadProject\Mandate\Contracts\RoleRegistryContract;
 use ReflectionClass;
 use ReflectionClassConstant;
 
@@ -18,6 +19,7 @@ final class TypescriptGenerator
 {
     public function __construct(
         private readonly FeatureRegistryContract $featureRegistry,
+        private readonly RoleRegistryContract $roleRegistry,
     ) {}
 
     /**
@@ -54,7 +56,57 @@ final class TypescriptGenerator
             $output .= $this->generateExport('Features', $features);
         }
 
+        // Generate role hierarchy
+        $hierarchy = $this->generateRoleHierarchy();
+        if (! empty($hierarchy)) {
+            $output .= $hierarchy;
+        }
+
         return $output;
+    }
+
+    /**
+     * Generate role hierarchy TypeScript export.
+     */
+    private function generateRoleHierarchy(): string
+    {
+        $roles = $this->roleRegistry->all();
+        $hierarchyData = [];
+
+        foreach ($roles as $role) {
+            if (! empty($role->inheritsFrom) || ! empty($role->inheritedPermissions)) {
+                $hierarchyData[$role->name] = [
+                    'inheritsFrom' => $role->inheritsFrom,
+                    'permissions' => $role->permissions,
+                    'inheritedPermissions' => $role->inheritedPermissions,
+                ];
+            }
+        }
+
+        if (empty($hierarchyData)) {
+            return '';
+        }
+
+        $lines = ['export const RoleHierarchy = {'];
+
+        foreach ($hierarchyData as $roleName => $data) {
+            $inheritsFrom = json_encode($data['inheritsFrom']);
+            $permissions = json_encode($data['permissions']);
+            $inheritedPermissions = json_encode($data['inheritedPermissions']);
+
+            $lines[] = "  \"{$this->escapeString($roleName)}\": {";
+            $lines[] = "    inheritsFrom: {$inheritsFrom},";
+            $lines[] = "    permissions: {$permissions},";
+            $lines[] = "    inheritedPermissions: {$inheritedPermissions},";
+            $lines[] = '  },';
+        }
+
+        $lines[] = '} as const;';
+        $lines[] = '';
+        $lines[] = 'export type RoleWithHierarchy = keyof typeof RoleHierarchy;';
+        $lines[] = '';
+
+        return implode("\n", $lines);
     }
 
     /**

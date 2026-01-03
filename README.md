@@ -70,16 +70,8 @@ class User extends Authenticatable
 }
 ```
 
-Or use `HasMandateRoles` for feature-aware permission checks (see [HasMandateRoles Trait](#hasmandateroles-trait)):
-
-```php
-use OffloadProject\Mandate\Concerns\HasMandateRoles;
-
-class User extends Authenticatable
-{
-    use HasMandateRoles;
-}
-```
+> **Tip:** If you're using feature flags, see [HasMandateRoles Trait](#hasmandateroles-trait) for feature-aware
+> `$user->hasPermissionTo()` checks.
 
 Define roles and permissions in config:
 

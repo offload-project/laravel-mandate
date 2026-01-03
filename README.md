@@ -302,6 +302,10 @@ $user->can(ExportFeature::class)            // By class
 ->middleware('can:export')
 ```
 
+> Note: Gate-based **feature** checks (such as `$user->can('export')` or `@can('export')`) require
+> [Laravel Pennant](https://laravel.com/docs/pennant) to be installed and configured. You may still enable
+> `gate_integration` for permission checks alone, but attempting to perform feature checks without Pennant
+> can result in runtime errors.
 ### HasMandateRoles Trait
 
 For feature-aware permission and role checks directly on the model, use `HasMandateRoles` instead of Spatie's

@@ -156,3 +156,140 @@ test('it creates role data with permissions array', function () {
 
     expect($data->permissions)->toBe(['view users', 'create users', 'delete users']);
 });
+
+test('it returns all permissions (direct + inherited)', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users', 'create users'],
+    );
+
+    expect($data->allPermissions())->toBe(['delete users', 'view users', 'create users']);
+});
+
+test('it deduplicates all permissions', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['view users', 'delete users'],
+        inheritedPermissions: ['view users', 'create users'],
+    );
+
+    $allPermissions = $data->allPermissions();
+
+    // 'view users' should only appear once
+    expect(count(array_filter($allPermissions, fn ($p) => $p === 'view users')))->toBe(1);
+    expect($allPermissions)->toContain('view users');
+    expect($allPermissions)->toContain('delete users');
+    expect($allPermissions)->toContain('create users');
+});
+
+test('it checks if has permission (direct)', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+    );
+
+    expect($data->hasPermission('delete users'))->toBeTrue();
+});
+
+test('it checks if has permission (inherited)', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+    );
+
+    expect($data->hasPermission('view users'))->toBeTrue();
+});
+
+test('it returns false for non-existent permission', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+    );
+
+    expect($data->hasPermission('fly'))->toBeFalse();
+});
+
+test('it identifies inherited permissions', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+    );
+
+    expect($data->isInheritedPermission('view users'))->toBeTrue();
+    expect($data->isInheritedPermission('delete users'))->toBeFalse();
+});
+
+test('direct permission is not considered inherited', function () {
+    $data = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['view users'],
+        inheritedPermissions: ['view users'], // Same permission in both
+    );
+
+    // Direct permission takes precedence, so it's not "inherited"
+    expect($data->isInheritedPermission('view users'))->toBeFalse();
+});
+
+test('it creates copy with inheritance via withInheritance()', function () {
+    $original = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+    );
+
+    $withInheritance = $original->withInheritance(
+        inheritedPermissions: ['view users', 'create users'],
+        inheritsFrom: ['editor'],
+    );
+
+    // Original unchanged
+    expect($original->inheritedPermissions)->toBe([]);
+    expect($original->inheritsFrom)->toBe([]);
+
+    // Copy has inheritance
+    expect($withInheritance->inheritedPermissions)->toBe(['view users', 'create users']);
+    expect($withInheritance->inheritsFrom)->toBe(['editor']);
+    expect($withInheritance->permissions)->toBe(['delete users']);
+});
+
+test('withStatus preserves inheritance properties', function () {
+    $original = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+        inheritsFrom: ['editor'],
+    );
+
+    $updated = $original->withStatus(active: true, featureActive: true);
+
+    expect($updated->inheritedPermissions)->toBe(['view users']);
+    expect($updated->inheritsFrom)->toBe(['editor']);
+});
+
+test('withMetadata preserves inheritance properties', function () {
+    $original = new RoleData(
+        name: 'admin',
+        label: 'Administrator',
+        permissions: ['delete users'],
+        inheritedPermissions: ['view users'],
+        inheritsFrom: ['editor'],
+    );
+
+    $updated = $original->withMetadata(['icon' => 'shield']);
+
+    expect($updated->inheritedPermissions)->toBe(['view users']);
+    expect($updated->inheritsFrom)->toBe(['editor']);
+});

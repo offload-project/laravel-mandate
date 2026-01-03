@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Concerns;
 
 use OffloadProject\Mandate\Attributes\Description;
 use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Inherits;
 use OffloadProject\Mandate\Attributes\Label;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
@@ -22,7 +23,7 @@ trait ExtractsAttributeMetadata
      *
      * @param  class-string  $class
      * @param  class-string  $setAttributeClass  The attribute class for the set (PermissionsSet or RoleSet)
-     * @return array{value: string, label: string, description: ?string, set: ?string, guard: ?string}
+     * @return array{value: string, label: string, description: ?string, set: ?string, guard: ?string, inheritsFrom: array<string>}
      */
     protected static function extractConstantMetadata(
         string $class,
@@ -57,7 +58,11 @@ trait ExtractsAttributeMetadata
             ?? null;
         $guard = $guardAttr?->newInstance()->name;
 
-        return compact('value', 'label', 'description', 'set', 'guard');
+        // Get parent roles from Inherits attribute (for role hierarchy)
+        $inheritsAttr = $constantReflection->getAttributes(Inherits::class)[0] ?? null;
+        $inheritsFrom = $inheritsAttr?->newInstance()->parents ?? [];
+
+        return compact('value', 'label', 'description', 'set', 'guard', 'inheritsFrom');
     }
 
     /**

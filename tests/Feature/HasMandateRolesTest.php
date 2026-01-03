@@ -30,14 +30,14 @@ beforeEach(function () {
 });
 
 describe('HasMandateRoles Permission Checks', function () {
-    it('checks permission through Mandate (feature-aware)', function () {
+    it('checks non-feature-gated permissions normally', function () {
         $user = MandateUser::create(['email' => 'test@example.com']);
         $user->givePermissionTo('users.view');
 
         app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         $user = $user->fresh();
 
-        // hasPermissionTo routes through Mandate
+        // Permissions without feature gates work as expected
         expect($user->hasPermissionTo('users.view'))->toBeTrue();
         expect($user->hasPermissionTo('users.delete'))->toBeFalse();
     });
@@ -74,17 +74,6 @@ describe('HasMandateRoles Permission Checks', function () {
         // User 2 has feature disabled - should NOT have permission
         expect($user2->hasPermissionTo('export users'))->toBeFalse();
     });
-
-    it('allows non-feature-gated permissions normally', function () {
-        $user = MandateUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.create');
-
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
-        $user = $user->fresh();
-
-        // users.create is not gated by a feature
-        expect($user->hasPermissionTo('users.create'))->toBeTrue();
-    });
 });
 
 describe('HasMandateRoles Role Checks', function () {
@@ -93,14 +82,14 @@ describe('HasMandateRoles Role Checks', function () {
         app(MandateManager::class)->syncRoles();
     });
 
-    it('checks role through Mandate (feature-aware)', function () {
+    it('checks non-feature-gated roles normally', function () {
         $user = MandateUser::create(['email' => 'test@example.com']);
         $user->assignRole('admin');
 
         app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
         $user = $user->fresh();
 
-        // hasRole routes through Mandate
+        // Roles without feature gates work as expected
         expect($user->hasRole('admin'))->toBeTrue();
         expect($user->hasRole('viewer'))->toBeFalse();
     });

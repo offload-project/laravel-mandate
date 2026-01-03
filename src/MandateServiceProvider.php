@@ -33,6 +33,7 @@ final class MandateServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/mandate.php', 'mandate');
 
+        $this->configureSpatiePermissions();
         $this->registerFeatureRegistry();
         $this->registerPermissionRegistry();
         $this->registerRoleRegistry();
@@ -71,6 +72,16 @@ final class MandateServiceProvider extends ServiceProvider
             $this->app->booted(function () {
                 $this->app->make(MandateManager::class)->sync();
             });
+        }
+    }
+
+    /**
+     * Configure Spatie Permission package settings.
+     */
+    private function configureSpatiePermissions(): void
+    {
+        if (config('mandate.wildcard_permissions', false)) {
+            config()->set('permission.enable_wildcard_permission', true);
         }
     }
 

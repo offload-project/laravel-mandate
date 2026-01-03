@@ -186,4 +186,24 @@ return [
 
     'gate_integration' => env('MANDATE_GATE_INTEGRATION', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Wildcard Permissions
+    |--------------------------------------------------------------------------
+    |
+    | Enable Spatie's wildcard permission feature. When enabled, you can assign
+    | wildcard permissions like 'users.*' that match specific permissions like
+    | 'users.view' or 'users.create'.
+    |
+    | Example:
+    |   $user->grantPermission('users.*');
+    |   $user->holdsPermission('users.view');  // true
+    |   $user->holdsPermission('users.create'); // true
+    |
+    | See: https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions
+    |
+    */
+
+    'wildcard_permissions' => env('MANDATE_WILDCARD_PERMISSIONS', false),
+
 ];

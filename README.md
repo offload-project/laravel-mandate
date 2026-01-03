@@ -306,6 +306,7 @@ $user->can(ExportFeature::class)            // By class
 > [Laravel Pennant](https://laravel.com/docs/pennant) to be installed and configured. You may still enable
 > `gate_integration` for permission checks alone, but attempting to perform feature checks without Pennant
 > can result in runtime errors.
+
 ### HasMandateRoles Trait
 
 For feature-aware permission and role checks directly on the model, use `HasMandateRoles` instead of Spatie's
@@ -344,7 +345,7 @@ $user->removeRole('admin');
 **When to use which:**
 
 - `HasRoles` - Standard Spatie behavior, use `Mandate::can()` for feature-aware checks
-- `HasMandateRoles` - All `hasPermissionTo`/`hasRole` calls are automatically feature-aware
+- `HasMandateRoles` - All `hasPermissionTo`/`hasRole` calls are automatically feature-aware (with Laravel Pennant)
 
 ### Middleware
 
@@ -772,11 +773,11 @@ Mandate supports wildcard patterns for config expansion and `Mandate::can()` che
 [Spatie's wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions) which
 work at storage time.
 
-| Feature | Spatie Wildcards | Mandate Wildcards |
-|---------|------------------|-------------------|
-| Usage | Store `posts.*` in DB, check `posts.create` | Check pattern `users.*` against stored permissions |
-| Direction | Wildcard implies specific | Specific matches pattern |
-| Where | `$user->hasPermissionTo()` | `Mandate::can()`, config, middleware |
+| Feature   | Spatie Wildcards                            | Mandate Wildcards                                  |
+|-----------|---------------------------------------------|----------------------------------------------------|
+| Usage     | Store `posts.*` in DB, check `posts.create` | Check pattern `users.*` against stored permissions |
+| Direction | Wildcard implies specific                   | Specific matches pattern                           |
+| Where     | `$user->hasPermissionTo()`                  | `Mandate::can()`, config, middleware               |
 
 Both can be used together. If using `HasMandateRoles`, Spatie's wildcards are fully supported with feature-awareness.
 

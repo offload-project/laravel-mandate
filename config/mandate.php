@@ -6,143 +6,123 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Permission Class Directories
+    | Models
     |--------------------------------------------------------------------------
     |
-    | These directories will be scanned for permission classes. Classes must
-    | use the #[PermissionsSet] attribute.
-    |
-    | Example permission class:
-    |
-    | #[PermissionsSet('users')]
-    | final class UserPermissions
-    | {
-    |     #[Label('View Users')]
-    |     public const VIEW = 'view users';
-    |
-    |     #[Label('Create Users')]
-    |     public const CREATE = 'create users';
-    | }
+    | Specify the model classes used by Mandate. You can extend the default
+    | models and configure your custom classes here.
     |
     */
 
-    'permission_directories' => [
-        app_path('Permissions') => 'App\\Permissions',
+    'models' => [
+        'role' => OffloadProject\Mandate\Models\Role::class,
+        'permission' => OffloadProject\Mandate\Models\Permission::class,
+        'feature' => OffloadProject\Mandate\Models\Feature::class,
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Role Class Directories
+    | ID Column Type
     |--------------------------------------------------------------------------
     |
-    | These directories will be scanned for role classes. Classes must
-    | use the #[RoleSet] attribute.
-    |
-    | Example role class:
-    |
-    | #[RoleSet('system')]
-    | final class SystemRoles
-    | {
-    |     #[Label('Administrator')]
-    |     public const string ADMINISTRATOR = 'administrator';
-    |
-    |     #[Label('User')]
-    |     public const string USER = 'user';
-    | }
+    | The type of ID column to use for all Mandate tables. Supports 'bigint'
+    | (auto-incrementing) or 'uuid' (UUID strings).
     |
     */
 
-    'role_directories' => [
-        app_path('Roles') => 'App\\Roles',
+    'id_type' => 'bigint', // 'bigint' | 'uuid'
+
+    /*
+    |--------------------------------------------------------------------------
+    | Table Names
+    |--------------------------------------------------------------------------
+    |
+    | Configure the database table names used by Mandate.
+    |
+    */
+
+    'tables' => [
+        'roles' => 'mandate_roles',
+        'permissions' => 'mandate_permissions',
+        'role_permissions' => 'mandate_role_permissions',
+        'subject_roles' => 'mandate_subject_roles',
+        'subject_permissions' => 'mandate_subject_permissions',
+        'features' => 'mandate_features',
+        'subject_features' => 'mandate_subject_features',
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Role Permissions Mapping
+    | Column Names
     |--------------------------------------------------------------------------
     |
-    | Map roles to their permissions. Supports:
-    | - Permission classes (all constants)
-    | - String permission names
-    |
-    | IMPORTANT: These mappings are only applied when:
-    | 1. A role is first created (during any sync)
-    | 2. Running `php artisan mandate:sync --seed`
-    |
-    | By default, `mandate:sync` will NOT overwrite role-permission
-    | relationships in the database. This allows you to manage permissions
-    | via UI/database without config overwriting your changes.
-    |
-    | Use `--seed` flag for initial setup or when you intentionally want
-    | to reset role permissions to match this config.
-    |
-    | Example:
-    |
-    | use App\Permissions\UserPermissions;
-    | use App\Permissions\PostPermissions;
-    | use App\Roles\SystemRoles;
-    |
-    | 'role_permissions' => [
-    |     SystemRoles::ADMINISTRATOR => [
-    |         UserPermissions::class,    // All user permissions
-    |         PostPermissions::class,    // All post permissions
-    |     ],
-    |
-    |     SystemRoles::EDITOR => [
-    |         PostPermissions::VIEW,
-    |         PostPermissions::CREATE,
-    |         PostPermissions::UPDATE,
-    |     ],
-    |
-    |     'viewer' => [                  // String role name also works
-    |         'view posts',
-    |         'view users',
-    |     ],
-    | ],
+    | Configure the pivot table column names.
     |
     */
 
-    'role_permissions' => [
-        //
+    'columns' => [
+        'pivot_role_key' => 'role_id',
+        'pivot_permission_key' => 'permission_id',
+        'pivot_feature_key' => 'feature_id',
+        'pivot_subject_morph_key' => 'subject',
+        'pivot_context_morph_name' => 'context_model',
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Sync Additional Columns
+    | Context Scoping
     |--------------------------------------------------------------------------
     |
-    | Configure which additional columns to sync to the permissions and roles
-    | tables. By default, only 'name' and 'guard_name' are synced (required
-    | by Spatie Permission).
+    | Enable context columns on specific tables. Context allows scoping
+    | roles, permissions, and features to a specific scope (string) or
+    | context model (polymorphic relationship).
     |
-    | Available columns:
-    | - 'set': The set name from #[PermissionsSet] or #[RoleSet]
-    | - 'label': The label from #[Label] attribute
-    | - 'description': The description from #[Description] attribute
+    | When enabled, context columns are added to the respective tables:
+    | - scope: string column for simple scope-based scoping
+    | - context_model_type: polymorphic model type
+    | - context_model_id: polymorphic model ID
     |
-    | To use these columns, you must add them to your permissions/roles tables.
-    | Publish the migration to add 'set' column:
-    |   php artisan vendor:publish --tag=mandate-migrations
-    |
-    | For 'label' and 'description', add them manually or modify the migration.
-    |
-    | Set to true to sync all columns, or an array of specific columns:
-    | - true: Sync all columns (set, label, description)
-    | - ['set', 'label']: Only sync set and label
-    | - false: Only sync name and guard_name (default)
+    | Example use cases:
+    | - Scope roles to a team: scope='team', contextModel=Team::class
+    | - Scope permissions to a tenant: scope='tenant', contextModel=Tenant::class
     |
     */
 
-    'sync_columns' => false,
+    'context' => [
+        'roles' => false,
+        'permissions' => false,
+        'subject_roles' => false,
+        'subject_permissions' => false,
+        'features' => false,
+        'subject_features' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sync Columns
+    |--------------------------------------------------------------------------
+    |
+    | Configure which additional columns to sync from class attributes to
+    | the database tables. Available columns: 'set', 'label', 'description'.
+    |
+    | Set to an empty array to only sync required columns (name, guard_name).
+    |
+    */
+
+    'sync_columns' => [
+        'roles' => ['set', 'label', 'description'],
+        'permissions' => ['set', 'label', 'description'],
+        'features' => ['label', 'description'],
+    ],
 
     /*
     |--------------------------------------------------------------------------
     | Auto Sync
     |--------------------------------------------------------------------------
     |
-    | When enabled, permissions and roles will be automatically synced
-    | to the database when the service provider boots. Disable in production
-    | and use the artisan command instead.
+    | When enabled, permissions, roles, and features will be automatically
+    | synced to the database when the service provider boots. Disable in
+    | production and use the artisan command instead.
     |
     */
 
@@ -150,16 +130,62 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | TypeScript Export Path
+    | Features Configuration
     |--------------------------------------------------------------------------
     |
-    | The path where the TypeScript permissions/roles file will be generated
-    | when running the mandate:typescript command. Set to null to require
-    | the --output option to be specified.
+    | Configure the feature flags integration.
+    |
+    | - enabled: Enable/disable feature flag support entirely
+    | - have_permissions: Features can gate permissions
+    | - have_roles: Features can gate roles
     |
     */
 
-    'typescript_path' => resource_path('js/permissions.ts'),
+    'features' => [
+        'enabled' => true,
+        'have_permissions' => true,
+        'have_roles' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Discovery Directories
+    |--------------------------------------------------------------------------
+    |
+    | Configure directories to scan for permission, role, and feature classes.
+    | Format: [directory_path => namespace]
+    |
+    */
+
+    'discovery' => [
+        'permissions' => [
+            app_path('Permissions') => 'App\\Permissions',
+        ],
+        'roles' => [
+            app_path('Roles') => 'App\\Roles',
+        ],
+        'features' => [
+            app_path('Features') => 'App\\Features',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wildcard Permissions
+    |--------------------------------------------------------------------------
+    |
+    | Enable wildcard permission matching. When enabled, you can assign
+    | wildcard permissions like 'users.*' that match specific permissions
+    | like 'users.view' or 'users.create'.
+    |
+    | Example:
+    |   $user->grant('users.*');
+    |   $user->hasPermission('users.view');  // true
+    |   $user->hasPermission('users.create'); // true
+    |
+    */
+
+    'wildcards' => env('MANDATE_WILDCARDS', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -167,20 +193,17 @@ return [
     |--------------------------------------------------------------------------
     |
     | When enabled, Mandate registers a Gate::before() hook that routes
-    | Laravel's authorization checks through Mandate for permissions and features.
+    | Laravel's authorization checks through Mandate.
     |
-    | Permission checks (with feature flag awareness):
-    |   $user->can('users.view')       // Checks permission + feature flag
+    | Permission checks:
+    |   $user->can('users.view')
     |   Gate::allows('users.view')
-    |   @can('users.view')             // Blade
+    |   @can('users.view') // Blade
     |   ->middleware('can:users.view')
     |
-    | Feature checks (by name or class):
-    |   $user->can('export')           // By feature name
-    |   $user->can(ExportFeature::class)
-    |   @can('export')                 // Blade
-    |
-    | When disabled, use Mandate::can() directly for feature-aware checks.
+    | Feature checks:
+    |   $user->can('feature-name')
+    |   $user->can(FeatureClass::class)
     |
     */
 
@@ -188,22 +211,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Wildcard Permissions
+    | TypeScript Export Path
     |--------------------------------------------------------------------------
     |
-    | Enable Spatie's wildcard permission feature. When enabled, you can assign
-    | wildcard permissions like 'users.*' that match specific permissions like
-    | 'users.view' or 'users.create'.
-    |
-    | Example:
-    |   $user->grantPermission('users.*');
-    |   $user->holdsPermission('users.view');  // true
-    |   $user->holdsPermission('users.create'); // true
-    |
-    | See: https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions
+    | The path where the TypeScript permissions/roles file will be generated
+    | when running the mandate:typescript command.
     |
     */
 
-    'wildcard_permissions' => env('MANDATE_WILDCARD_PERMISSIONS', false),
+    'typescript_path' => resource_path('js/permissions.ts'),
 
 ];

@@ -16,7 +16,7 @@ trait DiscoversClasses
     /**
      * Discover classes from configured directories that have a specific attribute.
      *
-     * @param  string  $configKey  The config key for directories (e.g., 'mandate.permission_directories')
+     * @param  string  $configKey  The config key for directories (e.g., 'mandate.discovery.permissions')
      * @param  class-string  $attributeClass  The attribute class that marks valid classes
      * @param  callable(class-string): Collection<int, mixed>  $extractor  Function to extract data from each class
      * @return Collection<int, mixed>

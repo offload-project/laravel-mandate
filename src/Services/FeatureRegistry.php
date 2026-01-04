@@ -6,7 +6,6 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Laravel\Pennant\Feature;
 use OffloadProject\Hoist\Services\FeatureDiscovery;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
@@ -63,7 +62,7 @@ final class FeatureRegistry implements FeatureRegistryContract
     public function forModel(Model $model): Collection
     {
         return $this->all()->map(function (FeatureData $feature) use ($model) {
-            $active = Feature::for($model)->active($feature->class);
+            $active = $this->isActive($model, $feature->class);
 
             return new FeatureData(
                 class: $feature->class,
@@ -115,7 +114,12 @@ final class FeatureRegistry implements FeatureRegistryContract
      */
     public function isActive(Model $model, string $class): bool
     {
-        return Feature::for($model)->active($class);
+        // Check if Pennant is available
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return false;
+        }
+
+        return \Laravel\Pennant\Feature::for($model)->active($class);
     }
 
     /**

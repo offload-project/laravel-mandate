@@ -31,7 +31,7 @@ final class TypescriptGenerator
 
         // Generate permissions
         $permissionClasses = $this->discoverClasses(
-            'mandate.permission_directories',
+            'mandate.discovery.permissions',
             PermissionsSet::class
         );
 
@@ -41,7 +41,7 @@ final class TypescriptGenerator
 
         // Generate roles
         $roleClasses = $this->discoverClasses(
-            'mandate.role_directories',
+            'mandate.discovery.roles',
             RoleSet::class
         );
 

@@ -7,36 +7,36 @@ namespace OffloadProject\Mandate\Console\Commands;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
 
-final class PermissionMakeCommand extends GeneratorCommand
+final class FeatureMakeCommand extends GeneratorCommand
 {
-    protected $signature = 'mandate:permission
-        {name : The name of the permission class (e.g., UserPermissions)}
-        {--set= : The permission set name (e.g., users)}';
+    protected $signature = 'mandate:feature
+        {name : The name of the feature class (e.g., DarkMode or BetaDashboard)}
+        {--set= : The feature set name (e.g., ui)}';
 
-    protected $description = 'Create a new permission class';
+    protected $description = 'Create a new feature class';
 
-    protected $type = 'Permission Class';
+    protected $type = 'Feature Class';
 
     protected function getStub(): string
     {
-        $customStub = base_path('stubs/mandate/permission.stub');
+        $customStub = base_path('stubs/mandate/feature.stub');
 
         if (file_exists($customStub)) {
             return $customStub;
         }
 
-        return __DIR__.'/../../../stubs/permission.stub';
+        return __DIR__.'/../../../stubs/feature.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string
     {
-        $directories = config('mandate.discovery.permissions', []);
+        $directories = config('mandate.discovery.features', []);
 
         if (! empty($directories)) {
             return array_values($directories)[0];
         }
 
-        return $rootNamespace.'\\Permissions';
+        return $rootNamespace.'\\Features';
     }
 
     protected function buildClass($name): string
@@ -49,21 +49,23 @@ final class PermissionMakeCommand extends GeneratorCommand
         /** @var string|null $set */
         $set = $this->option('set');
         if (! $set) {
-            // UserPermissions -> users
-            $set = Str::plural(Str::kebab(Str::replaceLast('Permissions', '', $className)));
+            // DarkMode -> dark-mode, BetaDashboard -> beta-dashboard
+            $set = Str::kebab($className);
         }
 
         $stub = str_replace('{{ set }}', $set, $stub);
 
-        // Generate example permission values
-        $stub = str_replace('{{ resource }}', Str::singular($set), $stub);
+        // Generate label from class name
+        // DarkMode -> Dark Mode, BetaDashboard -> Beta Dashboard
+        $label = Str::headline($className);
+        $stub = str_replace('{{ label }}', $label, $stub);
 
         return $stub;
     }
 
     protected function getPath($name): string
     {
-        $directories = config('mandate.discovery.permissions', []);
+        $directories = config('mandate.discovery.features', []);
 
         if (! empty($directories)) {
             $basePath = array_keys($directories)[0];

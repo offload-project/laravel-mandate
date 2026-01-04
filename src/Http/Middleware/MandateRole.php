@@ -43,7 +43,7 @@ final class MandateRole
         }
 
         foreach ($roles as $role) {
-            if (Mandate::hasRole($user, $role)) {
+            if (Mandate::assignedRole($user, $role)) {
                 return $next($request);
             }
         }

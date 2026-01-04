@@ -6,9 +6,11 @@ namespace OffloadProject\Mandate;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use OffloadProject\Hoist\Services\FeatureDiscovery;
+use OffloadProject\Mandate\Console\Commands\FeatureMakeCommand;
 use OffloadProject\Mandate\Console\Commands\MandateSyncCommand;
 use OffloadProject\Mandate\Console\Commands\PermissionMakeCommand;
 use OffloadProject\Mandate\Console\Commands\RoleMakeCommand;
@@ -17,6 +19,7 @@ use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
 use OffloadProject\Mandate\Http\Middleware\MandateFeature;
+use OffloadProject\Mandate\Http\Middleware\MandateInertiaAuthShare;
 use OffloadProject\Mandate\Http\Middleware\MandatePermission;
 use OffloadProject\Mandate\Http\Middleware\MandateRole;
 use OffloadProject\Mandate\Services\DatabaseSyncer;
@@ -25,20 +28,22 @@ use OffloadProject\Mandate\Services\MandateManager;
 use OffloadProject\Mandate\Services\PermissionRegistry;
 use OffloadProject\Mandate\Services\RoleHierarchyResolver;
 use OffloadProject\Mandate\Services\RoleRegistry;
-use Spatie\Permission\PermissionRegistrar;
+use OffloadProject\Mandate\Support\MandateUI;
 
 final class MandateServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/mandate.php', 'mandate');
+        $this->mergeConfigFrom(__DIR__.'/../config/mandate-seed.php', 'mandate-seed');
 
-        $this->configureSpatiePermissions();
+        $this->configureHoist();
         $this->registerFeatureRegistry();
         $this->registerPermissionRegistry();
         $this->registerRoleRegistry();
         $this->registerDatabaseSyncer();
         $this->registerMandateManager();
+        $this->registerMandateUI();
     }
 
     public function boot(): void
@@ -48,6 +53,7 @@ final class MandateServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                FeatureMakeCommand::class,
                 MandateSyncCommand::class,
                 PermissionMakeCommand::class,
                 RoleMakeCommand::class,
@@ -56,6 +62,10 @@ final class MandateServiceProvider extends ServiceProvider
 
             $this->publishes([
                 __DIR__.'/../config/mandate.php' => config_path('mandate.php'),
+            ], 'mandate-config');
+
+            $this->publishes([
+                __DIR__.'/../config/mandate-seed.php' => config_path('mandate-seed.php'),
             ], 'mandate-config');
 
             $this->publishes([
@@ -76,12 +86,14 @@ final class MandateServiceProvider extends ServiceProvider
     }
 
     /**
-     * Configure Spatie Permission package settings.
+     * Configure Hoist feature discovery directories.
      */
-    private function configureSpatiePermissions(): void
+    private function configureHoist(): void
     {
-        if (config('mandate.wildcard_permissions', false)) {
-            config()->set('permission.enable_wildcard_permission', true);
+        // Set Hoist feature directories to match Mandate's discovery config
+        $featureDirectories = config('mandate.discovery.features', []);
+        if (! empty($featureDirectories)) {
+            config()->set('hoist.feature_directories', $featureDirectories);
         }
     }
 
@@ -91,9 +103,48 @@ final class MandateServiceProvider extends ServiceProvider
     private function registerFeatureRegistry(): void
     {
         $this->app->singleton(FeatureRegistry::class, function ($app) {
-            return new FeatureRegistry(
-                $app->make(FeatureDiscovery::class),
-            );
+            // Only create with FeatureDiscovery if Hoist is available
+            if (class_exists(FeatureDiscovery::class)) {
+                return new FeatureRegistry(
+                    $app->make(FeatureDiscovery::class),
+                );
+            }
+
+            // Return a null registry if Hoist is not available
+            return new class implements FeatureRegistryContract
+            {
+                public function all(): Collection
+                {
+                    return collect();
+                }
+
+                public function forModel(Model $model): Collection
+                {
+                    return collect();
+                }
+
+                public function find(string $class): ?Data\FeatureData
+                {
+                    return null;
+                }
+
+                public function permissions(string $class): Collection
+                {
+                    return collect();
+                }
+
+                public function roles(string $class): Collection
+                {
+                    return collect();
+                }
+
+                public function isActive(Model $model, string $class): bool
+                {
+                    return false;
+                }
+
+                public function clearCache(): void {}
+            };
         });
 
         $this->app->alias(FeatureRegistry::class, FeatureRegistryContract::class);
@@ -143,11 +194,7 @@ final class MandateServiceProvider extends ServiceProvider
      */
     private function registerDatabaseSyncer(): void
     {
-        $this->app->singleton(DatabaseSyncer::class, function ($app) {
-            return new DatabaseSyncer(
-                $app->make(PermissionRegistrar::class),
-            );
-        });
+        $this->app->singleton(DatabaseSyncer::class);
     }
 
     /**
@@ -166,6 +213,14 @@ final class MandateServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register the MandateUI service.
+     */
+    private function registerMandateUI(): void
+    {
+        $this->app->singleton(MandateUI::class);
+    }
+
+    /**
      * Register the middleware aliases.
      */
     private function registerMiddleware(): void
@@ -175,6 +230,7 @@ final class MandateServiceProvider extends ServiceProvider
         $router->aliasMiddleware('mandate.permission', MandatePermission::class);
         $router->aliasMiddleware('mandate.role', MandateRole::class);
         $router->aliasMiddleware('mandate.feature', MandateFeature::class);
+        $router->aliasMiddleware('mandate.inertia', MandateInertiaAuthShare::class);
     }
 
     /**

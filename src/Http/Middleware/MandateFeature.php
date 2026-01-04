@@ -6,7 +6,6 @@ namespace OffloadProject\Mandate\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Laravel\Pennant\Feature;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -14,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Usage in routes:
  *   Route::get('/export', ...)->middleware('mandate.feature:App\Features\ExportFeature');
+ *   Route::get('/beta', ...)->middleware('mandate.feature:beta-dashboard');
  */
 final class MandateFeature
 {
@@ -38,10 +38,25 @@ final class MandateFeature
             abort(403, 'Unauthorized.');
         }
 
-        if (! Feature::for($user)->active($feature)) {
-            abort(403, 'This feature is not available.');
+        // Check using the model's hasAccess if it uses UsesFeatures trait
+        if (method_exists($user, 'hasAccess')) {
+            if (! $user->hasAccess($feature)) {
+                abort(403, 'This feature is not available.');
+            }
+
+            return $next($request);
         }
 
-        return $next($request);
+        // Fall back to Pennant if available
+        if (class_exists(\Laravel\Pennant\Feature::class)) {
+            if (! \Laravel\Pennant\Feature::for($user)->active($feature)) {
+                abort(403, 'This feature is not available.');
+            }
+
+            return $next($request);
+        }
+
+        // If no feature checking is available, deny by default
+        abort(403, 'This feature is not available.');
     }
 }

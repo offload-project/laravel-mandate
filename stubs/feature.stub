@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Illuminate\Support\Lottery;
+use OffloadProject\Mandate\Attributes\FeatureSet;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[FeatureSet('{{ set }}')]
+#[Label('{{ label }}')]
+final class {{ class }}
+{
+    /**
+     * Resolve the feature's initial value.
+     */
+    public function resolve(mixed $scope): bool
+    {
+        return false;
+    }
+}

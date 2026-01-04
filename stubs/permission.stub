@@ -11,17 +11,17 @@ use OffloadProject\Mandate\Attributes\PermissionsSet;
 final class {{ class }}
 {
     #[Label('View all {{ resource }}')]
-    public const string VIEW_ALL = 'view any {{ resource }}';
+    public const string VIEW_ALL = 'view_any:{{ resource }}';
 
     #[Label('View {{ resource }}')]
-    public const string VIEW = 'view {{ resource }}';
+    public const string VIEW = 'view:{{ resource }}';
 
     #[Label('Create {{ resource }}')]
-    public const string CREATE = 'create {{ resource }}';
+    public const string CREATE = 'create:{{ resource }}';
 
     #[Label('Update {{ resource }}')]
-    public const string UPDATE = 'update {{ resource }}';
+    public const string UPDATE = 'update:{{ resource }}';
 
     #[Label('Delete {{ resource }}')]
-    public const string DELETE = 'delete {{ resource }}';
+    public const string DELETE = 'delete:{{ resource }}';
 }

@@ -45,7 +45,7 @@ final class PermissionRegistry implements PermissionRegistryContract
         }
 
         $permissions = $this->discoverFromDirectories(
-            'mandate.permission_directories',
+            'mandate.discovery.permissions',
             PermissionsSet::class,
             fn (string $class) => $this->extractFromClass($class)
         );
@@ -73,9 +73,9 @@ final class PermissionRegistry implements PermissionRegistryContract
         $featureStatuses = $this->batchCheckFeatures($model, $permissions);
 
         return $permissions->map(function (PermissionData $permission) use ($model, $featureStatuses) {
-            // Check if permission is assigned via Spatie
-            $hasPermission = method_exists($model, 'hasPermissionTo')
-                ? $model->hasPermissionTo($permission->name)
+            // Check if permission is assigned via our traits
+            $isGranted = method_exists($model, 'granted')
+                ? $model->granted($permission->name)
                 : false;
 
             // Get feature status from batch results
@@ -84,7 +84,7 @@ final class PermissionRegistry implements PermissionRegistryContract
                 $featureActive = $featureStatuses[$permission->feature] ?? null;
             }
 
-            return $permission->withStatus($hasPermission, $featureActive);
+            return $permission->withStatus($isGranted, $featureActive);
         });
     }
 
@@ -125,8 +125,8 @@ final class PermissionRegistry implements PermissionRegistryContract
         $permissionData = $this->forModel($model)->firstWhere('name', $permission);
 
         if ($permissionData === null) {
-            // Fall back to Spatie's direct check for permissions not in registry
-            return method_exists($model, 'hasPermissionTo') && $model->hasPermissionTo($permission);
+            // Fall back to direct check for permissions not in registry
+            return method_exists($model, 'granted') && $model->granted($permission);
         }
 
         return $permissionData->isGranted();
@@ -211,6 +211,12 @@ final class PermissionRegistry implements PermissionRegistryContract
 
         if (empty($features)) {
             return [];
+        }
+
+        // Check if Pennant is available
+        if (! class_exists(Feature::class)) {
+            // Return all features as inactive when Pennant is not installed
+            return array_fill_keys($features, false);
         }
 
         // Use Pennant's batch checking capability

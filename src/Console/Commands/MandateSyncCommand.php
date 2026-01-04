@@ -13,9 +13,10 @@ final class MandateSyncCommand extends Command
         {--guard= : The guard to use for permissions and roles}
         {--permissions : Only sync permissions}
         {--roles : Only sync roles}
+        {--features : Only sync features}
         {--seed : Seed role permissions from config (first-time setup)}';
 
-    protected $description = 'Sync discovered permissions and roles to the database. By default, only creates new permissions/roles without modifying existing role-permission relationships. Use --seed for initial setup to assign permissions from config.';
+    protected $description = 'Sync discovered permissions, roles, and features to the database. By default, syncs all. Use --seed for initial setup to assign permissions from config.';
 
     public function handle(MandateManager $mandate): int
     {
@@ -23,13 +24,15 @@ final class MandateSyncCommand extends Command
         $guard = $this->option('guard');
         $onlyPermissions = $this->option('permissions');
         $onlyRoles = $this->option('roles');
+        $onlyFeatures = $this->option('features');
         $seed = (bool) $this->option('seed');
         $hasSyncColumns = $this->hasSyncColumns();
 
-        // If neither specified, do both
-        if (! $onlyPermissions && ! $onlyRoles) {
+        // If none specified, do all
+        if (! $onlyPermissions && ! $onlyRoles && ! $onlyFeatures) {
             $onlyPermissions = true;
             $onlyRoles = true;
+            $onlyFeatures = config('mandate.features.enabled', false);
         }
 
         if ($onlyPermissions) {
@@ -38,6 +41,10 @@ final class MandateSyncCommand extends Command
 
         if ($onlyRoles) {
             $this->syncRoles($mandate, $guard, $seed, $hasSyncColumns);
+        }
+
+        if ($onlyFeatures) {
+            $this->syncFeatures($mandate, $hasSyncColumns);
         }
 
         $this->newLine();
@@ -101,18 +108,36 @@ final class MandateSyncCommand extends Command
         $this->components->twoColumnDetail('Roles', $details);
     }
 
+    private function syncFeatures(MandateManager $mandate, bool $hasSyncColumns): void
+    {
+        $result = null;
+
+        $this->components->task('Syncing features', function () use ($mandate, &$result) {
+            $result = $mandate->syncFeatures();
+
+            return true;
+        });
+
+        if ($result === null) {
+            return;
+        }
+
+        $details = sprintf('<fg=green>%d created</>, <fg=yellow>%d existing</>', $result['created'], $result['existing']);
+
+        if ($hasSyncColumns && $result['updated'] > 0) {
+            $details .= sprintf(', <fg=cyan>%d updated</>', $result['updated']);
+        }
+
+        $this->components->twoColumnDetail('Features', $details);
+    }
+
     /**
      * Check if sync_columns is configured.
      */
     private function hasSyncColumns(): bool
     {
-        $config = config('mandate.sync_columns', false);
+        $config = config('mandate.sync_columns', []);
 
-        // Legacy support
-        if ($config === false) {
-            return (bool) config('mandate.store_set_in_database', false);
-        }
-
-        return $config === true || (is_array($config) && ! empty($config));
+        return is_array($config) && ! empty($config);
     }
 }

@@ -6,7 +6,6 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Attributes\RoleSet;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
@@ -47,7 +46,7 @@ final class RoleRegistry implements RoleRegistryContract
         }
 
         $roles = $this->discoverFromDirectories(
-            'mandate.role_directories',
+            'mandate.discovery.roles',
             RoleSet::class,
             fn (string $class) => $this->extractFromClass($class)
         );
@@ -81,9 +80,9 @@ final class RoleRegistry implements RoleRegistryContract
         $featureStatuses = $this->batchCheckFeatures($model, $roles);
 
         return $roles->map(function (RoleData $role) use ($model, $featureStatuses) {
-            // Check if role is assigned via Spatie
-            $hasRole = method_exists($model, 'hasRole')
-                ? $model->hasRole($role->name)
+            // Check if role is assigned via our traits
+            $isAssigned = method_exists($model, 'assignedRole')
+                ? $model->assignedRole($role->name)
                 : false;
 
             // Get feature status from batch results
@@ -92,7 +91,7 @@ final class RoleRegistry implements RoleRegistryContract
                 $featureActive = $featureStatuses[$role->feature] ?? null;
             }
 
-            return $role->withStatus($hasRole, $featureActive);
+            return $role->withStatus($isAssigned, $featureActive);
         });
     }
 
@@ -124,8 +123,8 @@ final class RoleRegistry implements RoleRegistryContract
         $roleData = $this->forModel($model)->firstWhere('name', $role);
 
         if ($roleData === null) {
-            // Fall back to Spatie's direct check
-            return method_exists($model, 'hasRole') && $model->hasRole($role);
+            // Fall back to direct check
+            return method_exists($model, 'assignedRole') && $model->assignedRole($role);
         }
 
         return $roleData->isAssigned();
@@ -225,10 +224,16 @@ final class RoleRegistry implements RoleRegistryContract
             return [];
         }
 
+        // Check if Pennant is available
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            // Return all features as inactive when Pennant is not installed
+            return array_fill_keys($features, false);
+        }
+
         // Use Pennant's batch checking capability
         $results = [];
         foreach ($features as $feature) {
-            $results[$feature] = Feature::for($model)->active($feature);
+            $results[$feature] = \Laravel\Pennant\Feature::for($model)->active($feature);
         }
 
         return $results;
@@ -288,7 +293,7 @@ final class RoleRegistry implements RoleRegistryContract
      */
     private function applyPermissionMappings(Collection $roles): Collection
     {
-        $rolePermissions = config('mandate.role_permissions', []);
+        $rolePermissions = config('mandate-seed.role_permissions', []);
 
         return $roles->map(function (RoleData $role) use ($rolePermissions) {
             $configPermissions = $rolePermissions[$role->name] ?? null;

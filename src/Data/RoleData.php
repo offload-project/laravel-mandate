@@ -77,9 +77,9 @@ final class RoleData extends Data
     }
 
     /**
-     * Check if this role has a specific permission (direct or inherited).
+     * Check if this role has been granted a specific permission (direct or inherited).
      */
-    public function hasPermission(string $permission): bool
+    public function granted(string $permission): bool
     {
         return in_array($permission, $this->permissions, true)
             || in_array($permission, $this->inheritedPermissions, true);

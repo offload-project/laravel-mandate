@@ -15,6 +15,7 @@ use OffloadProject\Mandate\Data\RoleData;
 use OffloadProject\Mandate\Events\MandateSynced;
 use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
+use OffloadProject\Mandate\Support\ModelScope;
 
 /**
  * Main Mandate service for managing feature-flag aware permissions and roles.
@@ -77,6 +78,14 @@ final class MandateManager
     }
 
     /**
+     * Get a fluent API for a specific model.
+     */
+    public function for(Model $model): ModelScope
+    {
+        return new ModelScope($model);
+    }
+
+    /**
      * Check if a model can perform an action (permission + feature check).
      */
     public function can(Model $model, string $permission): bool
@@ -85,9 +94,9 @@ final class MandateManager
     }
 
     /**
-     * Check if a model has a role (role + feature check).
+     * Check if a model has been assigned a role (role + feature check).
      */
-    public function hasRole(Model $model, string $role): bool
+    public function assignedRole(Model $model, string $role): bool
     {
         return $this->roleRegistry->has($model, $role);
     }
@@ -133,6 +142,80 @@ final class MandateManager
     }
 
     /**
+     * Enable a feature for a scope (model or string).
+     */
+    public function enableFeature(Model|string $scope, string $feature): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::for($scope)->activate($feature);
+    }
+
+    /**
+     * Disable a feature for a scope (model or string).
+     */
+    public function disableFeature(Model|string $scope, string $feature): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::for($scope)->deactivate($feature);
+    }
+
+    /**
+     * Enable a feature for everyone.
+     */
+    public function enableForAll(string $feature): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::activateForEveryone($feature);
+    }
+
+    /**
+     * Disable a feature for everyone.
+     */
+    public function disableForAll(string $feature): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::deactivateForEveryone($feature);
+    }
+
+    /**
+     * Purge stored feature values.
+     *
+     * @param  string|array<string>  $features
+     */
+    public function purgeFeature(string|array $features): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::purge($features);
+    }
+
+    /**
+     * Forget feature value for a scope.
+     */
+    public function forgetFeature(Model|string $scope, string $feature): void
+    {
+        if (! class_exists(\Laravel\Pennant\Feature::class)) {
+            return;
+        }
+
+        \Laravel\Pennant\Feature::for($scope)->forget($feature);
+    }
+
+    /**
      * Sync all discovered permissions to the database.
      *
      * @return array{created: int, existing: int, updated: int}
@@ -141,7 +224,7 @@ final class MandateManager
     {
         $result = $this->syncer->syncPermissions(
             $this->permissions->all(),
-            $this->getSyncColumns(),
+            $this->getPermissionSyncColumns(),
             $guard,
         );
 
@@ -172,7 +255,7 @@ final class MandateManager
     {
         $result = $this->syncer->syncRoles(
             $this->roleRegistry->all(),
-            $this->getSyncColumns(),
+            $this->getRoleSyncColumns(),
             $guard,
             $seed,
         );
@@ -187,6 +270,23 @@ final class MandateManager
         );
 
         return $result;
+    }
+
+    /**
+     * Sync all discovered features to the database.
+     *
+     * @return array{created: int, existing: int, updated: int}
+     */
+    public function syncFeatures(): array
+    {
+        if (! config('mandate.features.enabled', true)) {
+            return ['created' => 0, 'existing' => 0, 'updated' => 0];
+        }
+
+        return $this->syncer->syncFeatures(
+            $this->features->all(),
+            $this->getFeatureSyncColumns(),
+        );
     }
 
     /**
@@ -205,6 +305,19 @@ final class MandateManager
     }
 
     /**
+     * Sync everything including features.
+     *
+     * @return array{permissions: array, roles: array, features: array}
+     */
+    public function syncAll(?string $guard = null, bool $seed = false): array
+    {
+        $result = $this->sync($guard, $seed);
+        $result['features'] = $this->syncFeatures();
+
+        return $result;
+    }
+
+    /**
      * Clear all cached data.
      */
     public function clearCache(): void
@@ -215,38 +328,32 @@ final class MandateManager
     }
 
     /**
-     * Get the columns to sync based on config.
+     * Get the columns to sync for permissions.
      *
      * @return array<string>
-     *
-     * @deprecated The 'store_set_in_database' config key is deprecated. Use 'sync_columns' instead.
      */
-    private function getSyncColumns(): array
+    private function getPermissionSyncColumns(): array
     {
-        $config = config('mandate.sync_columns', false);
+        return config('mandate.sync_columns.permissions', ['set', 'label', 'description']);
+    }
 
-        // Legacy support: check old config key
-        // @deprecated Remove in v2.0
-        if ($config === false) {
-            $config = config('mandate.store_set_in_database', false);
-            if ($config === true) {
-                trigger_error(
-                    'The "mandate.store_set_in_database" config key is deprecated. Use "mandate.sync_columns" instead.',
-                    E_USER_DEPRECATED
-                );
+    /**
+     * Get the columns to sync for roles.
+     *
+     * @return array<string>
+     */
+    private function getRoleSyncColumns(): array
+    {
+        return config('mandate.sync_columns.roles', ['set', 'label', 'description']);
+    }
 
-                return ['set'];
-            }
-        }
-
-        if ($config === true) {
-            return ['set', 'label', 'description'];
-        }
-
-        if (is_array($config)) {
-            return $config;
-        }
-
-        return [];
+    /**
+     * Get the columns to sync for features.
+     *
+     * @return array<string>
+     */
+    private function getFeatureSyncColumns(): array
+    {
+        return config('mandate.sync_columns.features', ['label', 'description']);
     }
 }

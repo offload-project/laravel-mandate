@@ -30,7 +30,7 @@ final class RoleMakeCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
-        $directories = config('mandate.role_directories', []);
+        $directories = config('mandate.discovery.roles', []);
 
         if (! empty($directories)) {
             return array_values($directories)[0];
@@ -61,7 +61,7 @@ final class RoleMakeCommand extends GeneratorCommand
 
     protected function getPath($name): string
     {
-        $directories = config('mandate.role_directories', []);
+        $directories = config('mandate.discovery.roles', []);
 
         if (! empty($directories)) {
             $basePath = array_keys($directories)[0];

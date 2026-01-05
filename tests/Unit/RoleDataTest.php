@@ -193,7 +193,7 @@ test('it checks if has permission (direct)', function () {
         inheritedPermissions: ['view users'],
     );
 
-    expect($data->hasPermission('delete users'))->toBeTrue();
+    expect($data->granted('delete users'))->toBeTrue();
 });
 
 test('it checks if has permission (inherited)', function () {
@@ -204,7 +204,7 @@ test('it checks if has permission (inherited)', function () {
         inheritedPermissions: ['view users'],
     );
 
-    expect($data->hasPermission('view users'))->toBeTrue();
+    expect($data->granted('view users'))->toBeTrue();
 });
 
 test('it returns false for non-existent permission', function () {
@@ -215,7 +215,7 @@ test('it returns false for non-existent permission', function () {
         inheritedPermissions: ['view users'],
     );
 
-    expect($data->hasPermission('fly'))->toBeFalse();
+    expect($data->granted('fly'))->toBeFalse();
 });
 
 test('it identifies inherited permissions', function () {

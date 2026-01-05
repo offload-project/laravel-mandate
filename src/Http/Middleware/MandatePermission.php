@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate\Http\Middleware;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use OffloadProject\Mandate\Facades\Mandate;
 use Symfony\Component\HttpFoundation\Response;
@@ -38,8 +39,12 @@ final class MandatePermission
     {
         $user = $request->user();
 
-        if (! $user) {
+        if ($user === null) {
             abort(403, 'Unauthorized.');
+        }
+
+        if (! $user instanceof Model) {
+            abort(403, 'Invalid user type for permission check.');
         }
 
         foreach ($permissions as $permission) {

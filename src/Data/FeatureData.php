@@ -51,13 +51,61 @@ final class FeatureData extends Data
     }
 
     /**
+     * Create from a cached array.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        $permissions = array_map(
+            fn (array $p) => PermissionData::fromArray($p),
+            $data['permissions'] ?? []
+        );
+
+        $roles = array_map(
+            fn (array $r) => RoleData::fromArray($r),
+            $data['roles'] ?? []
+        );
+
+        return new self(
+            class: $data['class'],
+            name: $data['name'],
+            label: $data['label'],
+            description: $data['description'] ?? null,
+            active: $data['active'] ?? null,
+            permissions: $permissions,
+            roles: $roles,
+            metadata: $data['metadata'] ?? [],
+        );
+    }
+
+    /**
+     * Create a copy with updated active status.
+     */
+    public function withActive(?bool $active): self
+    {
+        return new self(
+            class: $this->class,
+            name: $this->name,
+            label: $this->label,
+            description: $this->description,
+            active: $active,
+            permissions: $this->permissions,
+            roles: $this->roles,
+            metadata: $this->metadata,
+        );
+    }
+
+    /**
      * Generate a name from class name.
      */
     private static function generateName(string $class): string
     {
         $className = class_basename($class);
+        $withoutFeature = str_replace('Feature', '', $className);
+        $result = preg_replace('/([a-z])([A-Z])/', '$1-$2', $withoutFeature);
 
-        return mb_strtolower(preg_replace('/([a-z])([A-Z])/', '$1-$2', str_replace('Feature', '', $className)));
+        return mb_strtolower($result ?? $withoutFeature);
     }
 
     /**
@@ -66,7 +114,9 @@ final class FeatureData extends Data
     private static function generateLabel(string $class): string
     {
         $className = class_basename($class);
+        $withoutFeature = str_replace('Feature', '', $className);
+        $result = preg_replace('/([a-z])([A-Z])/', '$1 $2', $withoutFeature);
 
-        return ucwords(preg_replace('/([a-z])([A-Z])/', '$1 $2', str_replace('Feature', '', $className)));
+        return ucwords($result ?? $withoutFeature);
     }
 }

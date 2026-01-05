@@ -6,13 +6,13 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
-use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
+use OffloadProject\Mandate\Concerns\CachesRegistryData;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Data\PermissionData;
+use OffloadProject\Mandate\Support\PennantHelper;
 use OffloadProject\Mandate\Support\WildcardMatcher;
 use ReflectionClass;
 use ReflectionClassConstant;
@@ -22,12 +22,12 @@ use ReflectionClassConstant;
  */
 final class PermissionRegistry implements PermissionRegistryContract
 {
+    /** @use CachesRegistryData<PermissionData> */
+    use CachesRegistryData;
+
     use DiscoversClasses;
 
     public const CACHE_KEY = 'mandate.permissions';
-
-    /** @var Collection<int, PermissionData>|null */
-    private ?Collection $cachedPermissions = null;
 
     /** @var array<string, string>|null Map of permission name to feature class */
     private ?array $featureMap = null;
@@ -43,27 +43,13 @@ final class PermissionRegistry implements PermissionRegistryContract
      */
     public function all(): Collection
     {
-        if ($this->cachedPermissions !== null) {
-            return $this->cachedPermissions;
-        }
-
-        $ttl = config('mandate.cache.ttl', 3600);
-
-        if ($ttl > 0) {
-            /** @var array<int, array<string, mixed>> $cached */
-            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
-            $this->cachedPermissions = collect($cached)->map(fn (array $item) => new PermissionData(...$item));
-        } else {
-            $this->cachedPermissions = $this->discover();
-        }
-
-        return $this->cachedPermissions;
+        return $this->getCachedData();
     }
 
     /**
      * Get permissions with active status for a specific model.
      *
-     * Uses batch feature flag checking for improved performance.
+     * Uses batch feature flag checking and preloaded permissions for improved performance.
      *
      * @return Collection<int, PermissionData>
      */
@@ -74,13 +60,12 @@ final class PermissionRegistry implements PermissionRegistryContract
         // Batch check all unique features for better performance
         $featureStatuses = $this->batchCheckFeatures($model, $permissions);
 
-        return $permissions->map(function (PermissionData $permission) use ($model, $featureStatuses) {
-            // Check if permission is assigned via our traits
-            $isGranted = method_exists($model, 'granted')
-                ? $model->granted($permission->name)
-                : false;
+        // Preload granted permission names once to avoid N+1 queries
+        $grantedNames = $this->getGrantedPermissionNames($model);
 
-            // Get feature status from batch results
+        return $permissions->map(function (PermissionData $permission) use ($grantedNames, $featureStatuses) {
+            $isGranted = $grantedNames->contains($permission->name);
+
             $featureActive = null;
             if ($permission->feature !== null) {
                 $featureActive = $featureStatuses[$permission->feature] ?? null;
@@ -119,7 +104,6 @@ final class PermissionRegistry implements PermissionRegistryContract
      */
     public function can(Model $model, string $permission): bool
     {
-        // Check if this is a wildcard pattern
         if (WildcardMatcher::isWildcard($permission)) {
             return $this->canWithWildcard($model, $permission);
         }
@@ -127,7 +111,6 @@ final class PermissionRegistry implements PermissionRegistryContract
         $permissionData = $this->forModel($model)->firstWhere('name', $permission);
 
         if ($permissionData === null) {
-            // Fall back to direct check for permissions not in registry
             return method_exists($model, 'granted') && $model->granted($permission);
         }
 
@@ -175,10 +158,27 @@ final class PermissionRegistry implements PermissionRegistryContract
      */
     public function clearCache(): void
     {
-        $this->cachedPermissions = null;
         $this->featureMap = null;
-        Cache::forget(self::CACHE_KEY);
+        $this->clearCachedData();
         WildcardMatcher::clearCache();
+    }
+
+    /**
+     * Get the cache key for this registry.
+     */
+    protected function getCacheKey(): string
+    {
+        return self::CACHE_KEY;
+    }
+
+    /**
+     * Hydrate a PermissionData from a cached array.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    protected function hydrateItem(array $item): PermissionData
+    {
+        return PermissionData::fromArray($item);
     }
 
     /**
@@ -186,7 +186,7 @@ final class PermissionRegistry implements PermissionRegistryContract
      *
      * @return Collection<int, PermissionData>
      */
-    private function discover(): Collection
+    protected function discover(): Collection
     {
         $permissions = $this->discoverFromDirectories(
             'mandate.discovery.permissions',
@@ -194,10 +194,33 @@ final class PermissionRegistry implements PermissionRegistryContract
             fn (string $class) => $this->extractFromClass($class)
         );
 
-        // Apply feature mappings from features
         $permissions = $this->applyFeatureMappings($permissions);
 
         return $permissions->unique('name')->values();
+    }
+
+    /**
+     * Get granted permission names for a model.
+     *
+     * @return Collection<int, string>
+     */
+    private function getGrantedPermissionNames(Model $model): Collection
+    {
+        if (method_exists($model, 'permissionNames')) {
+            /** @var array<string> $names */
+            $names = $model->permissionNames();
+
+            return collect($names);
+        }
+
+        if (method_exists($model, 'allPermissions')) {
+            /** @var Collection<int, \OffloadProject\Mandate\Contracts\PermissionContract> $permissions */
+            $permissions = $model->allPermissions();
+
+            return $permissions->pluck('name');
+        }
+
+        return collect();
     }
 
     /**
@@ -231,23 +254,7 @@ final class PermissionRegistry implements PermissionRegistryContract
             ->values()
             ->all();
 
-        if (empty($features)) {
-            return [];
-        }
-
-        // Check if Pennant is available
-        if (! class_exists(Feature::class)) {
-            // Return all features as inactive when Pennant is not installed
-            return array_fill_keys($features, false);
-        }
-
-        // Use Pennant's batch checking capability
-        $results = [];
-        foreach ($features as $feature) {
-            $results[$feature] = Feature::for($model)->active($feature);
-        }
-
-        return $results;
+        return PennantHelper::batchCheck($model, $features);
     }
 
     /**

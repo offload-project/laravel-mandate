@@ -46,6 +46,9 @@ trait HasPermissions
 
     /**
      * Check if the model has been granted a specific permission.
+     *
+     * This method is feature-aware - if a permission is gated by a feature,
+     * it will return false if the feature is inactive for this user.
      */
     public function granted(
         string|PermissionContract $permission,
@@ -54,14 +57,19 @@ trait HasPermissions
     ): bool {
         $permissionName = $this->resolvePermissionName($permission);
 
-        // Check with wildcards if enabled
-        if (config('mandate.wildcards', false)) {
-            return $this->grantedPermissionWithWildcard($permissionName, $scope, $contextModel);
+        // First check if user has the permission in the database
+        $hasPermission = config('mandate.wildcards', false)
+            ? $this->grantedPermissionWithWildcard($permissionName, $scope, $contextModel)
+            : $this->getPermissionsQuery($scope, $contextModel)
+                ->where('name', $permissionName)
+                ->exists();
+
+        if (! $hasPermission) {
+            return false;
         }
 
-        return $this->getPermissionsQuery($scope, $contextModel)
-            ->where('name', $permissionName)
-            ->exists();
+        // Check if permission is feature-gated
+        return $this->isPermissionFeatureActive($permissionName);
     }
 
     /**
@@ -89,17 +97,21 @@ trait HasPermissions
      * @param  iterable<string|PermissionContract>  $permissions
      */
     public function grantedAllPermissions(
-        iterable $permissions,
+        iterable $permissions = [],
         ?string $scope = null,
         Model|string|null $contextModel = null,
     ): bool {
+        $hasPermissions = false;
+
         foreach ($permissions as $permission) {
+            $hasPermissions = true;
             if (! $this->granted($permission, $scope, $contextModel)) {
                 return false;
             }
         }
 
-        return true;
+        // Return false for empty array (not vacuous truth)
+        return $hasPermissions;
     }
 
     /**
@@ -183,6 +195,25 @@ trait HasPermissions
     public function allPermissions(): Collection
     {
         return $this->permissions;
+    }
+
+    /**
+     * Check if the feature for a permission is active.
+     */
+    protected function isPermissionFeatureActive(string $permissionName): bool
+    {
+        $permissionRegistry = app(\OffloadProject\Mandate\Contracts\PermissionRegistryContract::class);
+        $permissionData = $permissionRegistry->find($permissionName);
+
+        // If permission not in registry or has no feature gate, allow it
+        if ($permissionData === null || $permissionData->feature === null) {
+            return true;
+        }
+
+        // Check if the feature is active for this user
+        $featureRegistry = app(\OffloadProject\Mandate\Contracts\FeatureRegistryContract::class);
+
+        return $featureRegistry->isActive($this, $permissionData->feature);
     }
 
     /**
@@ -287,6 +318,8 @@ trait HasPermissions
     /**
      * Resolve permissions to a collection of Permission models.
      *
+     * Uses batch querying for better performance when resolving multiple permissions.
+     *
      * @param  string|iterable<string|PermissionContract>|PermissionContract  $permissions
      * @return Collection<int, PermissionContract&Model>
      */
@@ -303,21 +336,31 @@ trait HasPermissions
         /** @var class-string<PermissionContract&Model> $permissionClass */
         $permissionClass = config('mandate.models.permission', Permission::class);
 
-        $resolved = collect();
         $guardName = $this->getGuardName();
+
+        // Separate models from names for batch processing
+        $models = collect();
+        $names = [];
 
         foreach ($permissions as $permission) {
             if ($permission instanceof PermissionContract) {
-                $resolved->push($permission);
+                $models->push($permission);
             } else {
-                $model = $permissionClass::findByName($permission, $guardName);
-                if ($model !== null) {
-                    $resolved->push($model);
-                }
+                $names[] = $permission;
             }
         }
 
-        return $resolved;
+        // Batch query all permission names at once
+        if (! empty($names)) {
+            $foundPermissions = $permissionClass::query()
+                ->whereIn('name', $names)
+                ->where('guard_name', $guardName)
+                ->get();
+
+            $models = $models->merge($foundPermissions);
+        }
+
+        return $models;
     }
 
     /**

@@ -22,7 +22,7 @@ use Throwable;
 /**
  * Handles syncing permissions, roles, and features to the database.
  */
-final class DatabaseSyncer
+final class DatabaseSyncer implements \OffloadProject\Mandate\Contracts\DatabaseSyncerContract
 {
     /**
      * Sync permissions to the database.

@@ -70,6 +70,27 @@ final class PermissionData extends Data
     }
 
     /**
+     * Create from a cached array.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function fromArray(array $data): self
+    {
+        return new self(
+            name: $data['name'],
+            label: $data['label'],
+            description: $data['description'] ?? null,
+            set: $data['set'] ?? null,
+            guard: $data['guard'] ?? null,
+            scope: $data['scope'] ?? null,
+            feature: $data['feature'] ?? null,
+            active: $data['active'] ?? null,
+            featureActive: $data['featureActive'] ?? null,
+            metadata: $data['metadata'] ?? [],
+        );
+    }
+
+    /**
      * Check if this permission is available (feature is active or no feature required).
      */
     public function isAvailable(): bool

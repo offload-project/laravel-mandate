@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate\Http\Middleware;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use OffloadProject\Mandate\Support\PennantHelper;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -34,8 +36,12 @@ final class MandateFeature
     {
         $user = $request->user();
 
-        if (! $user) {
+        if ($user === null) {
             abort(403, 'Unauthorized.');
+        }
+
+        if (! $user instanceof Model) {
+            abort(403, 'Invalid user type for feature check.');
         }
 
         // Check using the model's hasAccess if it uses UsesFeatures trait
@@ -48,8 +54,8 @@ final class MandateFeature
         }
 
         // Fall back to Pennant if available
-        if (class_exists(\Laravel\Pennant\Feature::class)) {
-            if (! \Laravel\Pennant\Feature::for($user)->active($feature)) {
+        if (PennantHelper::available()) {
+            if (! PennantHelper::isActive($user, $feature)) {
                 abort(403, 'This feature is not available.');
             }
 

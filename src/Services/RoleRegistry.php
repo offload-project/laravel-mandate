@@ -6,13 +6,14 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use OffloadProject\Mandate\Attributes\RoleSet;
+use OffloadProject\Mandate\Concerns\CachesRegistryData;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
 use OffloadProject\Mandate\Data\RoleData;
+use OffloadProject\Mandate\Support\PennantHelper;
 use OffloadProject\Mandate\Support\WildcardMatcher;
 use ReflectionClass;
 use ReflectionClassConstant;
@@ -22,12 +23,12 @@ use ReflectionClassConstant;
  */
 final class RoleRegistry implements RoleRegistryContract
 {
+    /** @use CachesRegistryData<RoleData> */
+    use CachesRegistryData;
+
     use DiscoversClasses;
 
     public const CACHE_KEY = 'mandate.roles';
-
-    /** @var Collection<int, RoleData>|null */
-    private ?Collection $cachedRoles = null;
 
     /** @var array<string, string>|null Map of role name to feature class */
     private ?array $featureMap = null;
@@ -44,27 +45,13 @@ final class RoleRegistry implements RoleRegistryContract
      */
     public function all(): Collection
     {
-        if ($this->cachedRoles !== null) {
-            return $this->cachedRoles;
-        }
-
-        $ttl = config('mandate.cache.ttl', 3600);
-
-        if ($ttl > 0) {
-            /** @var array<int, array<string, mixed>> $cached */
-            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
-            $this->cachedRoles = collect($cached)->map(fn (array $item) => new RoleData(...$item));
-        } else {
-            $this->cachedRoles = $this->discover();
-        }
-
-        return $this->cachedRoles;
+        return $this->getCachedData();
     }
 
     /**
      * Get roles with active status for a specific model.
      *
-     * Uses batch feature flag checking for improved performance.
+     * Uses batch feature flag checking and preloaded roles for improved performance.
      *
      * @return Collection<int, RoleData>
      */
@@ -75,13 +62,12 @@ final class RoleRegistry implements RoleRegistryContract
         // Batch check all unique features for better performance
         $featureStatuses = $this->batchCheckFeatures($model, $roles);
 
-        return $roles->map(function (RoleData $role) use ($model, $featureStatuses) {
-            // Check if role is assigned via our traits
-            $isAssigned = method_exists($model, 'assignedRole')
-                ? $model->assignedRole($role->name)
-                : false;
+        // Preload assigned role names once to avoid N+1 queries
+        $assignedNames = $this->getAssignedRoleNames($model);
 
-            // Get feature status from batch results
+        return $roles->map(function (RoleData $role) use ($assignedNames, $featureStatuses) {
+            $isAssigned = $assignedNames->contains($role->name);
+
             $featureActive = null;
             if ($role->feature !== null) {
                 $featureActive = $featureStatuses[$role->feature] ?? null;
@@ -119,7 +105,6 @@ final class RoleRegistry implements RoleRegistryContract
         $roleData = $this->forModel($model)->firstWhere('name', $role);
 
         if ($roleData === null) {
-            // Fall back to direct check
             return method_exists($model, 'assignedRole') && $model->assignedRole($role);
         }
 
@@ -197,9 +182,26 @@ final class RoleRegistry implements RoleRegistryContract
      */
     public function clearCache(): void
     {
-        $this->cachedRoles = null;
         $this->featureMap = null;
-        Cache::forget(self::CACHE_KEY);
+        $this->clearCachedData();
+    }
+
+    /**
+     * Get the cache key for this registry.
+     */
+    protected function getCacheKey(): string
+    {
+        return self::CACHE_KEY;
+    }
+
+    /**
+     * Hydrate a RoleData from a cached array.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    protected function hydrateItem(array $item): RoleData
+    {
+        return RoleData::fromArray($item);
     }
 
     /**
@@ -207,7 +209,7 @@ final class RoleRegistry implements RoleRegistryContract
      *
      * @return Collection<int, RoleData>
      */
-    private function discover(): Collection
+    protected function discover(): Collection
     {
         $roles = $this->discoverFromDirectories(
             'mandate.discovery.roles',
@@ -215,16 +217,35 @@ final class RoleRegistry implements RoleRegistryContract
             fn (string $class) => $this->extractFromClass($class)
         );
 
-        // Apply feature mappings from features
         $roles = $this->applyFeatureMappings($roles);
-
-        // Apply permission mappings from config
         $roles = $this->applyPermissionMappings($roles);
-
-        // Resolve role hierarchy and inherited permissions
         $roles = $this->hierarchyResolver->resolve($roles);
 
         return $roles->unique('name')->values();
+    }
+
+    /**
+     * Get assigned role names for a model.
+     *
+     * @return Collection<int, string>
+     */
+    private function getAssignedRoleNames(Model $model): Collection
+    {
+        if (method_exists($model, 'roleNames')) {
+            /** @var array<string> $names */
+            $names = $model->roleNames();
+
+            return collect($names);
+        }
+
+        if (method_exists($model, 'roles')) {
+            /** @var \Illuminate\Database\Eloquent\Relations\MorphToMany $relation */
+            $relation = $model->roles();
+
+            return $relation->pluck('name');
+        }
+
+        return collect();
     }
 
     /**
@@ -242,23 +263,7 @@ final class RoleRegistry implements RoleRegistryContract
             ->values()
             ->all();
 
-        if (empty($features)) {
-            return [];
-        }
-
-        // Check if Pennant is available
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            // Return all features as inactive when Pennant is not installed
-            return array_fill_keys($features, false);
-        }
-
-        // Use Pennant's batch checking capability
-        $results = [];
-        foreach ($features as $feature) {
-            $results[$feature] = \Laravel\Pennant\Feature::for($model)->active($feature);
-        }
-
-        return $results;
+        return PennantHelper::batchCheck($model, $features);
     }
 
     /**
@@ -353,11 +358,10 @@ final class RoleRegistry implements RoleRegistryContract
     private function resolvePermissions(array $items): array
     {
         $permissions = [];
-        $allPermissionNames = null; // Lazy-load for performance
+        $allPermissionNames = null;
 
         foreach ($items as $item) {
             if (is_string($item) && class_exists($item)) {
-                // Permission class - include all public string constants
                 $reflection = new ReflectionClass($item);
                 $constants = $reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC);
 
@@ -369,14 +373,12 @@ final class RoleRegistry implements RoleRegistryContract
                 }
             } elseif (is_string($item)) {
                 if (WildcardMatcher::isWildcard($item)) {
-                    // Wildcard pattern - expand to matching permissions
                     if ($allPermissionNames === null) {
                         $allPermissionNames = $this->getAllPermissionNames();
                     }
                     $expanded = WildcardMatcher::expand($item, $allPermissionNames);
                     $permissions = array_merge($permissions, $expanded);
                 } else {
-                    // String permission name
                     $permissions[] = $item;
                 }
             }

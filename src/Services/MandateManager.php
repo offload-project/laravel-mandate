@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use OffloadProject\Mandate\Contracts\DatabaseSyncerContract;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
 use OffloadProject\Mandate\Contracts\RoleRegistryContract;
@@ -16,6 +17,7 @@ use OffloadProject\Mandate\Events\MandateSynced;
 use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
 use OffloadProject\Mandate\Support\ModelScope;
+use OffloadProject\Mandate\Support\PennantHelper;
 
 /**
  * Main Mandate service for managing feature-flag aware permissions and roles.
@@ -26,7 +28,7 @@ final class MandateManager
         private readonly FeatureRegistryContract $features,
         private readonly PermissionRegistryContract $permissions,
         private readonly RoleRegistryContract $roleRegistry,
-        private readonly DatabaseSyncer $syncer,
+        private readonly DatabaseSyncerContract $syncer,
     ) {}
 
     /**
@@ -146,11 +148,7 @@ final class MandateManager
      */
     public function enableFeature(Model|string $scope, string $feature): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::for($scope)->activate($feature);
+        PennantHelper::activate($scope, $feature);
     }
 
     /**
@@ -158,11 +156,7 @@ final class MandateManager
      */
     public function disableFeature(Model|string $scope, string $feature): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::for($scope)->deactivate($feature);
+        PennantHelper::deactivate($scope, $feature);
     }
 
     /**
@@ -170,11 +164,7 @@ final class MandateManager
      */
     public function enableForAll(string $feature): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::activateForEveryone($feature);
+        PennantHelper::activateForEveryone($feature);
     }
 
     /**
@@ -182,11 +172,7 @@ final class MandateManager
      */
     public function disableForAll(string $feature): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::deactivateForEveryone($feature);
+        PennantHelper::deactivateForEveryone($feature);
     }
 
     /**
@@ -196,11 +182,7 @@ final class MandateManager
      */
     public function purgeFeature(string|array $features): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::purge($features);
+        PennantHelper::purge($features);
     }
 
     /**
@@ -208,11 +190,7 @@ final class MandateManager
      */
     public function forgetFeature(Model|string $scope, string $feature): void
     {
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return;
-        }
-
-        \Laravel\Pennant\Feature::for($scope)->forget($feature);
+        PennantHelper::forget($scope, $feature);
     }
 
     /**

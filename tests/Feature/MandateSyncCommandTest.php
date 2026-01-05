@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Services\MandateManager;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     app(MandateManager::class)->clearCache();
@@ -34,7 +34,7 @@ test('mandate:sync command creates roles on first run', function () {
 
 test('mandate:sync --seed syncs permissions to existing roles', function () {
     // First, create roles manually without permissions
-    Role::create(['name' => 'admin', 'guard_name' => 'web']);
+    Role::createRole(['name' => 'admin', 'guard_name' => 'web']);
 
     // Run sync without seed - admin should have no permissions
     $this->artisan('mandate:sync')
@@ -48,8 +48,8 @@ test('mandate:sync --seed syncs permissions to existing roles', function () {
     $this->artisan('mandate:sync --seed')
         ->assertSuccessful();
 
-    // Clear Spatie cache
-    app()[Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+    // Clear cache
+    app(MandateManager::class)->clearCache();
 
     // Admin should now have permissions
     $adminRole->refresh();

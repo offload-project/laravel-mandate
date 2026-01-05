@@ -6,14 +6,15 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 use OffloadProject\Hoist\Services\FeatureDiscovery;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
+use OffloadProject\Mandate\Concerns\CachesRegistryData;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
 use OffloadProject\Mandate\Data\FeatureData;
 use OffloadProject\Mandate\Data\PermissionData;
 use OffloadProject\Mandate\Data\RoleData;
+use OffloadProject\Mandate\Support\PennantHelper;
 use ReflectionClass;
 use ReflectionClassConstant;
 
@@ -22,10 +23,10 @@ use ReflectionClassConstant;
  */
 final class FeatureRegistry implements FeatureRegistryContract
 {
-    public const CACHE_KEY = 'mandate.features';
+    /** @use CachesRegistryData<FeatureData> */
+    use CachesRegistryData;
 
-    /** @var Collection<int, FeatureData>|null */
-    private ?Collection $cachedFeatures = null;
+    public const CACHE_KEY = 'mandate.features';
 
     public function __construct(
         private readonly FeatureDiscovery $discovery,
@@ -38,21 +39,7 @@ final class FeatureRegistry implements FeatureRegistryContract
      */
     public function all(): Collection
     {
-        if ($this->cachedFeatures !== null) {
-            return $this->cachedFeatures;
-        }
-
-        $ttl = config('mandate.cache.ttl', 3600);
-
-        if ($ttl > 0) {
-            /** @var array<int, array<string, mixed>> $cached */
-            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
-            $this->cachedFeatures = collect($cached)->map(fn (array $item) => $this->hydrateFeatureData($item));
-        } else {
-            $this->cachedFeatures = $this->discover();
-        }
-
-        return $this->cachedFeatures;
+        return $this->getCachedData();
     }
 
     /**
@@ -62,19 +49,16 @@ final class FeatureRegistry implements FeatureRegistryContract
      */
     public function forModel(Model $model): Collection
     {
-        return $this->all()->map(function (FeatureData $feature) use ($model) {
-            $active = $this->isActive($model, $feature->class);
+        $features = $this->all();
 
-            return new FeatureData(
-                class: $feature->class,
-                name: $feature->name,
-                label: $feature->label,
-                description: $feature->description,
-                active: $active,
-                permissions: $feature->permissions,
-                roles: $feature->roles,
-                metadata: $feature->metadata,
-            );
+        // Batch check all features for better performance
+        $featureClasses = $features->pluck('class')->all();
+        $featureStatuses = PennantHelper::batchCheck($model, $featureClasses);
+
+        return $features->map(function (FeatureData $feature) use ($featureStatuses) {
+            $active = $featureStatuses[$feature->class] ?? false;
+
+            return $feature->withActive($active);
         });
     }
 
@@ -95,7 +79,7 @@ final class FeatureRegistry implements FeatureRegistryContract
     {
         $feature = $this->find($class);
 
-        return collect($feature->permissions ?? []);
+        return collect($feature !== null ? $feature->permissions : []);
     }
 
     /**
@@ -107,7 +91,7 @@ final class FeatureRegistry implements FeatureRegistryContract
     {
         $feature = $this->find($class);
 
-        return collect($feature->roles ?? []);
+        return collect($feature !== null ? $feature->roles : []);
     }
 
     /**
@@ -115,12 +99,7 @@ final class FeatureRegistry implements FeatureRegistryContract
      */
     public function isActive(Model $model, string $class): bool
     {
-        // Check if Pennant is available
-        if (! class_exists(\Laravel\Pennant\Feature::class)) {
-            return false;
-        }
-
-        return \Laravel\Pennant\Feature::for($model)->active($class);
+        return PennantHelper::isActive($model, $class);
     }
 
     /**
@@ -128,8 +107,25 @@ final class FeatureRegistry implements FeatureRegistryContract
      */
     public function clearCache(): void
     {
-        $this->cachedFeatures = null;
-        Cache::forget(self::CACHE_KEY);
+        $this->clearCachedData();
+    }
+
+    /**
+     * Get the cache key for this registry.
+     */
+    protected function getCacheKey(): string
+    {
+        return self::CACHE_KEY;
+    }
+
+    /**
+     * Hydrate a FeatureData from a cached array.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    protected function hydrateItem(array $item): FeatureData
+    {
+        return FeatureData::fromArray($item);
     }
 
     /**
@@ -137,11 +133,10 @@ final class FeatureRegistry implements FeatureRegistryContract
      *
      * @return Collection<int, FeatureData>
      */
-    private function discover(): Collection
+    protected function discover(): Collection
     {
         $features = collect();
 
-        // Discover features via Hoist
         foreach ($this->discovery->discover() as $featureClass) {
             $feature = $this->buildFeatureData($featureClass);
             if ($feature !== null) {
@@ -150,36 +145,6 @@ final class FeatureRegistry implements FeatureRegistryContract
         }
 
         return $features;
-    }
-
-    /**
-     * Hydrate a FeatureData from a cached array.
-     *
-     * @param  array<string, mixed>  $item
-     */
-    private function hydrateFeatureData(array $item): FeatureData
-    {
-        // Hydrate nested PermissionData and RoleData
-        $permissions = array_map(
-            fn (array $p) => new PermissionData(...$p),
-            $item['permissions'] ?? []
-        );
-
-        $roles = array_map(
-            fn (array $r) => new RoleData(...$r),
-            $item['roles'] ?? []
-        );
-
-        return new FeatureData(
-            class: $item['class'],
-            name: $item['name'],
-            label: $item['label'],
-            description: $item['description'] ?? null,
-            active: $item['active'] ?? null,
-            permissions: $permissions,
-            roles: $roles,
-            metadata: $item['metadata'] ?? [],
-        );
     }
 
     /**
@@ -193,10 +158,7 @@ final class FeatureRegistry implements FeatureRegistryContract
 
         $instance = new $featureClass;
 
-        // Extract permissions from the feature
         $permissions = $this->extractPermissions($instance);
-
-        // Extract roles from the feature
         $roles = $this->extractRoles($instance);
 
         return FeatureData::fromFeature($instance, $permissions, $roles);
@@ -218,7 +180,6 @@ final class FeatureRegistry implements FeatureRegistryContract
 
         foreach ($defined as $item) {
             if (is_string($item) && class_exists($item)) {
-                // Check if it's a permission class
                 $reflection = new ReflectionClass($item);
                 if (! empty($reflection->getAttributes(PermissionsSet::class))) {
                     $constants = $reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC);
@@ -229,7 +190,6 @@ final class FeatureRegistry implements FeatureRegistryContract
                     }
                 }
             } elseif (is_string($item)) {
-                // String permission name
                 $permissions[] = PermissionData::simple($item);
             }
         }
@@ -253,7 +213,6 @@ final class FeatureRegistry implements FeatureRegistryContract
 
         foreach ($defined as $item) {
             if (is_string($item) && class_exists($item)) {
-                // Check if it's a role class
                 $reflection = new ReflectionClass($item);
                 if (! empty($reflection->getAttributes(RoleSet::class))) {
                     $constants = $reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC);

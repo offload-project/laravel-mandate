@@ -6,11 +6,11 @@ namespace OffloadProject\Mandate\Tests;
 
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Pennant\PennantServiceProvider;
 use OffloadProject\Hoist\HoistServiceProvider;
 use OffloadProject\Mandate\MandateServiceProvider;
 use OffloadProject\Mandate\Tests\Fixtures\Permissions\UserPermissions;
 use Orchestra\Testbench\TestCase as BaseTestCase;
-use Spatie\Permission\PermissionServiceProvider;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -26,16 +26,16 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         // Configure mandate to use test fixtures
-        config()->set('mandate.permission_directories', [
+        config()->set('mandate.discovery.permissions', [
             __DIR__ . '/Fixtures/Permissions' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Permissions',
         ]);
 
-        config()->set('mandate.role_directories', [
+        config()->set('mandate.discovery.roles', [
             __DIR__ . '/Fixtures/Roles' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Roles',
         ]);
 
         // Configure role permissions mapping
-        config()->set('mandate.role_permissions', [
+        config()->set('mandate-seed.role_permissions', [
             'admin' => [
                 UserPermissions::class,
             ],
@@ -48,7 +48,7 @@ abstract class TestCase extends BaseTestCase
     protected function getPackageProviders($app): array
     {
         return [
-            PermissionServiceProvider::class,
+            PennantServiceProvider::class,
             HoistServiceProvider::class,
             MandateServiceProvider::class,
         ];
@@ -76,13 +76,16 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         // Enable wildcard permissions
-        $app['config']->set('mandate.wildcard_permissions', true);
-        $app['config']->set('permission.enable_wildcard_permission', true);
+        $app['config']->set('mandate.wildcards', true);
+
+        // Configure Pennant to use array driver (in-memory for tests)
+        $app['config']->set('pennant.default', 'array');
+        $app['config']->set('pennant.stores.array', ['driver' => 'array']);
     }
 
     protected function defineDatabaseMigrations(): void
     {
-        // Run Spatie permission migrations
-        $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
+        // Load the package migrations
+        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
     }
 }

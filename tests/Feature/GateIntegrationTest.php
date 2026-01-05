@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Gate;
 use OffloadProject\Mandate\Services\MandateManager;
 use OffloadProject\Mandate\Tests\Fixtures\TestUser;
-use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     // Configure Pennant to use array driver (in-memory)
@@ -35,14 +34,17 @@ describe('Gate Integration Disabled', function () {
 
         // Create user with permission
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.view');
+        $user->grant('users.view');
 
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
-        // Gate check should go through Spatie directly (returns true)
         // Since gate_integration is disabled, Mandate's Gate::before is not registered
-        expect(Gate::forUser($user)->allows('users.view'))->toBeTrue();
+        // So Gate::allows should return false (no ability defined)
+        expect(Gate::forUser($user)->allows('users.view'))->toBeFalse();
+
+        // But the user still has the permission through Mandate's direct API
+        expect($user->granted('users.view'))->toBeTrue();
     });
 });
 
@@ -68,9 +70,9 @@ describe('Gate Integration Enabled', function () {
 
         // Create user with permission
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.view');
+        $user->grant('users.view');
 
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Gate check should work through Mandate
@@ -94,9 +96,9 @@ describe('Gate Integration Enabled', function () {
 
         // Create user with permission
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.view');
+        $user->grant('users.view');
 
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // $user->can() should work

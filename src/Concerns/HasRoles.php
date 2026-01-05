@@ -94,13 +94,17 @@ trait HasRoles
         ?string $scope = null,
         Model|string|null $contextModel = null,
     ): bool {
+        $hasRoles = false;
+
         foreach ($roles as $role) {
+            $hasRoles = true;
             if (! $this->assignedRole($role, $scope, $contextModel)) {
                 return false;
             }
         }
 
-        return true;
+        // Return false for empty array (not vacuous truth)
+        return $hasRoles;
     }
 
     /**

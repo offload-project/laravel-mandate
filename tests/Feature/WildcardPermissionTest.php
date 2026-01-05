@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 use Illuminate\Http\Request;
 use OffloadProject\Mandate\Http\Middleware\MandatePermission;
+use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Services\MandateManager;
 use OffloadProject\Mandate\Tests\Fixtures\TestUser;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     // Clear caches
@@ -19,7 +18,7 @@ describe('Wildcard Config Expansion', function () {
         $mandate = app(MandateManager::class);
 
         // Configure admin role with a wildcard permission for users.*
-        config()->set('mandate.role_permissions', [
+        config()->set('mandate-seed.role_permissions', [
             'admin' => ['users.*'],
         ]);
 
@@ -46,7 +45,7 @@ describe('Wildcard Config Expansion', function () {
         $mandate = app(MandateManager::class);
 
         // Configure viewer role with a wildcard permission for *.view
-        config()->set('mandate.role_permissions', [
+        config()->set('mandate-seed.role_permissions', [
             'viewer' => ['*.view'],
         ]);
 
@@ -74,7 +73,7 @@ describe('Wildcard Config Expansion', function () {
         $mandate = app(MandateManager::class);
 
         // Configure editor role with both wildcard and explicit permissions
-        config()->set('mandate.role_permissions', [
+        config()->set('mandate-seed.role_permissions', [
             'editor' => [
                 '*.view',              // All view permissions
                 'posts.create',        // Plus explicit posts.create
@@ -123,11 +122,10 @@ describe('Wildcard Permission Checks', function () {
         $user = TestUser::create(['email' => 'test@example.com']);
 
         // Assign only users.view permission
-        $permission = Permission::findByName('users.view', 'web');
-        $user->givePermissionTo($permission);
+        $user->grant('users.view');
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Check wildcard - should match because user has users.view
@@ -144,10 +142,10 @@ describe('Wildcard Permission Checks', function () {
         $user = TestUser::create(['email' => 'test@example.com']);
 
         // Assign users.view and posts.view permissions
-        $user->givePermissionTo(['users.view', 'posts.view']);
+        $user->grant(['users.view', 'posts.view']);
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Check wildcard - should match
@@ -162,10 +160,10 @@ describe('Wildcard Permission Checks', function () {
 
         // Create user with posts permissions only
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo(['posts.view', 'posts.create']);
+        $user->grant(['posts.view', 'posts.create']);
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // users.* should not match
@@ -177,10 +175,10 @@ describe('Wildcard Permission Checks', function () {
 
         // Create user
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.view');
+        $user->grant('users.view');
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Exact match should work
@@ -210,10 +208,10 @@ describe('Wildcard Middleware', function () {
     it('allows access when user has matching wildcard permission', function () {
         // Create user with users.view permission
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('users.view');
+        $user->grant('users.view');
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Create request with authenticated user
@@ -229,10 +227,10 @@ describe('Wildcard Middleware', function () {
     it('denies access when user lacks matching wildcard permission', function () {
         // Create user with posts permissions only
         $user = TestUser::create(['email' => 'test@example.com']);
-        $user->givePermissionTo('posts.view');
+        $user->grant('posts.view');
 
-        // Clear Spatie cache
-        app(Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        // Clear cache
+        app(MandateManager::class)->clearCache();
         $user = $user->fresh();
 
         // Create request with authenticated user

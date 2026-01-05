@@ -91,6 +91,15 @@ final class MandateServiceProvider extends ServiceProvider
      */
     private function configureHoist(): void
     {
+        // Only configure if features are enabled and hoist config isn't already set
+        if (! config('mandate.features.enabled', true)) {
+            return;
+        }
+
+        if (config()->has('hoist.feature_directories')) {
+            return;
+        }
+
         $featureDirectories = config('mandate.discovery.features', []);
         if (! empty($featureDirectories)) {
             config()->set('hoist.feature_directories', $featureDirectories);

@@ -6,6 +6,7 @@ parameters:
         - src
     level: 7
     tmpDir: /tmp/phpstan
+    reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         # Traits are meant to be used by package consumers
         - identifier: trait.unused

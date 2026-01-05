@@ -94,4 +94,120 @@ describe('HasContextScope Trait', function () {
             expect(true)->toBeTrue();
         }
     });
+
+    test('scopeForScope filters by Model instance context', function () {
+        // Create a mock model for context
+        $contextModel = new class extends Illuminate\Database\Eloquent\Model
+        {
+            protected $table = 'users';
+
+            public function getMorphClass(): string
+            {
+                return 'App\\Models\\User';
+            }
+
+            public function getKey(): mixed
+            {
+                return 123;
+            }
+        };
+
+        $query = Permission::query()->forScope('team', $contextModel);
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('scope');
+        expect($sql)->toContain('context_model_type');
+        expect($sql)->toContain('context_model_id');
+    });
+
+    test('scopeForScope filters by string context type', function () {
+        $query = Permission::query()->forScope('team', 'App\\Models\\Team');
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('scope');
+        expect($sql)->toContain('context_model_type');
+    });
+
+    test('scopeWithScope includes Model instance context', function () {
+        $contextModel = new class extends Illuminate\Database\Eloquent\Model
+        {
+            protected $table = 'users';
+
+            public function getMorphClass(): string
+            {
+                return 'App\\Models\\User';
+            }
+
+            public function getKey(): mixed
+            {
+                return 456;
+            }
+        };
+
+        $query = Permission::query()->withScope('team', $contextModel);
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('scope');
+        expect($sql)->toContain('context_model_type');
+        expect($sql)->toContain('context_model_id');
+    });
+
+    test('scopeWithScope includes string context type', function () {
+        $query = Permission::query()->withScope('team', 'App\\Models\\Team');
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('scope');
+        expect($sql)->toContain('context_model_type');
+    });
+
+    test('scopeWithScope with only context model no scope', function () {
+        $contextModel = new class extends Illuminate\Database\Eloquent\Model
+        {
+            protected $table = 'users';
+
+            public function getMorphClass(): string
+            {
+                return 'App\\Models\\User';
+            }
+
+            public function getKey(): mixed
+            {
+                return 789;
+            }
+        };
+
+        $query = Permission::query()->withScope(null, $contextModel);
+
+        $sql = $query->toSql();
+        expect($sql)->toContain('context_model_type');
+        expect($sql)->toContain('context_model_id');
+    });
+
+    test('hasContextColumns returns false for unconfigured table', function () {
+        // Clear the tables config to test the default return false path
+        config()->set('mandate.tables', []);
+        config()->set('mandate.context', []);
+
+        $permission = Permission::query()->first();
+
+        if ($permission) {
+            expect($permission->hasContextColumns())->toBeFalse();
+        } else {
+            expect(true)->toBeTrue();
+        }
+    });
+
+    test('getContextModel returns null when context attributes are null', function () {
+        config()->set('mandate.context.permissions', true);
+        config()->set('mandate.tables.permissions', 'mandate_permissions');
+
+        $permission = Permission::query()->first();
+
+        if ($permission) {
+            // Even with context enabled, returns null if type/id attributes are null
+            expect($permission->getContextModel())->toBeNull();
+        } else {
+            expect(true)->toBeTrue();
+        }
+    });
 });

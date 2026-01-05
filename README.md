@@ -7,39 +7,34 @@
 # Laravel Mandate
 
 A unified authorization management system for Laravel that brings together roles, permissions, and feature flags into a
-single, type-safe API. Built on [Spatie Laravel Permission](https://github.com/spatie/laravel-permission).
+single, type-safe API.
 
 ## Features
 
 - **Unified Authorization**: Manage roles, permissions, and feature access through a single API
 - **Type-Safe**: Class-based permissions and roles using constants with PHP attributes
 - **Role Hierarchy**: Define inheritance between roles - child roles automatically inherit parent permissions
-- **Feature-Gated Access**: Tie permissions and roles to feature flags - only active when the feature is enabled
+- **Feature-Gated Access**: Tie permissions and roles to feature flags via Laravel Pennant
 - **Auto-Discovery**: Automatically discover permission and role classes from configured directories
-- **Database Sync**: Sync discovered permissions and roles to Spatie's database tables with events
-- **Optional Metadata**: Store set, label, and description in the database for UI filtering
+- **Database Sync**: Sync discovered permissions and roles to the database with events
+- **Wildcard Permissions**: Support for wildcard patterns like `users.*` and `*.view`
+- **Context Support**: Optional scoped permissions/roles with context models
 - **Middleware**: Feature-aware route protection out of the box
 - **Events**: Listen to sync operations with `PermissionsSynced`, `RolesSynced`, and `MandateSynced` events
-- **TypeScript Export**: Generate TypeScript constants from your PHP permission/role classes for type-safe frontend
-  usage
+- **TypeScript Export**: Generate TypeScript constants from your PHP permission/role classes
 - **Testable**: Contracts/interfaces for all registries enable easy mocking in tests
 
 ## Requirements
 
 - PHP 8.4+
 - Laravel 11+
-- Spatie Laravel Permission 6.0+
+- [Laravel Pennant](https://laravel.com/docs/pennant) 1.0+ (for feature flag integration)
 
-### Works With
+### Optional
 
-Mandate integrates with these packages for optional feature flag support:
-
-- [Laravel Pennant](https://laravel.com/docs/pennant) 1.0+ - Gate permissions/roles behind feature flags
-- [Laravel Hoist](https://github.com/offload-project/laravel-hoist) 1.0+ - Enhanced feature flag management
+- [Laravel Hoist](https://github.com/offload-project/laravel-hoist) 1.0+ - Enhanced feature flag management with auto-discovery
 
 ## Installation
-
-> See the [Complete Setup Guide](docs/SETUP.md) for step-by-step instructions including all dependency setup.
 
 ```bash
 composer require offload-project/laravel-mandate
@@ -51,10 +46,10 @@ Publish the configuration:
 php artisan vendor:publish --tag=mandate-config
 ```
 
-Optionally, publish migrations if you want to store `set`, `label`, or `description` columns:
+Run migrations:
 
 ```bash
-php artisan vendor:publish --tag=mandate-migrations
+php artisan migrate
 ```
 
 ## Quick Start
@@ -62,7 +57,7 @@ php artisan vendor:publish --tag=mandate-migrations
 Add the `HasRoles` trait to your User model:
 
 ```php
-use Spatie\Permission\Traits\HasRoles;
+use OffloadProject\Mandate\Concerns\HasRoles;
 
 class User extends Authenticatable
 {
@@ -70,13 +65,10 @@ class User extends Authenticatable
 }
 ```
 
-> **Tip:** If you're using feature flags, see [HasMandateRoles Trait](#hasmandateroles-trait) for feature-aware
-> `$user->hasPermissionTo()` checks.
-
 Define roles and permissions in config:
 
 ```php
-// config/mandate.php
+// config/mandate-seed.php
 'role_permissions' => [
     'viewer' => [
         'users.view',
@@ -103,15 +95,18 @@ Then sync to database:
 php artisan mandate:sync --seed
 ```
 
-Assign roles/permissions using [Spatie's methods](https://spatie.be/docs/laravel-permission/v6/basic-usage/basic-usage):
+Assign roles and permissions:
 
 ```php
 $user->assignRole('editor');
-$user->givePermissionTo('posts.create');
+$user->grant('posts.create');
+
+// Check permissions
+$user->granted('posts.create');  // true
+$user->assignedRole('editor');   // true
 ```
 
-That's it! For type-safe constants and IDE autocompletion,
-see [Defining Classes](#defining-roles-and-permissions-using-classes).
+For type-safe constants and IDE autocompletion, see [Defining Classes](#defining-roles-and-permissions-using-classes).
 
 ## Defining Roles and Permissions Using Classes
 
@@ -184,7 +179,7 @@ With inheritance defined in role classes, only specify *direct* permissions - in
 automatically:
 
 ```php
-// config/mandate.php
+// config/mandate-seed.php
 use App\Permissions\UserPermissions;
 use App\Permissions\PostPermissions;
 use App\Roles\SystemRoles;
@@ -212,35 +207,34 @@ use App\Roles\SystemRoles;
 
 ## Feature Gates (Optional)
 
-Features control which permissions/roles are available (requires [Pennant or Hoist](#works-with)):
+Features control which permissions/roles are available. Requires [Laravel Pennant](https://laravel.com/docs/pennant):
 
 ```php
 // app/Features/ExportFeature.php
+use OffloadProject\Mandate\Attributes\FeatureSet;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[FeatureSet('billing')]
+#[Label('Export Feature')]
 class ExportFeature
 {
-    public string $name = 'export';
-    public string $label = 'Export Feature';
-
-    public function permissions(): array
-    {
-        return [
-            UserPermissions::EXPORT,
-            PostPermissions::EXPORT,
-        ];
-    }
-
-    public function roles(): array
-    {
-        return [
-            // Roles gated by this feature
-        ];
-    }
-
     public function resolve($user): bool
     {
         return $user->plan === 'enterprise';
     }
 }
+```
+
+When a permission is gated by a feature, `granted()` returns `false` if the feature is inactive:
+
+```php
+// User has 'export users' permission but feature is disabled
+$user->granted('export users');  // false - feature is inactive
+
+// Enable the feature
+Feature::for($user)->activate(ExportFeature::class);
+
+$user->granted('export users');  // true - now granted
 ```
 
 ## Sync to Database
@@ -255,26 +249,80 @@ php artisan mandate:sync
 
 ## Usage
 
-### Type-Safe Permission Checks
+### Permission and Role Methods
 
 ```php
 use App\Permissions\UserPermissions;
 use App\Roles\SystemRoles;
-use OffloadProject\Mandate\Facades\Mandate;
 
-// Check permission (considers feature flags)
-if (Mandate::can($user, UserPermissions::EXPORT)) {
-    // User has permission AND the export feature is enabled
+// Grant permissions
+$user->grant('users.view');
+$user->grant(['users.view', 'users.create']);
+$user->grant(UserPermissions::VIEW);
+
+// Check permissions (feature-aware)
+$user->granted('users.view');                    // Single permission
+$user->grantedAnyPermission(['users.view', 'users.create']);  // Any of these
+$user->grantedAllPermissions(['users.view', 'users.create']); // All of these
+
+// Revoke permissions
+$user->revoke('users.view');
+$user->revoke(['users.view', 'users.create']);
+
+// Assign roles
+$user->assignRole('editor');
+$user->assignRole(['editor', 'reviewer']);
+$user->assignRole(SystemRoles::EDITOR);
+
+// Check roles
+$user->assignedRole('editor');                   // Single role
+$user->assignedAnyRole(['admin', 'editor']);     // Any of these
+$user->assignedAllRoles(['admin', 'editor']);    // All of these
+
+// Unassign roles
+$user->unassignRole('editor');
+
+// Get all permissions (direct + through roles)
+$user->allPermissions();
+$user->permissionNames();
+
+// Get all roles
+$user->allRoles();
+$user->roleNames();
+```
+
+### Feature Methods
+
+If using the `UsesFeatures` trait:
+
+```php
+use OffloadProject\Mandate\Concerns\UsesFeatures;
+
+class User extends Authenticatable
+{
+    use HasRoles;
+    use UsesFeatures;
 }
+```
 
-// Check role (considers feature flags)
-if (Mandate::hasRole($user, SystemRoles::ADMINISTRATOR)) {
-    // User has role AND any feature requirement is met
-}
+```php
+// Check feature access
+$user->hasAccess('export-feature');
+$user->enabled('export-feature');   // Alias
+$user->disabled('export-feature');  // Inverse
 
-// Direct Spatie usage still works
-$user->hasPermissionTo(UserPermissions::VIEW);
-$user->hasRole(SystemRoles::EDITOR);
+// Multiple features
+$user->hasAnyAccess(['feature-a', 'feature-b']);
+$user->hasAllAccess(['feature-a', 'feature-b']);
+$user->anyEnabled(['feature-a', 'feature-b']);
+$user->allEnabled(['feature-a', 'feature-b']);
+$user->anyDisabled(['feature-a', 'feature-b']);
+$user->allDisabled(['feature-a', 'feature-b']);
+
+// Enable/disable features (via Pennant)
+$user->enable('export-feature');
+$user->disable('export-feature');
+$user->forget('export-feature');  // Reset to default
 ```
 
 ### Gate Integration
@@ -286,7 +334,7 @@ Enable Gate integration to use Laravel's standard authorization with Mandate:
 'gate_integration' => true,
 ```
 
-This routes Laravel's authorization through Mandate for both permissions and features:
+This routes Laravel's authorization through Mandate:
 
 ```php
 // Permission checks (with feature flag awareness):
@@ -302,51 +350,6 @@ $user->can(ExportFeature::class)            // By class
 ->middleware('can:export')
 ```
 
-> Note: Gate-based **feature** checks (such as `$user->can('export')` or `@can('export')`) require
-> [Laravel Pennant](https://laravel.com/docs/pennant) to be installed and configured. You may still enable
-> `gate_integration` for permission checks alone, but attempting to perform feature checks without Pennant
-> can result in runtime errors.
-
-### HasMandateRoles Trait
-
-For feature-aware permission and role checks directly on the model, use `HasMandateRoles` instead of Spatie's
-`HasRoles`:
-
-```php
-use OffloadProject\Mandate\Concerns\HasMandateRoles;
-
-class User extends Authenticatable
-{
-    use HasMandateRoles;  // Instead of HasRoles
-}
-```
-
-This wraps Spatie's trait, adding feature-awareness on top. All Spatie features work normally, including
-[wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions):
-
-```php
-// These now respect feature flags:
-$user->hasPermissionTo('export users');  // Checks permission + feature flag
-$user->hasRole('premium-editor');         // Checks role + feature flag
-$user->hasAnyRole(['admin', 'editor']);   // Feature-aware
-$user->hasAllRoles(['admin', 'manager']); // Feature-aware
-
-// Spatie's wildcard permissions work too:
-$user->givePermissionTo('posts.*');       // Grant wildcard
-$user->hasPermissionTo('posts.create');   // true (posts.* implies it) + feature check
-
-// Assignment methods remain unchanged (use Spatie directly):
-$user->givePermissionTo('users.view');
-$user->assignRole('editor');
-$user->revokePermissionTo('users.delete');
-$user->removeRole('admin');
-```
-
-**When to use which:**
-
-- `HasRoles` - Standard Spatie behavior, use `Mandate::can()` for feature-aware checks
-- `HasMandateRoles` - All `hasPermissionTo`/`hasRole` calls are automatically feature-aware (with Laravel Pennant)
-
 ### Middleware
 
 Protect routes with feature-aware authorization:
@@ -359,7 +362,7 @@ use OffloadProject\Mandate\Http\Middleware\MandateRole;
 
 // String-based (in routes)
 Route::get('/users/export', ExportController::class)
-    ->middleware('mandate.permission:export users');
+    ->middleware('mandate.permission:users.export');
 
 Route::get('/admin', AdminController::class)
     ->middleware('mandate.role:administrator');
@@ -369,7 +372,7 @@ Route::get('/premium', PremiumController::class)
 
 // Multiple permissions/roles (OR logic)
 Route::get('/users', UserController::class)
-    ->middleware('mandate.permission:view users,users.list');
+    ->middleware('mandate.permission:users.view,users.list');
 
 // Type-safe with constants
 Route::get('/users/export', ExportController::class)
@@ -385,69 +388,70 @@ Available middleware:
 - `mandate.role:{roles}` - Check role(s) with feature awareness
 - `mandate.feature:{class}` - Check if feature is active
 
+### ModelScope Fluent API
+
+Use the `Mandate` facade for a fluent API:
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+Mandate::for($user)
+    ->grantPermission('users.view')
+    ->assignRole('editor')
+    ->enableFeature('beta-features');
+
+Mandate::for($user)->granted('users.view');      // true
+Mandate::for($user)->assignedRole('editor');     // true
+Mandate::for($user)->hasAccess('beta-features'); // true
+```
+
 ### Getting Data for UI
 
 ```php
-// All permissions (for admin UI)
-$permissions = Mandate::permissions()->all();
+use OffloadProject\Mandate\Support\MandateUI;
 
-// Permissions grouped by set
-$grouped = Mandate::permissions()->grouped();
+$ui = app(MandateUI::class);
 
-// Permissions for a user (with status)
-$userPermissions = Mandate::permissions()->forModel($user);
-// Returns: [{ name, label, set, active, featureActive, granted }, ...]
+// Get auth data for frontend
+$auth = $ui->auth($user);
+// Returns: ['permissions' => [...], 'roles' => [...], 'features' => [...]]
 
-// Only granted permissions (has + feature active)
-$granted = Mandate::grantedPermissions($user);
+// Get permission map (for checkbox UIs)
+$map = $ui->permissionsMap($user);
+// Returns: ['users.view' => true, 'users.delete' => false, ...]
 
-// Only available permissions (feature is on)
-$available = Mandate::availablePermissions($user);
-
-// Same methods for roles
-$roles = Mandate::roles()->all();
-$assigned = Mandate::assignedRoles($user);
-$available = Mandate::availableRoles($user);
+// Get grouped data (for admin UIs)
+$grouped = $ui->grouped();
+// Returns: ['permissions' => ['users' => [...]], 'roles' => [...], 'features' => [...]]
 ```
 
-### Querying Features
+### Inertia Integration
+
+Share auth data with Inertia automatically:
 
 ```php
-// Get feature with its permissions and roles
-$feature = Mandate::feature(ExportFeature::class);
-$feature->permissions; // Permissions this feature gates
-$feature->roles;       // Roles this feature gates
+// In your HandleInertiaRequests middleware:
+use OffloadProject\Mandate\Support\MandateUI;
 
-// All features
-$features = Mandate::features()->all();
-
-// Features for a user (with active status)
-$userFeatures = Mandate::features()->forModel($user);
+public function share(Request $request): array
+{
+    return array_merge(parent::share($request), [
+        'auth' => $request->user()
+            ? app(MandateUI::class)->auth($request->user())
+            : null,
+    ]);
+}
 ```
 
-### Syncing to Database
-
-By default, syncing only creates new permissions and roles without modifying existing role-permission
-relationships. This allows you to manage permissions via UI/database without config overwriting your changes.
+Or use the middleware:
 
 ```php
-// Sync (creates new permissions/roles, preserves existing relationships)
-Mandate::sync();
-
-// Sync with seeding (resets role permissions to match config)
-Mandate::sync(seed: true);
-
-// Sync only permissions
-Mandate::syncPermissions();
-
-// Sync only roles (without touching existing permissions)
-Mandate::syncRoles();
-
-// Sync roles and seed permissions from config
-Mandate::syncRoles(seed: true);
-
-// Sync with specific guard
-Mandate::sync('api');
+// In bootstrap/app.php or route middleware
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->web(append: [
+        \OffloadProject\Mandate\Http\Middleware\MandateInertiaAuthShare::class,
+    ]);
+})
 ```
 
 ## Configuration
@@ -456,94 +460,42 @@ Mandate::sync('api');
 // config/mandate.php
 return [
     // Directories to scan for permission classes
-    'permission_directories' => [
-        app_path('Permissions') => 'App\\Permissions',
+    'discovery' => [
+        'permissions' => [
+            app_path('Permissions') => 'App\\Permissions',
+        ],
+        'roles' => [
+            app_path('Roles') => 'App\\Roles',
+        ],
     ],
 
-    // Directories to scan for role classes
-    'role_directories' => [
-        app_path('Roles') => 'App\\Roles',
-    ],
+    // Enable wildcard permission matching
+    'wildcards' => true,
 
-    // Map roles to their permissions
-    'role_permissions' => [
-        // SystemRoles::ADMINISTRATOR => [UserPermissions::class],
-    ],
+    // Enable Gate integration
+    'gate_integration' => false,
 
-    // Sync additional columns to database (requires migration)
-    // Options: true (all), ['set', 'label'], or false (none)
-    'sync_columns' => false,
-
-    // Auto-sync on boot (disable in production)
-    'auto_sync' => env('MANDATE_AUTO_SYNC', false),
-
-    // TypeScript export path (null to require --output option)
+    // TypeScript export path
     'typescript_path' => resource_path('js/permissions.ts'),
 ];
 ```
 
-## Syncing Additional Columns
-
-Optionally sync metadata from your permission and role classes to the database.
-This allows you to group and filter permissions/roles in your UI.
-
-Available columns:
-
-- `set` - The set name from `#[PermissionsSet]` or `#[RoleSet]`
-- `label` - The label from `#[Label]` attribute
-- `description` - The description from `#[Description]` attribute
-
-### Setup
-
-1. Publish and run the migration:
-   ```bash
-   php artisan vendor:publish --tag=mandate-migrations
-   php artisan migrate
-   ```
-
-2. Enable in config:
-   ```php
-   // Sync all columns (set, label, description)
-   'sync_columns' => true,
-
-   // Or sync specific columns only
-   'sync_columns' => ['set', 'label'],
-   ```
-
-3. Sync to populate the columns:
-   ```bash
-   php artisan mandate:sync
-   ```
-
-### Usage
-
-Once enabled, columns will be:
-
-- Populated when creating new permissions/roles
-- Updated when running sync if values changed
-- Available for querying in your application
-
 ```php
-// Query permissions by set
-$permissions = Permission::where('set', 'users')->get();
-
-// Group in UI
-$grouped = Permission::all()->groupBy('set');
-
-// Display labels in UI
-foreach ($permissions as $permission) {
-    echo $permission->label ?? $permission->name;
-}
+// config/mandate-seed.php
+return [
+    // Map roles to their permissions
+    'role_permissions' => [
+        // SystemRoles::ADMINISTRATOR => [UserPermissions::class],
+    ],
+];
 ```
 
 ## TypeScript Export
 
-Generate a TypeScript file containing your permissions and roles as constants for type-safe frontend usage.
-
-### Generate TypeScript File
+Generate a TypeScript file containing your permissions and roles as constants:
 
 ```bash
-# Generate using configured path (default: resources/js/permissions.ts)
+# Generate using configured path
 php artisan mandate:typescript
 
 # Generate to a custom path
@@ -552,17 +504,14 @@ php artisan mandate:typescript --output=resources/js/auth/permissions.ts
 
 ### Output Format
 
-The command generates a TypeScript file with your permissions, roles, features, and role hierarchy:
-
 ```typescript
 // This file is auto-generated by mandate:typescript. Do not edit manually.
 
 export const UserPermissions = {
-    VIEW: "view users",
-    CREATE: "create users",
-    UPDATE: "update users",
-    DELETE: "delete users",
-    EXPORT: "export users",
+    VIEW: "users.view",
+    CREATE: "users.create",
+    UPDATE: "users.update",
+    DELETE: "users.delete",
 } as const;
 
 export const SystemRoles = {
@@ -579,412 +528,189 @@ export const Features = {
 export const RoleHierarchy = {
     "editor": {
         inheritsFrom: ["viewer"],
-        permissions: ["edit posts"],
-        inheritedPermissions: ["view posts"],
-    },
-    "administrator": {
-        inheritsFrom: ["editor"],
-        permissions: ["delete posts", "manage users"],
-        inheritedPermissions: ["view posts", "edit posts"],
+        permissions: ["posts.create"],
+        inheritedPermissions: ["users.view", "posts.view"],
     },
 } as const;
 
-export type RoleWithHierarchy = keyof typeof RoleHierarchy;
-```
-
-### Configuration
-
-Configure the default output path in your config file:
-
-```php
-// config/mandate.php
-'typescript_path' => resource_path('js/permissions.ts'),
+export type Permission = typeof UserPermissions[keyof typeof UserPermissions];
+export type Role = typeof SystemRoles[keyof typeof SystemRoles];
+export type Feature = typeof Features[keyof typeof Features];
 ```
 
 ### Frontend Usage
 
-Use the generated constants for type-safe permission and feature checks:
-
 ```typescript
-import {UserPermissions, SystemRoles, Features, RoleHierarchy} from './permissions';
+import { UserPermissions, SystemRoles } from './permissions';
 
 // Type-safe permission checking
 function canExport(userPermissions: string[]): boolean {
     return userPermissions.includes(UserPermissions.EXPORT);
 }
 
-// Type-safe feature checking
-function isFeatureEnabled(activeFeatures: string[]): boolean {
-    return activeFeatures.includes(Features.ExportFeature);
-}
-
-// TypeScript will catch typos at compile time
+// TypeScript catches typos at compile time
 if (user.permissions.includes(UserPermissions.VIWE)) {
-    // ❌ TypeScript error: Property 'VIWE' does not exist
-}
-
-// Create union types from permissions
-type UserPermission = typeof UserPermissions[keyof typeof UserPermissions];
-// Result: "view users" | "create users" | "update users" | "delete users" | "export users"
-
-type FeatureName = typeof Features[keyof typeof Features];
-// Result: "export" | "premium"
-
-// Use role hierarchy for UI display
-function getRolePermissions(role: string): string[] {
-    const hierarchy = RoleHierarchy[role as keyof typeof RoleHierarchy];
-    if (!hierarchy) return [];
-    return [...hierarchy.permissions, ...hierarchy.inheritedPermissions];
+    // TypeScript error: Property 'VIWE' does not exist
 }
 ```
-
-## How It Works
-
-### The Authorization Flow
-
-```
-User wants to perform action requiring UserPermissions::EXPORT
-                    │
-                    ▼
-    ┌───────────────────────────────┐
-    │  Does user have permission?   │──── No ────▶ Denied
-    │     (via Spatie)              │
-    └───────────────────────────────┘
-                    │
-                   Yes
-                    │
-                    ▼
-    ┌───────────────────────────────┐
-    │  Is permission tied to a      │
-    │  feature flag?                │──── No ────▶ Granted
-    └───────────────────────────────┘
-                    │
-                   Yes
-                    │
-                    ▼
-    ┌───────────────────────────────┐
-    │  Is feature active for user?  │──── No ────▶ Denied
-    │     (via Pennant)             │
-    └───────────────────────────────┘
-                    │
-                   Yes
-                    │
-                    ▼
-                 Granted
-```
-
-### Permission Status in UI
-
-| Permission   | Has Permission | Feature Active | Status              |
-|--------------|----------------|----------------|---------------------|
-| View Users   | ✓              | N/A            | ✅ Granted           |
-| Export Users | ✓              | ✗              | 🔒 Requires upgrade |
-| Delete Users | ✗              | ✓              | ❌ Not assigned      |
 
 ## Role Hierarchy
 
-Mandate supports role hierarchy with permission inheritance. Child roles automatically inherit all permissions from
-their parent roles.
-
-### Defining Hierarchy
-
-Use the `#[Inherits]` attribute on role constants to define parent roles:
+Mandate supports role hierarchy with permission inheritance:
 
 ```php
 use OffloadProject\Mandate\Attributes\Inherits;
-use OffloadProject\Mandate\Attributes\Label;
-use OffloadProject\Mandate\Attributes\RoleSet;
 
 #[RoleSet('system')]
 final class SystemRoles
 {
-    #[Label('Viewer')]
     public const string VIEWER = 'viewer';
 
-    #[Label('Editor')]
     #[Inherits(self::VIEWER)]
     public const string EDITOR = 'editor';
 
-    #[Label('Administrator')]
-    #[Inherits(self::EDITOR)]
+    #[Inherits(self::EDITOR)]  // Transitively inherits VIEWER too
     public const string ADMINISTRATOR = 'administrator';
 }
 ```
 
 ### Multiple Inheritance
 
-A role can inherit from multiple parent roles:
-
 ```php
-#[RoleSet('system')]
-final class SystemRoles
-{
-    public const string CONTENT_MANAGER = 'content-manager';
-    public const string BILLING_ADMIN = 'billing-admin';
-
-    #[Label('Super Admin')]
-    #[Inherits(self::CONTENT_MANAGER, self::BILLING_ADMIN)]
-    public const string SUPER_ADMIN = 'super-admin';
-}
+#[Inherits(self::CONTENT_MANAGER, self::BILLING_ADMIN)]
+public const string SUPER_ADMIN = 'super-admin';
 ```
 
 ### How Inheritance Works
 
-- **Additive**: Inherited permissions are combined with directly assigned permissions
-- **Transitive**: If A inherits from B, and B inherits from C, then A gets permissions from both B and C
+- **Additive**: Inherited permissions combine with direct permissions
+- **Transitive**: If A inherits B, and B inherits C, then A gets permissions from both
 - **Deduplicated**: Duplicate permissions are automatically removed
-- **Circular Detection**: Circular inheritance chains throw `CircularRoleInheritanceException`
-
-### Querying Hierarchy
-
-```php
-use OffloadProject\Mandate\Facades\Mandate;
-
-// Get a role's parent roles
-$parents = Mandate::roles()->parents('administrator');
-
-// Get roles that inherit from a role
-$children = Mandate::roles()->children('viewer');
-
-// Check all permissions (direct + inherited)
-$role = Mandate::roles()->find('administrator');
-$allPermissions = $role->allPermissions();        // Direct + inherited
-$directOnly = $role->permissions;                  // Direct only
-$inheritedOnly = $role->inheritedPermissions;      // Inherited only
-
-// Check if a permission is inherited
-$role->isInheritedPermission('view users');  // true if inherited, not direct
-```
-
-### Database Sync with Hierarchy
-
-When syncing roles to the database, inherited permissions are included:
-
-```bash
-# Sync roles - inherited permissions are synced to database
-php artisan mandate:sync --seed
-```
-
-This means the database role will have all permissions (direct + inherited) assigned via Spatie.
+- **Circular Detection**: Circular inheritance throws `CircularRoleInheritanceException`
 
 ## Wildcard Permissions
 
-Mandate supports wildcard patterns for config expansion and `Mandate::can()` checks. This is separate from
-[Spatie's wildcard permissions](https://spatie.be/docs/laravel-permission/v6/basic-usage/wildcard-permissions) which
-work at storage time.
+Mandate supports wildcard patterns for flexible permission matching:
 
-| Feature   | Spatie Wildcards                            | Mandate Wildcards                                  |
-|-----------|---------------------------------------------|----------------------------------------------------|
-| Usage     | Store `posts.*` in DB, check `posts.create` | Check pattern `users.*` against stored permissions |
-| Direction | Wildcard implies specific                   | Specific matches pattern                           |
-| Where     | `$user->hasPermissionTo()`                  | `Mandate::can()`, config, middleware               |
+| Pattern        | Matches                         | Does Not Match           |
+|----------------|---------------------------------|--------------------------|
+| `users.*`      | `users.view`, `users.create`    | `posts.view`             |
+| `*.view`       | `users.view`, `posts.view`      | `users.create`           |
+| `users.*.view` | `users.admin.view`              | `users.view`             |
 
-Both can be used together. If using `HasMandateRoles`, Spatie's wildcards are fully supported with feature-awareness.
-
-### Wildcard Patterns
-
-The `*` wildcard matches a single segment (does not cross dots):
-
-| Pattern        | Matches                                 | Does Not Match                     |
-|----------------|-----------------------------------------|------------------------------------|
-| `users.*`      | `users.view`, `users.create`            | `posts.view`, `users.admin.view`   |
-| `*.view`       | `users.view`, `posts.view`              | `users.create`, `admin.users.view` |
-| `users.*.view` | `users.admin.view`, `users.public.view` | `users.view`, `posts.admin.view`   |
-
-### Using Wildcards in Permission Checks
-
-Check if a user has any permission matching a pattern:
+### Using Wildcards
 
 ```php
-use OffloadProject\Mandate\Facades\Mandate;
-
-// Check if user has any users.* permission
-if (Mandate::can($user, 'users.*')) {
-    // User has at least one permission like users.view, users.create, etc.
-}
-
-// Check if user has any *.view permission
-if (Mandate::can($user, '*.view')) {
-    // User has at least one view permission (users.view, posts.view, etc.)
-}
-```
-
-### Using Wildcards in Config
-
-Assign multiple permissions to a role using wildcards:
-
-```php
-// config/mandate.php
+// In config - expands to all matching permissions
 'role_permissions' => [
-    'viewer' => [
-        '*.view',           // All view permissions (users.view, posts.view, etc.)
-    ],
-
-    'user-admin' => [
-        'users.*',          // All user permissions
-        'reports.view',     // Plus specific permission
-    ],
-
-    'super-admin' => [
-        UserPermissions::class,  // All from class
-        '*.delete',              // Plus all delete permissions
+    'admin' => [
+        'users.*',  // All user permissions
+        '*.delete', // All delete permissions
     ],
 ],
-```
 
-Wildcards are expanded at sync time to the actual matching permissions.
+// In checks
+$user->granted('users.*');  // True if user has any users.* permission
 
-### Using Wildcards in Middleware
-
-Protect routes with wildcard permission patterns:
-
-```php
-use OffloadProject\Mandate\Http\Middleware\MandatePermission;
-
-// String-based
+// In middleware
 Route::get('/users', UserController::class)
     ->middleware('mandate.permission:users.*');
-
-Route::get('/reports', ReportController::class)
-    ->middleware('mandate.permission:*.view');
-
-// Using the helper
-Route::get('/users', UserController::class)
-    ->middleware(MandatePermission::using('users.*'));
 ```
-
-### Dot-Notation Permissions
-
-For best wildcard support, use dot-notation for permission names:
-
-```php
-#[PermissionsSet('users')]
-final class UserPermissions
-{
-    public const string VIEW = 'users.view';
-    public const string CREATE = 'users.create';
-    public const string UPDATE = 'users.update';
-    public const string DELETE = 'users.delete';
-}
-```
-
-This naming convention enables powerful patterns:
-
-- `users.*` - All user permissions
-- `*.view` - All view permissions across modules
-- `*.delete` - All delete permissions (for admin roles)
 
 ## Attributes
 
 ### Permission Classes
 
-| Attribute                   | Target            | Description                            |
-|-----------------------------|-------------------|----------------------------------------|
-| `#[PermissionsSet('name')]` | Class             | Groups permissions together (required) |
-| `#[Label('Human Name')]`    | Constant          | Human-readable label                   |
-| `#[Description('Details')]` | Constant          | Detailed description                   |
-| `#[Guard('web')]`           | Class or Constant | Auth guard to use                      |
+| Attribute                   | Target   | Description                  |
+|-----------------------------|----------|------------------------------|
+| `#[PermissionsSet('name')]` | Class    | Groups permissions (required)|
+| `#[Label('Human Name')]`    | Constant | Human-readable label         |
+| `#[Description('Details')]` | Constant | Detailed description         |
+| `#[Guard('web')]`           | Both     | Auth guard to use            |
+| `#[Scope('team')]`          | Both     | Scope for context            |
+| `#[Context('team', Model)]` | Both     | Context model                |
 
 ### Role Classes
 
-| Attribute                    | Target            | Description                                |
-|------------------------------|-------------------|--------------------------------------------|
-| `#[RoleSet('name')]`         | Class             | Groups roles together (required)           |
-| `#[Label('Human Name')]`     | Constant          | Human-readable label                       |
-| `#[Description('Details')]`  | Constant          | Detailed description                       |
-| `#[Guard('web')]`            | Class or Constant | Auth guard to use                          |
-| `#[Inherits('parent', ...)]` | Constant          | Parent role(s) to inherit permissions from |
+| Attribute                    | Target   | Description                      |
+|------------------------------|----------|----------------------------------|
+| `#[RoleSet('name')]`         | Class    | Groups roles (required)          |
+| `#[Label('Human Name')]`     | Constant | Human-readable label             |
+| `#[Description('Details')]`  | Constant | Detailed description             |
+| `#[Guard('web')]`            | Both     | Auth guard to use                |
+| `#[Inherits('parent', ...)]` | Constant | Parent role(s) for inheritance   |
+
+### Feature Classes
+
+| Attribute                  | Target | Description                |
+|----------------------------|--------|----------------------------|
+| `#[FeatureSet('name')]`    | Class  | Groups features            |
+| `#[Label('Human Name')]`   | Class  | Human-readable label       |
 
 ## Artisan Commands
 
 ```bash
-# Create a permission class
+# Create classes
 php artisan mandate:permission UserPermissions --set=users
-
-# Create a role class
 php artisan mandate:role SystemRoles --set=system
+php artisan mandate:feature ExportFeature --set=billing
 
-# Sync permissions and roles to database
-php artisan mandate:sync                  # Creates new, preserves existing relationships
-php artisan mandate:sync --seed           # Seeds role permissions from config (initial setup)
+# Sync to database
+php artisan mandate:sync                  # Creates new, preserves relationships
+php artisan mandate:sync --seed           # Seeds role permissions from config
 php artisan mandate:sync --permissions    # Only permissions
 php artisan mandate:sync --roles          # Only roles
 php artisan mandate:sync --guard=api      # Specific guard
 
-# Generate TypeScript file with permissions and roles
-php artisan mandate:typescript                      # Uses configured path
-php artisan mandate:typescript --output=custom.ts   # Custom output path
+# Generate TypeScript
+php artisan mandate:typescript
+php artisan mandate:typescript --output=custom.ts
 ```
 
-> **Note:** Use `--seed` for initial setup or when you intentionally want to reset role permissions to match
-> config. Without `--seed`, the database is authoritative for role-permission relationships.
-
 ## Events
-
-Mandate dispatches events during sync operations, allowing you to hook into the sync lifecycle:
 
 ```php
 use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
 use OffloadProject\Mandate\Events\MandateSynced;
 
-// Listen to permission sync
 Event::listen(PermissionsSynced::class, function (PermissionsSynced $event) {
     Log::info('Permissions synced', [
         'created' => $event->created,
         'existing' => $event->existing,
         'updated' => $event->updated,
-        'guard' => $event->guard,
     ]);
 });
 
-// Listen to role sync
 Event::listen(RolesSynced::class, function (RolesSynced $event) {
     Log::info('Roles synced', [
         'created' => $event->created,
-        'existing' => $event->existing,
-        'updated' => $event->updated,
         'permissions_synced' => $event->permissionsSynced,
         'seeded' => $event->seeded,
     ]);
 });
-
-// Listen to full sync (both permissions and roles)
-Event::listen(MandateSynced::class, function (MandateSynced $event) {
-    // $event->permissions - permission sync stats
-    // $event->roles - role sync stats
-    // $event->guard - guard used
-    // $event->seeded - whether --seed was used
-});
-```
-
-## Testing Your Application
-
-### Using Contracts for Mocking
-
-Mandate provides contracts (interfaces) for all registries, making it easy to mock in tests:
-
-```php
-use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
-use OffloadProject\Mandate\Contracts\RoleRegistryContract;
-use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
-
-// In your test
-public function test_something_with_permissions()
-{
-    $mockRegistry = Mockery::mock(PermissionRegistryContract::class);
-    $mockRegistry->shouldReceive('can')->with($user, 'view users')->andReturn(true);
-
-    $this->app->instance(PermissionRegistryContract::class, $mockRegistry);
-
-    // Your test...
-}
 ```
 
 ## Testing
 
 ```bash
 ./vendor/bin/pest
+```
+
+### Mocking in Tests
+
+```php
+use OffloadProject\Mandate\Contracts\PermissionRegistryContract;
+
+public function test_something()
+{
+    $mockRegistry = Mockery::mock(PermissionRegistryContract::class);
+    $mockRegistry->shouldReceive('find')->with('users.view')->andReturn($permissionData);
+
+    $this->app->instance(PermissionRegistryContract::class, $mockRegistry);
+
+    // Your test...
+}
 ```
 
 ## License

@@ -264,10 +264,7 @@ trait UsesFeatures
      */
     protected function checkPennantAccess(string $featureName): bool
     {
-        /** @var \Laravel\Pennant\Feature $feature */
-        $feature = app(\Laravel\Pennant\Feature::class);
-
-        return $feature->for($this)->active($featureName);
+        return \Laravel\Pennant\Feature::for($this)->active($featureName);
     }
 
     /**
@@ -275,10 +272,7 @@ trait UsesFeatures
      */
     protected function activatePennantFeature(string $featureName): void
     {
-        /** @var \Laravel\Pennant\Feature $feature */
-        $feature = app(\Laravel\Pennant\Feature::class);
-
-        $feature->for($this)->activate($featureName);
+        \Laravel\Pennant\Feature::for($this)->activate($featureName);
     }
 
     /**
@@ -286,10 +280,7 @@ trait UsesFeatures
      */
     protected function deactivatePennantFeature(string $featureName): void
     {
-        /** @var \Laravel\Pennant\Feature $feature */
-        $feature = app(\Laravel\Pennant\Feature::class);
-
-        $feature->for($this)->deactivate($featureName);
+        \Laravel\Pennant\Feature::for($this)->deactivate($featureName);
     }
 
     /**
@@ -297,10 +288,7 @@ trait UsesFeatures
      */
     protected function forgetPennantFeature(string $featureName): void
     {
-        /** @var \Laravel\Pennant\Feature $feature */
-        $feature = app(\Laravel\Pennant\Feature::class);
-
-        $feature->for($this)->forget($featureName);
+        \Laravel\Pennant\Feature::for($this)->forget($featureName);
     }
 
     /**

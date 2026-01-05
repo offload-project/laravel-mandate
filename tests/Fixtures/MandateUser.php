@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\Access\Authorizable;
 use OffloadProject\Mandate\Concerns\HasRoles;
+use OffloadProject\Mandate\Concerns\UsesFeatures;
 
 /**
  * Test user model with HasMandateRoles trait for feature-aware authorization.
@@ -16,6 +17,7 @@ final class MandateUser extends Model implements AuthorizableContract
 {
     use Authorizable;
     use HasRoles;
+    use UsesFeatures;
 
     protected $table = 'users';
 

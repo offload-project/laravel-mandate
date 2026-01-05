@@ -51,6 +51,9 @@ describe('HasMandateRoles Permission Checks', function () {
             $this->markTestSkipped('Feature discovery not configured for this test environment');
         }
 
+        // Verify the permission has the correct feature class
+        expect($exportPermission->feature)->toBe(ExportFeature::class);
+
         $user1 = MandateUser::create(['email' => 'user1@example.com']);
         $user1->grant('export users');
 
@@ -59,6 +62,10 @@ describe('HasMandateRoles Permission Checks', function () {
 
         Feature::for($user1)->activate(ExportFeature::class);
         Feature::for($user2)->deactivate(ExportFeature::class);
+
+        // Verify Pennant state directly
+        expect(Feature::for($user1)->active(ExportFeature::class))->toBeTrue();
+        expect(Feature::for($user2)->active(ExportFeature::class))->toBeFalse();
 
         app(MandateManager::class)->clearCache();
         $user1 = $user1->fresh();

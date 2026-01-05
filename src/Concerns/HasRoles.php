@@ -134,7 +134,6 @@ trait HasRoles
     /**
      * Remove roles from the model.
      *
-     * @param  string|iterable<string>|RoleContract  $roles
      * @return $this
      */
     public function unassignRole(string|iterable|RoleContract $roles): static
@@ -226,6 +225,9 @@ trait HasRoles
 
     /**
      * Override granted to also check role permissions.
+     *
+     * This method is feature-aware - if a permission is gated by a feature,
+     * it will return false if the feature is inactive for this user.
      */
     public function granted(
         string|PermissionContract $permission,
@@ -235,12 +237,18 @@ trait HasRoles
         $permissionName = $this->resolvePermissionName($permission);
 
         // Check direct permissions first (from HasPermissions trait)
-        if ($this->grantedDirectPermission($permissionName, $scope, $contextModel)) {
-            return true;
-        }
+        $hasDirectPermission = $this->grantedDirectPermission($permissionName, $scope, $contextModel);
 
         // Check permissions through roles
-        return $this->assignedPermissionThroughRole($permissionName);
+        $hasThroughRole = $this->assignedPermissionThroughRole($permissionName);
+
+        // User must have the permission either directly or through roles
+        if (! $hasDirectPermission && ! $hasThroughRole) {
+            return false;
+        }
+
+        // Check if permission is feature-gated
+        return $this->isPermissionFeatureActive($permissionName);
     }
 
     /**

@@ -79,7 +79,7 @@ interface HasPermissionsContract
     /**
      * Get all permissions for the model (direct + through roles).
      *
-     * @return Collection<int, PermissionContract>
+     * @return Collection<int, PermissionContract&Model>
      */
     public function allPermissions(): Collection;
 }

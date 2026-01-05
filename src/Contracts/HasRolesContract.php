@@ -79,14 +79,14 @@ interface HasRolesContract extends HasPermissionsContract
     /**
      * Get all roles for the model.
      *
-     * @return Collection<int, RoleContract>
+     * @return Collection<int, RoleContract&Model>
      */
     public function allRoles(): Collection;
 
     /**
      * Get permissions through assigned roles.
      *
-     * @return Collection<int, PermissionContract>
+     * @return Collection<int, PermissionContract&Model>
      */
     public function permissionsThroughRoles(): Collection;
 }

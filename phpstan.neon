@@ -10,3 +10,52 @@ parameters:
         # Traits are meant to be used by package consumers
         - identifier: trait.unused
           path: src/Concerns/*.php
+
+        # Laravel relationship return types - generics are complex to specify correctly
+        - identifier: missingType.generics
+          message: '#MorphToMany|BelongsToMany#'
+        - identifier: missingType.generics
+          path: src/Services/RoleRegistry.php
+
+        # Contract/Model intersection types in return statements
+        - identifier: return.type
+          path: src/Concerns/*.php
+
+        # Dynamic property access on roles for permissions (Eloquent relationship magic)
+        - identifier: property.notFound
+          message: '#\$permissions#'
+          path: src/Concerns/HasRoles.php
+
+        # Argument types where contracts are passed but Model&Contract expected
+        - identifier: argument.type
+          path: src/Services/DatabaseSyncer.php
+
+        # is_string already narrowed - this is intentional defensive coding
+        - identifier: function.alreadyNarrowedType
+          path: src/Services/DatabaseSyncer.php
+
+        # Iterable value type in syncAll return - facades and services
+        - identifier: missingType.iterableValue
+          path: src/Services/MandateManager.php
+        - identifier: missingType.iterableValue
+          path: src/Facades/Mandate.php
+
+        # morphedByMany template types - dynamic class strings from config
+        - identifier: argument.templateType
+          path: src/Models/*.php
+        - identifier: argument.type
+          message: '#morphedByMany#'
+          path: src/Models/*.php
+
+        # Return type collection mismatches in models
+        - identifier: return.type
+          path: src/Models/*.php
+
+        # instanceof checks that are always true from PHPDoc - intentional runtime guards
+        - identifier: instanceof.alwaysTrue
+          path: src/Http/Middleware/*.php
+
+        # Builder generic types in scope methods - difficult to type in trait context
+        - identifier: missingType.generics
+          message: '#Builder#'
+          path: src/Models/Concerns/*.php

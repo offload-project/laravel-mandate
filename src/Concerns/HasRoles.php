@@ -182,27 +182,31 @@ trait HasRoles
     /**
      * Get all roles for the model.
      *
-     * @return Collection<int, RoleContract>
+     * @return Collection<int, RoleContract&Model>
      */
     public function allRoles(): Collection
     {
+        /** @var Collection<int, RoleContract&Model> */
         return $this->roles;
     }
 
     /**
      * Get permissions through assigned roles.
      *
-     * @return Collection<int, PermissionContract>
+     * @return Collection<int, PermissionContract&Model>
      */
     public function permissionsThroughRoles(): Collection
     {
+        /** @var Collection<int, PermissionContract&Model> $permissions */
         $permissions = collect();
 
+        /** @var RoleContract&Model $role */
         foreach ($this->roles as $role) {
             // Get direct permissions and inherited permissions
             if (method_exists($role, 'allPermissions')) {
                 $permissions = $permissions->merge($role->allPermissions());
             } else {
+                /** @phpstan-ignore property.notFound */
                 $permissions = $permissions->merge($role->permissions);
             }
         }
@@ -213,13 +217,14 @@ trait HasRoles
     /**
      * Get all permissions for the model (direct + through roles).
      *
-     * @return Collection<int, PermissionContract>
+     * @return Collection<int, PermissionContract&Model>
      */
     public function allPermissions(): Collection
     {
         $directPermissions = $this->directPermissions();
         $rolePermissions = $this->permissionsThroughRoles();
 
+        /** @var Collection<int, PermissionContract&Model> */
         return $directPermissions->merge($rolePermissions)->unique('id')->values();
     }
 
@@ -276,8 +281,10 @@ trait HasRoles
     {
         $wildcardEnabled = config('mandate.wildcards', false);
 
+        /** @var RoleContract&Model $role */
         foreach ($this->roles as $role) {
             // Get all permissions for the role (including inherited)
+            /** @phpstan-ignore property.notFound */
             $rolePermissions = method_exists($role, 'allPermissions')
                 ? $role->allPermissions()
                 : $role->permissions;

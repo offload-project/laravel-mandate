@@ -45,4 +45,19 @@ interface FeatureContract
      * Check if the feature is active (value is truthy).
      */
     public function isActive(): bool;
+
+    /**
+     * Get an attribute from the model.
+     *
+     * @param  string  $key
+     * @return mixed
+     */
+    public function getAttribute($key);
+
+    /**
+     * Get the primary key for the model.
+     *
+     * @return mixed
+     */
+    public function getKey();
 }

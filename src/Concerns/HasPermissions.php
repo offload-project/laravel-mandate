@@ -190,10 +190,11 @@ trait HasPermissions
     /**
      * Get all permissions for the model (direct only, override in HasRoles for role permissions).
      *
-     * @return Collection<int, PermissionContract>
+     * @return Collection<int, PermissionContract&Model>
      */
     public function allPermissions(): Collection
     {
+        /** @var Collection<int, PermissionContract&Model> */
         return $this->permissions;
     }
 

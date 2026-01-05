@@ -38,4 +38,19 @@ interface RoleContract
      * Get the subjects (users, etc.) that have this role.
      */
     public function subjects(string $subjectType): MorphToMany;
+
+    /**
+     * Get an attribute from the model.
+     *
+     * @param  string  $key
+     * @return mixed
+     */
+    public function getAttribute($key);
+
+    /**
+     * Get the primary key for the model.
+     *
+     * @return mixed
+     */
+    public function getKey();
 }

@@ -15,6 +15,8 @@ use OffloadProject\Mandate\Data\RoleData;
 use OffloadProject\Mandate\Models\Feature;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
+use ReflectionClass;
+use ReflectionClassConstant;
 use Throwable;
 
 /**
@@ -213,6 +215,186 @@ final class DatabaseSyncer
     }
 
     /**
+     * Sync feature-role associations from config.
+     *
+     * Features act as subjects that can have roles assigned to them via subject_roles table.
+     *
+     * @param  array<string, array<string>>  $featureRolesConfig  Map of feature class/name => role names
+     * @param  string|null  $scope  The scope for the assignment (defaults to 'feature')
+     * @param  string|null  $contextModelType  The context model type for scoped assignments
+     * @return array{assigned: int}
+     */
+    public function syncFeatureRoles(
+        array $featureRolesConfig,
+        ?string $guard = null,
+        bool $seed = false,
+        ?string $scope = 'feature',
+        ?string $contextModelType = null,
+    ): array {
+        $assigned = 0;
+
+        /** @var class-string<FeatureContract&Model> $featureClass */
+        $featureClass = config('mandate.models.feature', Feature::class);
+
+        $guardName = $guard ?? config('auth.defaults.guard');
+
+        foreach ($featureRolesConfig as $featureKey => $roleNames) {
+            // Find the feature by name or class
+            $featureName = is_string($featureKey) && class_exists($featureKey)
+                ? $this->getFeatureNameFromClass($featureKey)
+                : $featureKey;
+
+            /** @var (FeatureContract&Model)|null $feature */
+            $feature = $featureClass::findByName($featureName);
+            if ($feature === null) {
+                continue;
+            }
+
+            $resolvedRoles = $this->resolveRoleNames($roleNames, $guardName);
+
+            if (! empty($resolvedRoles) && $seed) {
+                // Use the HasRoles trait methods - Feature is a subject
+                if (method_exists($feature, 'syncRoles')) {
+                    $feature->syncRoles($resolvedRoles, $scope, $contextModelType);
+                    $assigned += count($resolvedRoles);
+                }
+            }
+        }
+
+        return compact('assigned');
+    }
+
+    /**
+     * Sync feature-permission associations from config.
+     *
+     * Features act as subjects that can have permissions granted to them via subject_permissions table.
+     *
+     * @param  array<string, array<string>>  $featurePermissionsConfig  Map of feature class/name => permission names
+     * @param  string|null  $scope  The scope for the grant (defaults to 'feature')
+     * @param  string|null  $contextModelType  The context model type for scoped grants
+     * @return array{granted: int}
+     */
+    public function syncFeaturePermissions(
+        array $featurePermissionsConfig,
+        ?string $guard = null,
+        bool $seed = false,
+        ?string $scope = 'feature',
+        ?string $contextModelType = null,
+    ): array {
+        $granted = 0;
+
+        /** @var class-string<FeatureContract&Model> $featureClass */
+        $featureClass = config('mandate.models.feature', Feature::class);
+
+        $guardName = $guard ?? config('auth.defaults.guard');
+
+        foreach ($featurePermissionsConfig as $featureKey => $permissionNames) {
+            // Find the feature by name or class
+            $featureName = is_string($featureKey) && class_exists($featureKey)
+                ? $this->getFeatureNameFromClass($featureKey)
+                : $featureKey;
+
+            /** @var (FeatureContract&Model)|null $feature */
+            $feature = $featureClass::findByName($featureName);
+            if ($feature === null) {
+                continue;
+            }
+
+            $resolvedPermissions = $this->resolvePermissionNames($permissionNames, $guardName);
+
+            if (! empty($resolvedPermissions) && $seed) {
+                // Use the HasPermissions trait methods - Feature is a subject
+                if (method_exists($feature, 'syncPermissions')) {
+                    $feature->syncPermissions($resolvedPermissions, $scope, $contextModelType);
+                    $granted += count($resolvedPermissions);
+                }
+            }
+        }
+
+        return compact('granted');
+    }
+
+    /**
+     * Resolve role names from config (supports class references and strings).
+     *
+     * @param  array<string>  $roleNames
+     * @return array<string>
+     */
+    private function resolveRoleNames(array $roleNames, string $guardName): array
+    {
+        $resolved = [];
+
+        foreach ($roleNames as $roleName) {
+            if (class_exists($roleName)) {
+                // It's a class reference - get all constants
+                $reflection = new ReflectionClass($roleName);
+                $constants = $reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC);
+
+                foreach ($constants as $constant) {
+                    $value = $constant->getValue();
+                    if (is_string($value)) {
+                        $resolved[] = $value;
+                    }
+                }
+            } else {
+                $resolved[] = $roleName;
+            }
+        }
+
+        return array_unique($resolved);
+    }
+
+    /**
+     * Resolve permission names from config (supports class references and strings).
+     *
+     * @param  array<string>  $permissionNames
+     * @return array<string>
+     */
+    private function resolvePermissionNames(array $permissionNames, string $guardName): array
+    {
+        $resolved = [];
+
+        foreach ($permissionNames as $permissionName) {
+            if (class_exists($permissionName)) {
+                // It's a class reference - get all constants
+                $reflection = new ReflectionClass($permissionName);
+                $constants = $reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC);
+
+                foreach ($constants as $constant) {
+                    $value = $constant->getValue();
+                    if (is_string($value)) {
+                        $resolved[] = $value;
+                    }
+                }
+            } else {
+                $resolved[] = $permissionName;
+            }
+        }
+
+        return array_unique($resolved);
+    }
+
+    /**
+     * Get feature name from a feature class.
+     */
+    private function getFeatureNameFromClass(string $className): string
+    {
+        if (! class_exists($className)) {
+            return $className;
+        }
+
+        // Check if the class has a NAME constant
+        if (defined("{$className}::NAME")) {
+            return constant("{$className}::NAME");
+        }
+
+        // Fall back to class basename as snake_case
+        $basename = class_basename($className);
+
+        return mb_strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $basename) ?? $basename);
+    }
+
+    /**
      * Sync permissions for a role.
      *
      * @param  array<string>  $permissionNames
@@ -284,6 +466,7 @@ final class DatabaseSyncer
             'set' => $permission->set,
             'label' => $permission->label,
             'description' => $permission->description,
+            'scope' => $permission->scope,
             default => null,
         };
     }
@@ -297,6 +480,7 @@ final class DatabaseSyncer
             'set' => $role->set,
             'label' => $role->label,
             'description' => $role->description,
+            'scope' => $role->scope,
             default => null,
         };
     }

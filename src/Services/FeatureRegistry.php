@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use OffloadProject\Hoist\Services\FeatureDiscovery;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
@@ -21,6 +22,8 @@ use ReflectionClassConstant;
  */
 final class FeatureRegistry implements FeatureRegistryContract
 {
+    public const CACHE_KEY = 'mandate.features';
+
     /** @var Collection<int, FeatureData>|null */
     private ?Collection $cachedFeatures = null;
 
@@ -39,17 +42,15 @@ final class FeatureRegistry implements FeatureRegistryContract
             return $this->cachedFeatures;
         }
 
-        $features = collect();
+        $ttl = config('mandate.cache.ttl', 3600);
 
-        // Discover features via Hoist
-        foreach ($this->discovery->discover() as $featureClass) {
-            $feature = $this->buildFeatureData($featureClass);
-            if ($feature !== null) {
-                $features->push($feature);
-            }
+        if ($ttl > 0) {
+            /** @var array<int, array<string, mixed>> $cached */
+            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
+            $this->cachedFeatures = collect($cached)->map(fn (array $item) => $this->hydrateFeatureData($item));
+        } else {
+            $this->cachedFeatures = $this->discover();
         }
-
-        $this->cachedFeatures = $features;
 
         return $this->cachedFeatures;
     }
@@ -128,6 +129,57 @@ final class FeatureRegistry implements FeatureRegistryContract
     public function clearCache(): void
     {
         $this->cachedFeatures = null;
+        Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
+     * Discover features from Hoist.
+     *
+     * @return Collection<int, FeatureData>
+     */
+    private function discover(): Collection
+    {
+        $features = collect();
+
+        // Discover features via Hoist
+        foreach ($this->discovery->discover() as $featureClass) {
+            $feature = $this->buildFeatureData($featureClass);
+            if ($feature !== null) {
+                $features->push($feature);
+            }
+        }
+
+        return $features;
+    }
+
+    /**
+     * Hydrate a FeatureData from a cached array.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function hydrateFeatureData(array $item): FeatureData
+    {
+        // Hydrate nested PermissionData and RoleData
+        $permissions = array_map(
+            fn (array $p) => new PermissionData(...$p),
+            $item['permissions'] ?? []
+        );
+
+        $roles = array_map(
+            fn (array $r) => new RoleData(...$r),
+            $item['roles'] ?? []
+        );
+
+        return new FeatureData(
+            class: $item['class'],
+            name: $item['name'],
+            label: $item['label'],
+            description: $item['description'] ?? null,
+            active: $item['active'] ?? null,
+            permissions: $permissions,
+            roles: $roles,
+            metadata: $item['metadata'] ?? [],
+        );
     }
 
     /**

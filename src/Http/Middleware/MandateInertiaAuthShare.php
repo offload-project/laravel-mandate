@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use OffloadProject\Mandate\Support\MandateUI;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -37,11 +38,11 @@ final class MandateInertiaAuthShare
     public function handle(Request $request, Closure $next): Response
     {
         // Check if Inertia is available
-        if (! class_exists(\Inertia\Inertia::class)) {
+        if (! class_exists(Inertia::class)) {
             return $next($request);
         }
 
-        \Inertia\Inertia::share('auth', function () use ($request) {
+        Inertia::share('auth', function () use ($request) {
             $user = $request->user();
 
             if (! $user) {

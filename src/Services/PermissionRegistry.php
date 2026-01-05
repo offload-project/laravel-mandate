@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Pennant\Feature;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
@@ -22,6 +23,8 @@ use ReflectionClassConstant;
 final class PermissionRegistry implements PermissionRegistryContract
 {
     use DiscoversClasses;
+
+    public const CACHE_KEY = 'mandate.permissions';
 
     /** @var Collection<int, PermissionData>|null */
     private ?Collection $cachedPermissions = null;
@@ -44,16 +47,15 @@ final class PermissionRegistry implements PermissionRegistryContract
             return $this->cachedPermissions;
         }
 
-        $permissions = $this->discoverFromDirectories(
-            'mandate.discovery.permissions',
-            PermissionsSet::class,
-            fn (string $class) => $this->extractFromClass($class)
-        );
+        $ttl = config('mandate.cache.ttl', 3600);
 
-        // Apply feature mappings from features
-        $permissions = $this->applyFeatureMappings($permissions);
-
-        $this->cachedPermissions = $permissions->unique('name')->values();
+        if ($ttl > 0) {
+            /** @var array<int, array<string, mixed>> $cached */
+            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
+            $this->cachedPermissions = collect($cached)->map(fn (array $item) => new PermissionData(...$item));
+        } else {
+            $this->cachedPermissions = $this->discover();
+        }
 
         return $this->cachedPermissions;
     }
@@ -175,7 +177,27 @@ final class PermissionRegistry implements PermissionRegistryContract
     {
         $this->cachedPermissions = null;
         $this->featureMap = null;
+        Cache::forget(self::CACHE_KEY);
         WildcardMatcher::clearCache();
+    }
+
+    /**
+     * Discover permissions from directories and apply mappings.
+     *
+     * @return Collection<int, PermissionData>
+     */
+    private function discover(): Collection
+    {
+        $permissions = $this->discoverFromDirectories(
+            'mandate.discovery.permissions',
+            PermissionsSet::class,
+            fn (string $class) => $this->extractFromClass($class)
+        );
+
+        // Apply feature mappings from features
+        $permissions = $this->applyFeatureMappings($permissions);
+
+        return $permissions->unique('name')->values();
     }
 
     /**
@@ -264,6 +286,7 @@ final class PermissionRegistry implements PermissionRegistryContract
                     description: $permission->description,
                     set: $permission->set,
                     guard: $permission->guard,
+                    scope: $permission->scope,
                     feature: $feature,
                     metadata: $permission->metadata,
                 );

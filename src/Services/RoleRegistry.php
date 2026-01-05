@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Services;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use OffloadProject\Mandate\Attributes\RoleSet;
 use OffloadProject\Mandate\Concerns\DiscoversClasses;
 use OffloadProject\Mandate\Contracts\FeatureRegistryContract;
@@ -22,6 +23,8 @@ use ReflectionClassConstant;
 final class RoleRegistry implements RoleRegistryContract
 {
     use DiscoversClasses;
+
+    public const CACHE_KEY = 'mandate.roles';
 
     /** @var Collection<int, RoleData>|null */
     private ?Collection $cachedRoles = null;
@@ -45,22 +48,15 @@ final class RoleRegistry implements RoleRegistryContract
             return $this->cachedRoles;
         }
 
-        $roles = $this->discoverFromDirectories(
-            'mandate.discovery.roles',
-            RoleSet::class,
-            fn (string $class) => $this->extractFromClass($class)
-        );
+        $ttl = config('mandate.cache.ttl', 3600);
 
-        // Apply feature mappings from features
-        $roles = $this->applyFeatureMappings($roles);
-
-        // Apply permission mappings from config
-        $roles = $this->applyPermissionMappings($roles);
-
-        // Resolve role hierarchy and inherited permissions
-        $roles = $this->hierarchyResolver->resolve($roles);
-
-        $this->cachedRoles = $roles->unique('name')->values();
+        if ($ttl > 0) {
+            /** @var array<int, array<string, mixed>> $cached */
+            $cached = Cache::remember(self::CACHE_KEY, $ttl, fn () => $this->discover()->toArray());
+            $this->cachedRoles = collect($cached)->map(fn (array $item) => new RoleData(...$item));
+        } else {
+            $this->cachedRoles = $this->discover();
+        }
 
         return $this->cachedRoles;
     }
@@ -203,6 +199,32 @@ final class RoleRegistry implements RoleRegistryContract
     {
         $this->cachedRoles = null;
         $this->featureMap = null;
+        Cache::forget(self::CACHE_KEY);
+    }
+
+    /**
+     * Discover roles from directories and apply mappings.
+     *
+     * @return Collection<int, RoleData>
+     */
+    private function discover(): Collection
+    {
+        $roles = $this->discoverFromDirectories(
+            'mandate.discovery.roles',
+            RoleSet::class,
+            fn (string $class) => $this->extractFromClass($class)
+        );
+
+        // Apply feature mappings from features
+        $roles = $this->applyFeatureMappings($roles);
+
+        // Apply permission mappings from config
+        $roles = $this->applyPermissionMappings($roles);
+
+        // Resolve role hierarchy and inherited permissions
+        $roles = $this->hierarchyResolver->resolve($roles);
+
+        return $roles->unique('name')->values();
     }
 
     /**
@@ -275,6 +297,7 @@ final class RoleRegistry implements RoleRegistryContract
                     description: $role->description,
                     set: $role->set,
                     guard: $role->guard,
+                    scope: $role->scope,
                     feature: $feature,
                     permissions: $role->permissions,
                     metadata: $role->metadata,
@@ -310,6 +333,7 @@ final class RoleRegistry implements RoleRegistryContract
                 description: $role->description,
                 set: $role->set,
                 guard: $role->guard,
+                scope: $role->scope,
                 feature: $role->feature,
                 permissions: $permissions,
                 metadata: $role->metadata,

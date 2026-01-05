@@ -14,7 +14,9 @@ final class MandateSyncCommand extends Command
         {--permissions : Only sync permissions}
         {--roles : Only sync roles}
         {--features : Only sync features}
-        {--seed : Seed role permissions from config (first-time setup)}';
+        {--feature-roles : Sync feature-role associations from config}
+        {--feature-permissions : Sync feature-permission associations from config}
+        {--seed : Seed role permissions and feature associations from config (first-time setup)}';
 
     protected $description = 'Sync discovered permissions, roles, and features to the database. By default, syncs all. Use --seed for initial setup to assign permissions from config.';
 
@@ -25,14 +27,20 @@ final class MandateSyncCommand extends Command
         $onlyPermissions = $this->option('permissions');
         $onlyRoles = $this->option('roles');
         $onlyFeatures = $this->option('features');
+        $onlyFeatureRoles = $this->option('feature-roles');
+        $onlyFeaturePermissions = $this->option('feature-permissions');
         $seed = (bool) $this->option('seed');
         $hasSyncColumns = $this->hasSyncColumns();
 
         // If none specified, do all
-        if (! $onlyPermissions && ! $onlyRoles && ! $onlyFeatures) {
+        $hasSpecificOption = $onlyPermissions || $onlyRoles || $onlyFeatures || $onlyFeatureRoles || $onlyFeaturePermissions;
+        if (! $hasSpecificOption) {
             $onlyPermissions = true;
             $onlyRoles = true;
             $onlyFeatures = config('mandate.features.enabled', false);
+            // Feature associations are synced when --seed is used
+            $onlyFeatureRoles = $seed && config('mandate.features.enabled', false);
+            $onlyFeaturePermissions = $seed && config('mandate.features.enabled', false);
         }
 
         if ($onlyPermissions) {
@@ -45,6 +53,14 @@ final class MandateSyncCommand extends Command
 
         if ($onlyFeatures) {
             $this->syncFeatures($mandate, $hasSyncColumns);
+        }
+
+        if ($onlyFeatureRoles || ($seed && config('mandate.features.enabled', false))) {
+            $this->syncFeatureRoles($mandate, $guard, $seed);
+        }
+
+        if ($onlyFeaturePermissions || ($seed && config('mandate.features.enabled', false))) {
+            $this->syncFeaturePermissions($mandate, $guard, $seed);
         }
 
         $this->newLine();
@@ -129,6 +145,44 @@ final class MandateSyncCommand extends Command
         }
 
         $this->components->twoColumnDetail('Features', $details);
+    }
+
+    private function syncFeatureRoles(MandateManager $mandate, ?string $guard, bool $seed): void
+    {
+        $result = null;
+
+        $this->components->task('Syncing feature-role associations', function () use ($mandate, $guard, $seed, &$result) {
+            $result = $mandate->syncFeatureRoles($guard, $seed);
+
+            return true;
+        });
+
+        if ($result === null) {
+            return;
+        }
+
+        $details = sprintf('<fg=blue>%d assigned</>', $result['assigned']);
+
+        $this->components->twoColumnDetail('Feature Roles', $details);
+    }
+
+    private function syncFeaturePermissions(MandateManager $mandate, ?string $guard, bool $seed): void
+    {
+        $result = null;
+
+        $this->components->task('Syncing feature-permission associations', function () use ($mandate, $guard, $seed, &$result) {
+            $result = $mandate->syncFeaturePermissions($guard, $seed);
+
+            return true;
+        });
+
+        if ($result === null) {
+            return;
+        }
+
+        $details = sprintf('<fg=blue>%d granted</>', $result['granted']);
+
+        $this->components->twoColumnDetail('Feature Permissions', $details);
     }
 
     /**

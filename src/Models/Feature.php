@@ -6,21 +6,31 @@ namespace OffloadProject\Mandate\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use OffloadProject\Mandate\Concerns\HasRoles;
 use OffloadProject\Mandate\Contracts\FeatureContract;
+use OffloadProject\Mandate\Contracts\HasPermissionsContract;
+use OffloadProject\Mandate\Contracts\HasRolesContract;
 use OffloadProject\Mandate\Models\Concerns\HasContextScope;
 
-final class Feature extends Model implements FeatureContract
+final class Feature extends Model implements FeatureContract, HasPermissionsContract, HasRolesContract
 {
     use HasContextScope;
+    use HasRoles;
 
     /** @var array<int, string> */
     protected $guarded = ['id'];
+
+    /**
+     * The guard name for this feature (uses default guard).
+     */
+    protected string $guard_name;
 
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
 
         $this->setTable(config('mandate.tables.features', 'mandate_features'));
+        $this->guard_name = config('auth.defaults.guard');
     }
 
     /**

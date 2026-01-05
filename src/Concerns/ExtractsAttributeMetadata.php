@@ -10,6 +10,7 @@ use OffloadProject\Mandate\Attributes\Inherits;
 use OffloadProject\Mandate\Attributes\Label;
 use OffloadProject\Mandate\Attributes\PermissionsSet;
 use OffloadProject\Mandate\Attributes\RoleSet;
+use OffloadProject\Mandate\Attributes\Scope;
 use ReflectionClass;
 use ReflectionClassConstant;
 
@@ -23,7 +24,7 @@ trait ExtractsAttributeMetadata
      *
      * @param  class-string  $class
      * @param  class-string  $setAttributeClass  The attribute class for the set (PermissionsSet or RoleSet)
-     * @return array{value: string, label: string, description: ?string, set: ?string, guard: ?string, inheritsFrom: array<string>}
+     * @return array{value: string, label: string, description: ?string, set: ?string, guard: ?string, scope: ?string, inheritsFrom: array<string>}
      */
     protected static function extractConstantMetadata(
         string $class,
@@ -58,11 +59,17 @@ trait ExtractsAttributeMetadata
             ?? null;
         $guard = $guardAttr?->newInstance()->name;
 
+        // Get scope from constant-level or class-level attribute
+        $scopeAttr = $constantReflection->getAttributes(Scope::class)[0]
+            ?? $reflection->getAttributes(Scope::class)[0]
+            ?? null;
+        $scope = $scopeAttr?->newInstance()->name;
+
         // Get parent roles from Inherits attribute (for role hierarchy)
         $inheritsAttr = $constantReflection->getAttributes(Inherits::class)[0] ?? null;
         $inheritsFrom = $inheritsAttr?->newInstance()->parents ?? [];
 
-        return compact('value', 'label', 'description', 'set', 'guard', 'inheritsFrom');
+        return compact('value', 'label', 'description', 'set', 'guard', 'scope', 'inheritsFrom');
     }
 
     /**

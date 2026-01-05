@@ -318,6 +318,69 @@ final class MandateManager
     }
 
     /**
+     * Sync feature-role associations from config.
+     *
+     * @param  string|null  $scope  The scope for feature-scoped roles (defaults to 'feature')
+     * @param  string|null  $contextModelType  The context model type (defaults to feature class)
+     * @return array{assigned: int}
+     */
+    public function syncFeatureRoles(
+        ?string $guard = null,
+        bool $seed = false,
+        ?string $scope = 'feature',
+        ?string $contextModelType = null,
+    ): array {
+        if (! config('mandate.features.enabled', true)) {
+            return ['assigned' => 0];
+        }
+
+        $featureRolesConfig = config('mandate-seed.feature_roles', []);
+
+        return $this->syncer->syncFeatureRoles($featureRolesConfig, $guard, $seed, $scope, $contextModelType);
+    }
+
+    /**
+     * Sync feature-permission associations from config.
+     *
+     * @param  string|null  $scope  The scope for feature-scoped permissions (defaults to 'feature')
+     * @param  string|null  $contextModelType  The context model type (defaults to feature class)
+     * @return array{granted: int}
+     */
+    public function syncFeaturePermissions(
+        ?string $guard = null,
+        bool $seed = false,
+        ?string $scope = 'feature',
+        ?string $contextModelType = null,
+    ): array {
+        if (! config('mandate.features.enabled', true)) {
+            return ['granted' => 0];
+        }
+
+        $featurePermissionsConfig = config('mandate-seed.feature_permissions', []);
+
+        return $this->syncer->syncFeaturePermissions($featurePermissionsConfig, $guard, $seed, $scope, $contextModelType);
+    }
+
+    /**
+     * Sync all feature associations (roles and permissions) from config.
+     *
+     * @param  string|null  $scope  The scope for feature-scoped items (defaults to 'feature')
+     * @param  string|null  $contextModelType  The context model type (defaults to feature class)
+     * @return array{roles: array{assigned: int}, permissions: array{granted: int}}
+     */
+    public function syncFeatureAssociations(
+        ?string $guard = null,
+        bool $seed = false,
+        ?string $scope = 'feature',
+        ?string $contextModelType = null,
+    ): array {
+        return [
+            'roles' => $this->syncFeatureRoles($guard, $seed, $scope, $contextModelType),
+            'permissions' => $this->syncFeaturePermissions($guard, $seed, $scope, $contextModelType),
+        ];
+    }
+
+    /**
      * Clear all cached data.
      */
     public function clearCache(): void

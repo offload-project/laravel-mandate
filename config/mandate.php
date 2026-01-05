@@ -211,6 +211,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure caching for discovered permissions, roles, and features.
+    |
+    | - ttl: Cache time-to-live in seconds. Set to 0 to disable caching.
+    |        Default is 3600 (1 hour).
+    |
+    */
+
+    'cache' => [
+        'ttl' => env('MANDATE_CACHE_TTL', 3600),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | TypeScript Export Path
     |--------------------------------------------------------------------------
     |

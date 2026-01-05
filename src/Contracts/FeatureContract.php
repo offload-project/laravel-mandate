@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 /**
  * Contract for Feature model implementations.
+ *
+ * Features can have roles and permissions assigned to them, making the feature
+ * a subject that "owns" certain roles/permissions. This is useful for feature-gating.
  */
 interface FeatureContract
 {
@@ -37,4 +40,9 @@ interface FeatureContract
      * Get the resolution value for this feature.
      */
     public function getValue(): mixed;
+
+    /**
+     * Check if the feature is active (value is truthy).
+     */
+    public function isActive(): bool;
 }

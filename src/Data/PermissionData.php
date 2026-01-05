@@ -21,6 +21,7 @@ final class PermissionData extends Data
         public ?string $description = null,
         public ?string $set = null,
         public ?string $guard = null,
+        public ?string $scope = null,
         public ?string $feature = null,
         public ?bool $active = null,
         public ?bool $featureActive = null,
@@ -51,6 +52,7 @@ final class PermissionData extends Data
             description: $meta['description'],
             set: $meta['set'],
             guard: $meta['guard'],
+            scope: $meta['scope'],
             feature: $feature,
         );
     }
@@ -99,6 +101,7 @@ final class PermissionData extends Data
             description: $this->description,
             set: $this->set,
             guard: $this->guard,
+            scope: $this->scope,
             feature: $this->feature,
             active: $active,
             featureActive: $featureActive,
@@ -119,6 +122,7 @@ final class PermissionData extends Data
             description: $this->description,
             set: $this->set,
             guard: $this->guard,
+            scope: $this->scope,
             feature: $this->feature,
             active: $this->active,
             featureActive: $this->featureActive,

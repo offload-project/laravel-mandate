@@ -64,7 +64,10 @@ use OffloadProject\Mandate\MandateRegistrar;
  * Utility:
  * @method static bool clearCache()
  * @method static MandateRegistrar getRegistrar()
+ *                                                # pint ignore/next-line
  * @method static array{
+ * permissions: array<string>, roles: array<string>, capabilities?: array<string>
+ * } getAuthorizationData(\Illuminate\Contracts\Auth\Authenticatable|null $subject = null, ?Model $context = null)
  *
  * @see MandateService
  */

@@ -14,14 +14,27 @@ return new class extends Migration
     public function up(): void
     {
         $tableName = config('mandate.tables.roles', 'roles');
+        $contextEnabled = config('mandate.context.enabled', false);
 
-        Schema::create($tableName, function (Blueprint $table) {
+        Schema::create($tableName, function (Blueprint $table) use ($contextEnabled) {
             $table->id();
             $table->string('name');
             $table->string('guard');
-            $table->timestamps();
 
-            $table->unique(['name', 'guard']);
+            if ($contextEnabled) {
+                $contextTypeColumn = config('mandate.column_names.context_morph_type', 'context_type');
+                $contextIdColumn = config('mandate.column_names.context_morph_key', 'context_id');
+
+                $table->string($contextTypeColumn)->nullable();
+                $table->unsignedBigInteger($contextIdColumn)->nullable();
+
+                $table->unique(['name', 'guard', $contextTypeColumn, $contextIdColumn], 'roles_unique');
+                $table->index([$contextTypeColumn, $contextIdColumn], 'roles_context_index');
+            } else {
+                $table->unique(['name', 'guard']);
+            }
+
+            $table->timestamps();
             $table->index('guard');
         });
     }

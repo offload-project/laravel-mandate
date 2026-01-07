@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Concerns;
 
 use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
@@ -25,6 +26,8 @@ use OffloadProject\Mandate\Models\Permission;
  */
 trait HasPermissions
 {
+    use HasContext;
+
     /**
      * Boot the trait.
      */
@@ -46,27 +49,38 @@ trait HasPermissions
      */
     public function permissions(): MorphToMany
     {
-        return $this->morphToMany(
+        $relation = $this->morphToMany(
             config('mandate.models.permission', Permission::class),
             'subject',
             config('mandate.tables.permission_subject', 'permission_subject'),
             config('mandate.column_names.subject_morph_key', 'subject_id'),
             config('mandate.column_names.permission_id', 'permission_id')
         )->withTimestamps();
+
+        // Include context columns in pivot if context is enabled
+        if ($this->contextEnabled()) {
+            $relation->withPivot([
+                $this->getContextTypeColumn(),
+                $this->getContextIdColumn(),
+            ]);
+        }
+
+        return $relation;
     }
 
     /**
      * Grant one or more permissions to this model.
      *
      * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function grantPermission(string|BackedEnum|PermissionContract|array $permissions): static
+    public function grantPermission(string|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
 
-        $this->permissions()->syncWithoutDetaching($normalizedIds);
+        $this->attachWithContext($this->permissions(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
 
@@ -81,25 +95,27 @@ trait HasPermissions
      * Alias for grantPermission() - grant multiple permissions.
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function grantPermissions(array $permissions): static
+    public function grantPermissions(array $permissions, ?Model $context = null): static
     {
-        return $this->grantPermission($permissions);
+        return $this->grantPermission($permissions, $context);
     }
 
     /**
      * Revoke one or more permissions from this model.
      *
      * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function revokePermission(string|BackedEnum|PermissionContract|array $permissions): static
+    public function revokePermission(string|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
 
-        $this->permissions()->detach($normalizedIds);
+        $this->detachWithContext($this->permissions(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
 
@@ -114,24 +130,26 @@ trait HasPermissions
      * Alias for revokePermission() - revoke multiple permissions.
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function revokePermissions(array $permissions): static
+    public function revokePermissions(array $permissions, ?Model $context = null): static
     {
-        return $this->revokePermission($permissions);
+        return $this->revokePermission($permissions, $context);
     }
 
     /**
      * Sync permissions on this model (replace all existing).
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function syncPermissions(array $permissions): static
+    public function syncPermissions(array $permissions, ?Model $context = null): static
     {
         $normalized = $this->normalizePermissions($permissions);
 
-        $this->permissions()->sync($normalized);
+        $this->syncWithContext($this->permissions(), $normalized, $context);
 
         $this->forgetPermissionCache();
 
@@ -140,26 +158,28 @@ trait HasPermissions
 
     /**
      * Check if the model has a specific permission (direct or via role).
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasPermission(string|BackedEnum|PermissionContract $permission): bool
+    public function hasPermission(string|BackedEnum|PermissionContract $permission, ?Model $context = null): bool
     {
         $permissionName = $this->getPermissionName($permission);
 
         // Check wildcard permissions if enabled
         if (config('mandate.wildcards.enabled', false)) {
-            if ($this->hasWildcardPermission($permissionName)) {
+            if ($this->hasWildcardPermission($permissionName, $context)) {
                 return true;
             }
         }
 
         // Check direct permissions
-        if ($this->hasDirectPermission($permissionName)) {
+        if ($this->hasDirectPermission($permissionName, $context)) {
             return true;
         }
 
         // Check permissions via roles (if model uses HasRoles)
         if (method_exists($this, 'hasPermissionViaRole')) {
-            return $this->hasPermissionViaRole($permissionName);
+            return $this->hasPermissionViaRole($permissionName, $context);
         }
 
         return false;
@@ -169,11 +189,12 @@ trait HasPermissions
      * Check if the model has any of the given permissions.
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasAnyPermission(array $permissions): bool
+    public function hasAnyPermission(array $permissions, ?Model $context = null): bool
     {
         foreach ($permissions as $permission) {
-            if ($this->hasPermission($permission)) {
+            if ($this->hasPermission($permission, $context)) {
                 return true;
             }
         }
@@ -185,11 +206,12 @@ trait HasPermissions
      * Check if the model has all of the given permissions.
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasAllPermissions(array $permissions): bool
+    public function hasAllPermissions(array $permissions, ?Model $context = null): bool
     {
         foreach ($permissions as $permission) {
-            if (! $this->hasPermission($permission)) {
+            if (! $this->hasPermission($permission, $context)) {
                 return false;
             }
         }
@@ -199,54 +221,85 @@ trait HasPermissions
 
     /**
      * Check if the model has a permission directly (not via role).
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasDirectPermission(string|BackedEnum|PermissionContract $permission): bool
+    public function hasDirectPermission(string|BackedEnum|PermissionContract $permission, ?Model $context = null): bool
     {
         $permissionName = $this->getPermissionName($permission);
         $guardName = $this->getGuardName();
 
-        // If permissions are already loaded, check in-memory (avoids N+1)
-        if ($this->relationLoaded('permissions')) {
-            return $this->permissions->contains(
-                fn ($p) => $p->name === $permissionName && $p->guard === $guardName
-            );
+        // Build the query with context support
+        $query = $this->permissions()
+            ->where('name', $permissionName)
+            ->where('guard', $guardName);
+
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+
+            // Check for specific context
+            if ($context !== null) {
+                if ($this->globalFallbackEnabled()) {
+                    // Check for context OR global
+                    $query->where(function ($q) use ($resolved) {
+                        $table = config('mandate.tables.permission_subject', 'permission_subject');
+                        $typeCol = $this->getContextTypeColumn();
+                        $idCol = $this->getContextIdColumn();
+
+                        $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                            $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                                ->where("{$table}.{$idCol}", $resolved['id']);
+                        })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                            $inner->whereNull("{$table}.{$typeCol}")
+                                ->whereNull("{$table}.{$idCol}");
+                        });
+                    });
+                } else {
+                    // Check for specific context only
+                    $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                        ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+                }
+            } else {
+                // Check for global (null context) only
+                $query->wherePivot($this->getContextTypeColumn(), null)
+                    ->wherePivot($this->getContextIdColumn(), null);
+            }
         }
 
-        return $this->permissions()
-            ->where('name', $permissionName)
-            ->where('guard', $guardName)
-            ->exists();
+        return $query->exists();
     }
 
     /**
      * Get all permission names for this model.
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, string>
      */
-    public function getPermissionNames(): Collection
+    public function getPermissionNames(?Model $context = null): Collection
     {
-        return $this->getAllPermissions()->pluck('name');
+        return $this->getAllPermissions($context)->pluck('name');
     }
 
     /**
      * Get all permissions for this model (direct + via roles + via capabilities).
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
-    public function getAllPermissions(): Collection
+    public function getAllPermissions(?Model $context = null): Collection
     {
         // Get direct permissions
-        $permissions = $this->permissions->keyBy('id');
+        $permissions = $this->getDirectPermissions($context)->keyBy('id');
 
         // Add permissions from roles if applicable
         if (method_exists($this, 'getPermissionsViaRoles')) {
-            $rolePermissions = $this->getPermissionsViaRoles();
+            $rolePermissions = $this->getPermissionsViaRoles($context);
             $permissions = $permissions->merge($rolePermissions->keyBy('id'));
         }
 
         // Add permissions from capabilities if applicable
         if (method_exists($this, 'getPermissionsViaCapabilities')) {
-            $capabilityPermissions = $this->getPermissionsViaCapabilities();
+            $capabilityPermissions = $this->getPermissionsViaCapabilities($context);
             $permissions = $permissions->merge($capabilityPermissions->keyBy('id'));
         }
 
@@ -256,11 +309,72 @@ trait HasPermissions
     /**
      * Get only directly assigned permissions.
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
-    public function getDirectPermissions(): Collection
+    public function getDirectPermissions(?Model $context = null): Collection
     {
-        return $this->permissions;
+        if (! $this->contextEnabled()) {
+            return $this->permissions;
+        }
+
+        $query = $this->permissions();
+        $resolved = $this->resolveContext($context);
+
+        if ($context !== null && $this->globalFallbackEnabled()) {
+            // Get permissions for context OR global
+            $table = config('mandate.tables.permission_subject', 'permission_subject');
+            $typeCol = $this->getContextTypeColumn();
+            $idCol = $this->getContextIdColumn();
+
+            $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
+                $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                    $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                        ->where("{$table}.{$idCol}", $resolved['id']);
+                })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                    $inner->whereNull("{$table}.{$typeCol}")
+                        ->whereNull("{$table}.{$idCol}");
+                });
+            });
+        } else {
+            // Get permissions for specific context only
+            $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Get all contexts where this model has a specific permission.
+     *
+     * @return Collection<int, Model>
+     */
+    public function getPermissionContexts(string|BackedEnum|PermissionContract $permission): Collection
+    {
+        if (! $this->contextEnabled()) {
+            return collect();
+        }
+
+        $permissionName = $this->getPermissionName($permission);
+        $guardName = $this->getGuardName();
+
+        $pivotRecords = $this->permissions()
+            ->where('name', $permissionName)
+            ->where('guard', $guardName)
+            ->whereNotNull($this->getContextTypeColumn())
+            ->get();
+
+        return $pivotRecords->map(function ($permission) {
+            $contextType = $permission->pivot->{$this->getContextTypeColumn()};
+            $contextId = $permission->pivot->{$this->getContextIdColumn()};
+
+            if ($contextType && $contextId) {
+                return $contextType::find($contextId);
+            }
+
+            return null;
+        })->filter()->values();
     }
 
     /**
@@ -307,12 +421,14 @@ trait HasPermissions
 
     /**
      * Check if model has permission via wildcard patterns.
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    protected function hasWildcardPermission(string $permission): bool
+    protected function hasWildcardPermission(string $permission, ?Model $context = null): bool
     {
         $wildcardHandler = $this->getWildcardHandler();
 
-        foreach ($this->getAllPermissions() as $grantedPermission) {
+        foreach ($this->getAllPermissions($context) as $grantedPermission) {
             if ($wildcardHandler->containsWildcard($grantedPermission->name)) {
                 if ($wildcardHandler->matches($grantedPermission->name, $permission)) {
                     return true;

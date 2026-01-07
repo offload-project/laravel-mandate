@@ -16,10 +16,13 @@ abstract class TestCase extends Orchestra
     use InteractsWithViews;
     use RefreshDatabase;
 
+    protected bool $contextMigrationsRun = false;
+
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->contextMigrationsRun = false;
         $this->setUpDatabase();
     }
 
@@ -51,6 +54,12 @@ abstract class TestCase extends Orchestra
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->timestamps();
+        });
+
+        Schema::create('teams', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
             $table->timestamps();
         });
 
@@ -111,5 +120,32 @@ abstract class TestCase extends Orchestra
     protected function enableDirectCapabilityAssignment(): void
     {
         config(['mandate.capabilities.direct_assignment' => true]);
+    }
+
+    protected function enableContext(): void
+    {
+        config(['mandate.context.enabled' => true]);
+        $this->runContextMigrations();
+    }
+
+    protected function enableContextWithoutGlobalFallback(): void
+    {
+        config(['mandate.context.enabled' => true]);
+        config(['mandate.context.global_fallback' => false]);
+        $this->runContextMigrations();
+    }
+
+    protected function runContextMigrations(): void
+    {
+        if ($this->contextMigrationsRun) {
+            return;
+        }
+
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        $migration = include $migrationPath.'/2024_01_01_000010_add_context_columns_to_pivot_tables.php';
+        $migration->up();
+
+        $this->contextMigrationsRun = true;
     }
 }

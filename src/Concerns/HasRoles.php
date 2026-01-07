@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Concerns;
 
 use BackedEnum;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
@@ -53,27 +54,38 @@ trait HasRoles
      */
     public function roles(): MorphToMany
     {
-        return $this->morphToMany(
+        $relation = $this->morphToMany(
             config('mandate.models.role', Role::class),
             'subject',
             config('mandate.tables.role_subject', 'role_subject'),
             config('mandate.column_names.subject_morph_key', 'subject_id'),
             config('mandate.column_names.role_id', 'role_id')
         )->withTimestamps();
+
+        // Include context columns in pivot if context is enabled
+        if ($this->contextEnabled()) {
+            $relation->withPivot([
+                $this->getContextTypeColumn(),
+                $this->getContextIdColumn(),
+            ]);
+        }
+
+        return $relation;
     }
 
     /**
      * Assign one or more roles to this model.
      *
      * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role assignment
      * @return $this
      */
-    public function assignRole(string|BackedEnum|RoleContract|array $roles): static
+    public function assignRole(string|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
 
-        $this->roles()->syncWithoutDetaching($normalizedIds);
+        $this->attachWithContext($this->roles(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
 
@@ -88,25 +100,27 @@ trait HasRoles
      * Alias for assignRole() - assign multiple roles.
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role assignment
      * @return $this
      */
-    public function assignRoles(array $roles): static
+    public function assignRoles(array $roles, ?Model $context = null): static
     {
-        return $this->assignRole($roles);
+        return $this->assignRole($roles, $context);
     }
 
     /**
      * Remove one or more roles from this model.
      *
      * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role removal
      * @return $this
      */
-    public function removeRole(string|BackedEnum|RoleContract|array $roles): static
+    public function removeRole(string|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
 
-        $this->roles()->detach($normalizedIds);
+        $this->detachWithContext($this->roles(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
 
@@ -121,24 +135,26 @@ trait HasRoles
      * Alias for removeRole() - remove multiple roles.
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role removal
      * @return $this
      */
-    public function removeRoles(array $roles): static
+    public function removeRoles(array $roles, ?Model $context = null): static
     {
-        return $this->removeRole($roles);
+        return $this->removeRole($roles, $context);
     }
 
     /**
      * Sync roles on this model (replace all existing).
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role sync
      * @return $this
      */
-    public function syncRoles(array $roles): static
+    public function syncRoles(array $roles, ?Model $context = null): static
     {
         $normalized = $this->normalizeRoles($roles);
 
-        $this->roles()->sync($normalized);
+        $this->syncWithContext($this->roles(), $normalized, $context);
 
         $this->forgetPermissionCache();
 
@@ -147,86 +163,98 @@ trait HasRoles
 
     /**
      * Check if the model has a specific role.
+     *
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasRole(string|BackedEnum|RoleContract $role): bool
+    public function hasRole(string|BackedEnum|RoleContract $role, ?Model $context = null): bool
     {
         $roleName = $this->getRoleName($role);
         $guardName = $this->getGuardName();
 
-        // If roles are already loaded, check in-memory (avoids N+1)
-        if ($this->relationLoaded('roles')) {
-            return $this->roles->contains(
-                fn ($r) => $r->name === $roleName && $r->guard === $guardName
-            );
+        $query = $this->roles()
+            ->where('name', $roleName)
+            ->where('guard', $guardName);
+
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+
+            if ($context !== null && $this->globalFallbackEnabled()) {
+                // Check for context OR global
+                $table = config('mandate.tables.role_subject', 'role_subject');
+                $typeCol = $this->getContextTypeColumn();
+                $idCol = $this->getContextIdColumn();
+
+                $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
+                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                            ->where("{$table}.{$idCol}", $resolved['id']);
+                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                        $inner->whereNull("{$table}.{$typeCol}")
+                            ->whereNull("{$table}.{$idCol}");
+                    });
+                });
+            } else {
+                // Check for specific context only
+                $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+            }
         }
 
-        return $this->roles()
-            ->where('name', $roleName)
-            ->where('guard', $guardName)
-            ->exists();
+        return $query->exists();
     }
 
     /**
      * Check if the model has any of the given roles.
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasAnyRole(array $roles): bool
+    public function hasAnyRole(array $roles, ?Model $context = null): bool
     {
-        $roleNames = array_map(fn ($r) => $this->getRoleName($r), $roles);
-        $guardName = $this->getGuardName();
-
-        // If roles are already loaded, check in-memory
-        if ($this->relationLoaded('roles')) {
-            return $this->roles->contains(
-                fn ($r) => in_array($r->name, $roleNames, true) && $r->guard === $guardName
-            );
+        foreach ($roles as $role) {
+            if ($this->hasRole($role, $context)) {
+                return true;
+            }
         }
 
-        return $this->roles()
-            ->whereIn('name', $roleNames)
-            ->where('guard', $guardName)
-            ->exists();
+        return false;
     }
 
     /**
      * Check if the model has all of the given roles.
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasAllRoles(array $roles): bool
+    public function hasAllRoles(array $roles, ?Model $context = null): bool
     {
-        $roleNames = array_map(fn ($r) => $this->getRoleName($r), $roles);
-        $guardName = $this->getGuardName();
-
-        // If roles are already loaded, check in-memory
-        if ($this->relationLoaded('roles')) {
-            $matchCount = $this->roles->filter(
-                fn ($r) => in_array($r->name, $roleNames, true) && $r->guard === $guardName
-            )->count();
-
-            return $matchCount === count($roleNames);
+        foreach ($roles as $role) {
+            if (! $this->hasRole($role, $context)) {
+                return false;
+            }
         }
 
-        return $this->roles()
-            ->whereIn('name', $roleNames)
-            ->where('guard', $guardName)
-            ->count() === count($roleNames);
+        return true;
     }
 
     /**
      * Check if the model has exactly the given roles (no more, no less).
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasExactRoles(array $roles): bool
+    public function hasExactRoles(array $roles, ?Model $context = null): bool
     {
         $guard = $this->getGuardName();
-        $assignedRoles = $this->roles()
-            ->where('guard', $guard)
-            ->pluck('name')
-            ->sort()
-            ->values();
+        $query = $this->roles()->where('guard', $guard);
+
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+            $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+        }
+
+        $assignedRoles = $query->pluck('name')->sort()->values();
 
         $expectedRoles = collect($roles)
             ->map(fn ($role) => $this->getRoleName($role))
@@ -240,65 +268,153 @@ trait HasRoles
     /**
      * Get all role names for this model.
      *
+     * @param  Model|null  $context  Optional context model to filter roles
      * @return Collection<int, string>
      */
-    public function getRoleNames(): Collection
+    public function getRoleNames(?Model $context = null): Collection
     {
-        return $this->roles->pluck('name');
+        return $this->getRolesForContext($context)->pluck('name');
+    }
+
+    /**
+     * Get roles for a specific context.
+     *
+     * @param  Model|null  $context  Optional context model to filter roles
+     * @return Collection<int, RoleContract>
+     */
+    public function getRolesForContext(?Model $context = null): Collection
+    {
+        if (! $this->contextEnabled()) {
+            return $this->roles;
+        }
+
+        $query = $this->roles();
+        $resolved = $this->resolveContext($context);
+
+        if ($context !== null && $this->globalFallbackEnabled()) {
+            // Get roles for context OR global
+            $table = config('mandate.tables.role_subject', 'role_subject');
+            $typeCol = $this->getContextTypeColumn();
+            $idCol = $this->getContextIdColumn();
+
+            $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
+                $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                    $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                        ->where("{$table}.{$idCol}", $resolved['id']);
+                })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                    $inner->whereNull("{$table}.{$typeCol}")
+                        ->whereNull("{$table}.{$idCol}");
+                });
+            });
+        } else {
+            // Get roles for specific context only
+            $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Get all contexts where this model has a specific role.
+     *
+     * @return Collection<int, Model>
+     */
+    public function getRoleContexts(string|BackedEnum|RoleContract $role): Collection
+    {
+        if (! $this->contextEnabled()) {
+            return collect();
+        }
+
+        $roleName = $this->getRoleName($role);
+        $guardName = $this->getGuardName();
+
+        $pivotRecords = $this->roles()
+            ->where('name', $roleName)
+            ->where('guard', $guardName)
+            ->whereNotNull($this->getContextTypeColumn())
+            ->get();
+
+        return $pivotRecords->map(function ($role) {
+            $contextType = $role->pivot->{$this->getContextTypeColumn()};
+            $contextId = $role->pivot->{$this->getContextIdColumn()};
+
+            if ($contextType && $contextId) {
+                return $contextType::find($contextId);
+            }
+
+            return null;
+        })->filter()->values();
     }
 
     /**
      * Check if the model has a permission via one of its roles (including capabilities).
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasPermissionViaRole(string $permission): bool
+    public function hasPermissionViaRole(string $permission, ?Model $context = null): bool
     {
         $guardName = $this->getGuardName();
 
-        // Check direct role permissions first
-        $hasDirectRolePermission = false;
+        // Build query for roles with context support
+        $rolesQuery = $this->roles();
 
-        if ($this->relationLoaded('roles')) {
-            foreach ($this->roles as $role) {
-                if ($role->relationLoaded('permissions')) {
-                    if ($role->permissions->contains(
-                        fn ($p) => $p->name === $permission && $p->guard === $guardName
-                    )) {
-                        return true;
-                    }
-                } else {
-                    // Fall back to single query if permissions not loaded
-                    $hasDirectRolePermission = $this->roles()
-                        ->whereHas('permissions', fn ($q) => $q->where('name', $permission)->where('guard', $guardName))
-                        ->exists();
-                    break;
-                }
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+
+            if ($context !== null && $this->globalFallbackEnabled()) {
+                // Check for context OR global
+                $table = config('mandate.tables.role_subject', 'role_subject');
+                $typeCol = $this->getContextTypeColumn();
+                $idCol = $this->getContextIdColumn();
+
+                $rolesQuery->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
+                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                            ->where("{$table}.{$idCol}", $resolved['id']);
+                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                        $inner->whereNull("{$table}.{$typeCol}")
+                            ->whereNull("{$table}.{$idCol}");
+                    });
+                });
+            } else {
+                $rolesQuery->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
             }
-        } else {
-            // Use a single query instead of N+1
-            $hasDirectRolePermission = $this->roles()
-                ->whereHas('permissions', fn ($q) => $q->where('name', $permission)->where('guard', $guardName))
-                ->exists();
         }
+
+        // Check direct role permissions
+        $hasDirectRolePermission = (clone $rolesQuery)
+            ->whereHas('permissions', fn ($q) => $q->where('name', $permission)->where('guard', $guardName))
+            ->exists();
 
         if ($hasDirectRolePermission) {
             return true;
         }
 
         // Check permissions via capabilities
-        return $this->hasPermissionViaCapability($permission);
+        return $this->hasPermissionViaCapability($permission, $context);
     }
 
     /**
      * Get all permissions granted via roles.
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
-    public function getPermissionsViaRoles(): Collection
+    public function getPermissionsViaRoles(?Model $context = null): Collection
     {
-        // Eager load permissions in a single query to avoid N+1
-        $roles = $this->relationLoaded('roles') && $this->roles->every(fn ($r) => $r->relationLoaded('permissions'))
-            ? $this->roles
-            : $this->roles()->with('permissions')->get();
+        // Get roles for context
+        $roles = $this->getRolesForContext($context);
+
+        // Ensure permissions are loaded
+        if (! $roles->every(fn ($r) => $r->relationLoaded('permissions'))) {
+            $roleClass = config('mandate.models.role', Role::class);
+            $roles = $roleClass::query()
+                ->whereIn('id', $roles->pluck('id'))
+                ->with('permissions')
+                ->get();
+        }
 
         return $roles->flatMap->permissions->unique('id')->values();
     }
@@ -520,9 +636,10 @@ trait HasRoles
     /**
      * Get all capabilities for this model (direct + via roles).
      *
+     * @param  Model|null  $context  Optional context model to filter capabilities
      * @return Collection<int, CapabilityContract>
      */
-    public function getAllCapabilities(): Collection
+    public function getAllCapabilities(?Model $context = null): Collection
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return collect();
@@ -533,8 +650,8 @@ trait HasRoles
             ? $this->capabilities->keyBy('id')
             : collect();
 
-        // Add capabilities from roles
-        $roleCapabilities = $this->getCapabilitiesViaRoles();
+        // Add capabilities from roles (with context)
+        $roleCapabilities = $this->getCapabilitiesViaRoles($context);
         $capabilities = $capabilities->merge($roleCapabilities->keyBy('id'));
 
         return $capabilities->values();
@@ -543,17 +660,26 @@ trait HasRoles
     /**
      * Get capabilities granted via roles.
      *
+     * @param  Model|null  $context  Optional context model to filter capabilities
      * @return Collection<int, CapabilityContract>
      */
-    public function getCapabilitiesViaRoles(): Collection
+    public function getCapabilitiesViaRoles(?Model $context = null): Collection
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return collect();
         }
 
-        $roles = $this->relationLoaded('roles') && $this->roles->every(fn ($r) => $r->relationLoaded('capabilities'))
-            ? $this->roles
-            : $this->roles()->with('capabilities')->get();
+        // Get roles for context
+        $roles = $this->getRolesForContext($context);
+
+        // Ensure capabilities are loaded
+        if (! $roles->every(fn ($r) => $r->relationLoaded('capabilities'))) {
+            $roleClass = config('mandate.models.role', Role::class);
+            $roles = $roleClass::query()
+                ->whereIn('id', $roles->pluck('id'))
+                ->with('capabilities')
+                ->get();
+        }
 
         return $roles->flatMap->capabilities->unique('id')->values();
     }
@@ -561,15 +687,16 @@ trait HasRoles
     /**
      * Get permissions granted via capabilities (from roles and direct).
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
-    public function getPermissionsViaCapabilities(): Collection
+    public function getPermissionsViaCapabilities(?Model $context = null): Collection
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return collect();
         }
 
-        $capabilities = $this->getAllCapabilities();
+        $capabilities = $this->getAllCapabilities($context);
 
         // Ensure permissions are loaded
         if (! $capabilities->every(fn ($c) => $c->relationLoaded('permissions'))) {
@@ -585,8 +712,10 @@ trait HasRoles
 
     /**
      * Check if model has permission via capability.
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasPermissionViaCapability(string $permission): bool
+    public function hasPermissionViaCapability(string $permission, ?Model $context = null): bool
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return false;
@@ -603,8 +732,33 @@ trait HasRoles
             }
         }
 
-        // Check capabilities via roles
-        return $this->roles()
+        // Check capabilities via roles (with context)
+        $rolesQuery = $this->roles();
+
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+
+            if ($context !== null && $this->globalFallbackEnabled()) {
+                $table = config('mandate.tables.role_subject', 'role_subject');
+                $typeCol = $this->getContextTypeColumn();
+                $idCol = $this->getContextIdColumn();
+
+                $rolesQuery->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
+                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
+                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
+                            ->where("{$table}.{$idCol}", $resolved['id']);
+                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
+                        $inner->whereNull("{$table}.{$typeCol}")
+                            ->whereNull("{$table}.{$idCol}");
+                    });
+                });
+            } else {
+                $rolesQuery->wherePivot($this->getContextTypeColumn(), $resolved['type'])
+                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
+            }
+        }
+
+        return $rolesQuery
             ->whereHas('capabilities.permissions', fn ($q) => $q->where('name', $permission)->where('guard', $guardName))
             ->exists();
     }

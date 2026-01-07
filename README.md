@@ -317,17 +317,19 @@ php artisan vendor:publish --tag=mandate-config
 
 ### Key Options
 
-| Option                            | Default             | Description                              |
-|-----------------------------------|---------------------|------------------------------------------|
-| `models.permission`               | `Permission::class` | Custom permission model                  |
-| `models.role`                     | `Role::class`       | Custom role model                        |
-| `models.capability`               | `Capability::class` | Custom capability model                  |
-| `cache.expiration`                | `86400` (24h)       | Cache TTL in seconds                     |
-| `wildcards.enabled`               | `false`             | Enable wildcard permissions              |
-| `capabilities.enabled`            | `false`             | Enable capabilities feature              |
-| `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment |
-| `register_gate`                   | `true`              | Register with Laravel Gate               |
-| `events`                          | `false`             | Fire events on changes                   |
+| Option                            | Default             | Description                                    |
+|-----------------------------------|---------------------|------------------------------------------------|
+| `models.permission`               | `Permission::class` | Custom permission model                        |
+| `models.role`                     | `Role::class`       | Custom role model                              |
+| `models.capability`               | `Capability::class` | Custom capability model                        |
+| `cache.expiration`                | `86400` (24h)       | Cache TTL in seconds                           |
+| `wildcards.enabled`               | `false`             | Enable wildcard permissions                    |
+| `capabilities.enabled`            | `false`             | Enable capabilities feature                    |
+| `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment     |
+| `context.enabled`                 | `false`             | Enable context model support (multi-tenancy)   |
+| `context.global_fallback`         | `true`              | Check global when context check fails          |
+| `register_gate`                   | `true`              | Register with Laravel Gate                     |
+| `events`                          | `false`             | Fire events on changes                         |
 
 ### Wildcard Permissions
 
@@ -492,6 +494,122 @@ php artisan mandate:capability manage-posts --permissions=post:create,post:edit,
 php artisan mandate:assign-capability editor manage-posts
 php artisan mandate:assign-capability editor manage-posts --guard=api
 ```
+
+---
+
+## Context Model (Multi-Tenancy)
+
+Context Model enables scoping roles and permissions to a specific model (like Team, Organization, or Project). This allows for resource-specific authorization in multi-tenant applications.
+
+### Enabling Context Support
+
+```php
+// config/mandate.php
+'context' => [
+    'enabled' => true,
+    'global_fallback' => true, // Check global permissions when context check fails
+],
+```
+
+Run the context migration after enabling:
+
+```bash
+php artisan migrate
+```
+
+### Assigning Roles and Permissions with Context
+
+Pass a context model as the second parameter:
+
+```php
+// Assign a role within a specific team
+$user->assignRole('manager', $team);
+
+// Grant permission within a specific project
+$user->grantPermission('task:edit', $project);
+
+// Assign global role (works across all contexts)
+$user->assignRole('admin'); // No context = global
+```
+
+### Checking Roles and Permissions with Context
+
+```php
+// Check if user has role in specific context
+$user->hasRole('manager', $team);         // true
+$user->hasRole('manager', $otherTeam);    // false (if not assigned there)
+
+// Check permission with context
+$user->hasPermission('task:edit', $project);
+
+// Check multiple roles/permissions with context
+$user->hasAnyRole(['manager', 'admin'], $team);
+$user->hasAllPermissions(['task:view', 'task:edit'], $project);
+```
+
+### Global Fallback
+
+When `global_fallback` is enabled (default), checking permissions with a context will also check global permissions:
+
+```php
+// Global permission (no context)
+$user->grantPermission('reports:view');
+
+// With global fallback enabled, this returns true
+$user->hasPermission('reports:view', $team);
+
+// Disable global fallback to check only context-specific
+// config: 'context.global_fallback' => false
+$user->hasPermission('reports:view', $team); // false (no context-specific grant)
+```
+
+### Getting Permissions and Roles for Context
+
+```php
+// Get roles in a specific context
+$user->getRolesForContext($team);         // Returns roles for this team
+$user->getRoleNames($team);               // Role names in this team
+
+// Get permissions for context
+$user->getAllPermissions($team);          // Direct + via roles for this team
+$user->getPermissionNames($team);         // Permission names in this team
+```
+
+### Finding Contexts
+
+Query which contexts a user has specific roles or permissions in:
+
+```php
+// Get all teams where user is a manager
+$teams = $user->getRoleContexts('manager');
+
+// Get all projects where user can edit tasks
+$projects = $user->getPermissionContexts('task:edit');
+```
+
+### Using the Mandate Facade with Context
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+// Check with context
+Mandate::hasRole($user, 'manager', $team);
+Mandate::hasPermission($user, 'task:edit', $project);
+
+// Get data with context
+Mandate::getRoles($user, $team);
+Mandate::getPermissions($user, $project);
+
+// Check if context is enabled
+Mandate::contextEnabled(); // true/false
+```
+
+### Context Configuration Options
+
+| Option                    | Default | Description                                      |
+|---------------------------|---------|--------------------------------------------------|
+| `context.enabled`         | `false` | Enable context model support                     |
+| `context.global_fallback` | `true`  | Check global when context-specific check fails   |
 
 ---
 

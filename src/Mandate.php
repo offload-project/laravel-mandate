@@ -39,140 +39,192 @@ final class Mandate
     ) {}
 
     /**
-     * Check if a model has a specific permission.
+     * Check if context model support is enabled.
      */
-    public function hasPermission(Model $subject, string $permission): bool
+    public function contextEnabled(): bool
+    {
+        return (bool) config('mandate.context.enabled', false);
+    }
+
+    /**
+     * Check if a model has a specific permission.
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
+     */
+    public function hasPermission(Model $subject, string $permission, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasPermission')) {
             return false;
         }
 
-        return $subject->hasPermission($permission);
+        return $subject->hasPermission($permission, $context);
     }
 
     /**
      * Check if a model has any of the given permissions.
      *
      * @param  array<string>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasAnyPermission(Model $subject, array $permissions): bool
+    public function hasAnyPermission(Model $subject, array $permissions, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasAnyPermission')) {
             return false;
         }
 
-        return $subject->hasAnyPermission($permissions);
+        return $subject->hasAnyPermission($permissions, $context);
     }
 
     /**
      * Check if a model has all of the given permissions.
      *
      * @param  array<string>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
-    public function hasAllPermissions(Model $subject, array $permissions): bool
+    public function hasAllPermissions(Model $subject, array $permissions, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasAllPermissions')) {
             return false;
         }
 
-        return $subject->hasAllPermissions($permissions);
+        return $subject->hasAllPermissions($permissions, $context);
     }
 
     /**
      * Check if a model has a specific role.
+     *
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasRole(Model $subject, string $role): bool
+    public function hasRole(Model $subject, string $role, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasRole')) {
             return false;
         }
 
-        return $subject->hasRole($role);
+        return $subject->hasRole($role, $context);
     }
 
     /**
      * Check if a model has any of the given roles.
      *
      * @param  array<string>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasAnyRole(Model $subject, array $roles): bool
+    public function hasAnyRole(Model $subject, array $roles, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasAnyRole')) {
             return false;
         }
 
-        return $subject->hasAnyRole($roles);
+        return $subject->hasAnyRole($roles, $context);
     }
 
     /**
      * Check if a model has all of the given roles.
      *
      * @param  array<string>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
-    public function hasAllRoles(Model $subject, array $roles): bool
+    public function hasAllRoles(Model $subject, array $roles, ?Model $context = null): bool
     {
         if (! method_exists($subject, 'hasAllRoles')) {
             return false;
         }
 
-        return $subject->hasAllRoles($roles);
+        return $subject->hasAllRoles($roles, $context);
     }
 
     /**
      * Get all permissions for a model.
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
-    public function getPermissions(Model $subject): Collection
+    public function getPermissions(Model $subject, ?Model $context = null): Collection
     {
         if (! method_exists($subject, 'getAllPermissions')) {
             return collect();
         }
 
-        return $subject->getAllPermissions();
+        return $subject->getAllPermissions($context);
     }
 
     /**
      * Get permission names for a model.
      *
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, string>
      */
-    public function getPermissionNames(Model $subject): Collection
+    public function getPermissionNames(Model $subject, ?Model $context = null): Collection
     {
         if (! method_exists($subject, 'getPermissionNames')) {
             return collect();
         }
 
-        return $subject->getPermissionNames();
+        return $subject->getPermissionNames($context);
     }
 
     /**
      * Get all roles for a model.
      *
+     * @param  Model|null  $context  Optional context model to filter roles
      * @return Collection<int, RoleContract>
      */
-    public function getRoles(Model $subject): Collection
+    public function getRoles(Model $subject, ?Model $context = null): Collection
     {
-        if (! property_exists($subject, 'roles') && ! method_exists($subject, 'roles')) {
-            return collect();
+        if (! method_exists($subject, 'getRolesForContext')) {
+            if (! property_exists($subject, 'roles') && ! method_exists($subject, 'roles')) {
+                return collect();
+            }
+
+            /* @var $subject HasRoles */
+            return $subject->roles;
         }
 
-        /* @var $subject HasRoles */
-        return $subject->roles;
+        return $subject->getRolesForContext($context);
     }
 
     /**
      * Get role names for a model.
      *
+     * @param  Model|null  $context  Optional context model to filter roles
      * @return Collection<int, string>
      */
-    public function getRoleNames(Model $subject): Collection
+    public function getRoleNames(Model $subject, ?Model $context = null): Collection
     {
         if (! method_exists($subject, 'getRoleNames')) {
             return collect();
         }
 
-        return $subject->getRoleNames();
+        return $subject->getRoleNames($context);
+    }
+
+    /**
+     * Get all contexts where a subject has a specific role.
+     *
+     * @return Collection<int, Model>
+     */
+    public function getRoleContexts(Model $subject, string $role): Collection
+    {
+        if (! method_exists($subject, 'getRoleContexts')) {
+            return collect();
+        }
+
+        return $subject->getRoleContexts($role);
+    }
+
+    /**
+     * Get all contexts where a subject has a specific permission.
+     *
+     * @return Collection<int, Model>
+     */
+    public function getPermissionContexts(Model $subject, string $permission): Collection
+    {
+        if (! method_exists($subject, 'getPermissionContexts')) {
+            return collect();
+        }
+
+        return $subject->getPermissionContexts($permission);
     }
 
     /**
@@ -431,9 +483,10 @@ final class Mandate
     /**
      * Get authorization data for sharing with frontend.
      *
+     * @param  Model|null  $context  Optional context model to filter authorization data
      * @return array{permissions: array<string>, roles: array<string>, capabilities?: array<string>}
      */
-    public function getAuthorizationData(?Authenticatable $subject = null): array
+    public function getAuthorizationData(?Authenticatable $subject = null, ?Model $context = null): array
     {
         $subject ??= auth()->user();
 
@@ -451,8 +504,8 @@ final class Mandate
         }
 
         $data = [
-            'permissions' => $this->getPermissionNames($subject)->toArray(),
-            'roles' => $this->getRoleNames($subject)->toArray(),
+            'permissions' => $this->getPermissionNames($subject, $context)->toArray(),
+            'roles' => $this->getRoleNames($subject, $context)->toArray(),
         ];
 
         if ($this->capabilitiesEnabled()) {

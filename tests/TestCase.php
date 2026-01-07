@@ -75,6 +75,23 @@ abstract class TestCase extends Orchestra
         }
     }
 
+    protected function runCapabilityMigrations(): void
+    {
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        $migrationFiles = [
+            '2024_01_01_000006_create_capabilities_table.php',
+            '2024_01_01_000007_create_capability_permission_table.php',
+            '2024_01_01_000008_create_capability_role_table.php',
+            '2024_01_01_000009_create_capability_subject_table.php',
+        ];
+
+        foreach ($migrationFiles as $file) {
+            $migration = include $migrationPath.'/'.$file;
+            $migration->up();
+        }
+    }
+
     protected function enableEvents(): void
     {
         config(['mandate.events' => true]);
@@ -83,5 +100,16 @@ abstract class TestCase extends Orchestra
     protected function enableWildcards(): void
     {
         config(['mandate.wildcards.enabled' => true]);
+    }
+
+    protected function enableCapabilities(): void
+    {
+        config(['mandate.capabilities.enabled' => true]);
+        $this->runCapabilityMigrations();
+    }
+
+    protected function enableDirectCapabilityAssignment(): void
+    {
+        config(['mandate.capabilities.direct_assignment' => true]);
     }
 }

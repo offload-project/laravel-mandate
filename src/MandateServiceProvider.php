@@ -9,17 +9,21 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use OffloadProject\Mandate\Commands\AssignCapabilityCommand;
 use OffloadProject\Mandate\Commands\AssignRoleCommand;
 use OffloadProject\Mandate\Commands\ClearCacheCommand;
+use OffloadProject\Mandate\Commands\CreateCapabilityCommand;
 use OffloadProject\Mandate\Commands\CreatePermissionCommand;
 use OffloadProject\Mandate\Commands\CreateRoleCommand;
 use OffloadProject\Mandate\Commands\ShowCommand;
+use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Contracts\WildcardHandler;
 use OffloadProject\Mandate\Middleware\PermissionMiddleware;
 use OffloadProject\Mandate\Middleware\RoleMiddleware;
 use OffloadProject\Mandate\Middleware\RoleOrPermissionMiddleware;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 
@@ -37,6 +41,7 @@ final class MandateServiceProvider extends ServiceProvider
 
         $this->app->bind(PermissionContract::class, fn () => $this->app->make(config('mandate.models.permission', Permission::class)));
         $this->app->bind(RoleContract::class, fn () => $this->app->make(config('mandate.models.role', Role::class)));
+        $this->app->bind(CapabilityContract::class, fn () => $this->app->make(config('mandate.models.capability', Capability::class)));
         $this->app->bind(WildcardHandler::class, fn () => $this->app->make(config('mandate.wildcards.handler', WildcardPermission::class)));
     }
 
@@ -101,8 +106,10 @@ final class MandateServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
+                AssignCapabilityCommand::class,
                 AssignRoleCommand::class,
                 ClearCacheCommand::class,
+                CreateCapabilityCommand::class,
                 CreatePermissionCommand::class,
                 CreateRoleCommand::class,
                 ShowCommand::class,
@@ -212,6 +219,40 @@ final class MandateServiceProvider extends ServiceProvider
             return "<?php if(auth()->check() && auth()->user()->hasAllPermissions(is_array({$expression}) ? {$expression} : explode('|', {$expression}))): ?>";
         });
         Blade::directive('endhasallpermissions', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        // Capability directives (only work when capabilities are enabled)
+
+        // @capability('manage-posts') ... @endcapability
+        Blade::directive('capability', function (string $expression): string {
+            return "<?php if(config('mandate.capabilities.enabled', false) && auth()->check() && auth()->user()->hasCapability({$expression})): ?>";
+        });
+        Blade::directive('endcapability', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        // @hascapability('manage-posts') ... @endhascapability (alias)
+        Blade::directive('hascapability', function (string $expression): string {
+            return "<?php if(config('mandate.capabilities.enabled', false) && auth()->check() && auth()->user()->hasCapability({$expression})): ?>";
+        });
+        Blade::directive('endhascapability', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        // @hasanycapability(['manage-posts', 'manage-users']) or @hasanycapability('manage-posts|manage-users')
+        Blade::directive('hasanycapability', function (string $expression): string {
+            return "<?php if(config('mandate.capabilities.enabled', false) && auth()->check() && auth()->user()->hasAnyCapability(is_array({$expression}) ? {$expression} : explode('|', {$expression}))): ?>";
+        });
+        Blade::directive('endhasanycapability', function (): string {
+            return '<?php endif; ?>';
+        });
+
+        // @hasallcapabilities(['manage-posts', 'manage-users']) or @hasallcapabilities('manage-posts|manage-users')
+        Blade::directive('hasallcapabilities', function (string $expression): string {
+            return "<?php if(config('mandate.capabilities.enabled', false) && auth()->check() && auth()->user()->hasAllCapabilities(is_array({$expression}) ? {$expression} : explode('|', {$expression}))): ?>";
+        });
+        Blade::directive('endhasallcapabilities', function (): string {
             return '<?php endif; ?>';
         });
     }

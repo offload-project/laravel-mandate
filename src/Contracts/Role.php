@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Contracts;
 
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Collection;
 
 /**
  * Contract for Role models.
@@ -71,6 +72,44 @@ interface Role
      * Check if the role has a specific permission.
      */
     public function hasPermission(string|Permission $permission): bool;
+
+    /**
+     * Get the capabilities assigned to this role.
+     */
+    public function capabilities(): BelongsToMany;
+
+    /**
+     * Assign capability(s) to this role.
+     *
+     * @param  string|array<string>|Capability  $capabilities
+     */
+    public function assignCapability(string|array|Capability $capabilities): self;
+
+    /**
+     * Remove capability(s) from this role.
+     *
+     * @param  string|array<string>|Capability  $capabilities
+     */
+    public function removeCapability(string|array|Capability $capabilities): self;
+
+    /**
+     * Sync capabilities on this role.
+     *
+     * @param  array<string|Capability>  $capabilities
+     */
+    public function syncCapabilities(array $capabilities): self;
+
+    /**
+     * Check if the role has a specific capability.
+     */
+    public function hasCapability(string|Capability $capability): bool;
+
+    /**
+     * Get all permissions including those from capabilities.
+     *
+     * @return Collection<int, Permission>
+     */
+    public function getAllPermissions(): Collection;
 
     /**
      * Get the primary key for the model.

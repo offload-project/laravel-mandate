@@ -16,6 +16,7 @@ return [
     'models' => [
         'permission' => OffloadProject\Mandate\Models\Permission::class,
         'role' => OffloadProject\Mandate\Models\Role::class,
+        'capability' => OffloadProject\Mandate\Models\Capability::class,
     ],
 
     /*
@@ -30,9 +31,13 @@ return [
     'tables' => [
         'permissions' => 'permissions',
         'roles' => 'roles',
+        'capabilities' => 'capabilities',
         'permission_role' => 'permission_role',
         'permission_subject' => 'permission_subject',
         'role_subject' => 'role_subject',
+        'capability_permission' => 'capability_permission',
+        'capability_role' => 'capability_role',
+        'capability_subject' => 'capability_subject',
     ],
 
     /*
@@ -47,6 +52,7 @@ return [
     'column_names' => [
         'role_id' => 'role_id',
         'permission_id' => 'permission_id',
+        'capability_id' => 'capability_id',
         'subject_morph_key' => 'subject_id',
         'subject_morph_type' => 'subject_type',
     ],
@@ -99,6 +105,26 @@ return [
     */
 
     'register_gate' => true,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Capabilities
+    |--------------------------------------------------------------------------
+    |
+    | Capabilities are semantic groupings of permissions. When enabled,
+    | permissions can be organized into capabilities which can then be
+    | assigned to roles or directly to subjects.
+    |
+    | enabled: Whether the capabilities feature is active
+    | direct_assignment: Allow assigning capabilities directly to subjects
+    |                    (bypassing roles). Creates capability_subject table.
+    |
+    */
+
+    'capabilities' => [
+        'enabled' => false,
+        'direct_assignment' => false,
+    ],
 
     /*
     |--------------------------------------------------------------------------

@@ -7,6 +7,7 @@ namespace OffloadProject\Mandate\Facades;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Facade;
+use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Mandate as MandateService;
@@ -31,9 +32,18 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @method static RoleContract findOrCreateRole(string $name, ?string $guard = null)
  * @method static Collection<int, PermissionContract> getAllPermissions(?string $guard = null)
  * @method static Collection<int, RoleContract> getAllRoles(?string $guard = null)
+ * @method static bool capabilitiesEnabled()
+ * @method static bool hasCapability(Model $subject, string $capability)
+ * @method static bool hasAnyCapability(Model $subject, array $capabilities)
+ * @method static bool hasAllCapabilities(Model $subject, array $capabilities)
+ * @method static Collection<int, CapabilityContract> getCapabilities(Model $subject)
+ * @method static Collection<int, string> getCapabilityNames(Model $subject)
+ * @method static CapabilityContract createCapability(string $name, ?string $guard = null)
+ * @method static CapabilityContract findOrCreateCapability(string $name, ?string $guard = null)
+ * @method static Collection<int, CapabilityContract> getAllCapabilities(?string $guard = null)
  * @method static bool clearCache()
  * @method static MandateRegistrar getRegistrar()
- * @method static array{permissions: array<string>, roles: array<string>} getAuthorizationData(\Illuminate\Contracts\Auth\Authenticatable|null $subject = null)
+ * @method static array{permissions: array<string>, roles: array<string>, capabilities?: array<string>} getAuthorizationData(\Illuminate\Contracts\Auth\Authenticatable|null $subject = null)
  *
  * @see MandateService
  */

@@ -6,17 +6,19 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\Command;
 use OffloadProject\Mandate\Guard;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 
 /**
- * Artisan command to display all roles and permissions.
+ * Artisan command to display all roles, permissions, and capabilities.
  *
  * Usage:
  * - php artisan mandate:show
  * - php artisan mandate:show --guard=api
  * - php artisan mandate:show --roles
  * - php artisan mandate:show --permissions
+ * - php artisan mandate:show --capabilities
  */
 final class ShowCommand extends Command
 {
@@ -28,14 +30,15 @@ final class ShowCommand extends Command
     protected $signature = 'mandate:show
                             {--guard= : Filter by guard}
                             {--roles : Show only roles}
-                            {--permissions : Show only permissions}';
+                            {--permissions : Show only permissions}
+                            {--capabilities : Show only capabilities}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Display all roles and permissions';
+    protected $description = 'Display all roles, permissions, and capabilities';
 
     /**
      * Execute the console command.
@@ -46,22 +49,35 @@ final class ShowCommand extends Command
         $guard = $this->option('guard');
         $showRoles = $this->option('roles');
         $showPermissions = $this->option('permissions');
+        $showCapabilities = $this->option('capabilities');
 
-        // If neither specified, show both
-        if (! $showRoles && ! $showPermissions) {
+        // If none specified, show all
+        if (! $showRoles && ! $showPermissions && ! $showCapabilities) {
             $showRoles = true;
             $showPermissions = true;
+            $showCapabilities = config('mandate.capabilities.enabled', false);
         }
+
+        $sectionsDisplayed = 0;
 
         if ($showRoles) {
             $this->displayRoles($guard);
+            $sectionsDisplayed++;
         }
 
         if ($showPermissions) {
-            if ($showRoles) {
+            if ($sectionsDisplayed > 0) {
                 $this->newLine();
             }
             $this->displayPermissions($guard);
+            $sectionsDisplayed++;
+        }
+
+        if ($showCapabilities && config('mandate.capabilities.enabled', false)) {
+            if ($sectionsDisplayed > 0) {
+                $this->newLine();
+            }
+            $this->displayCapabilities($guard);
         }
 
         return self::SUCCESS;
@@ -150,6 +166,57 @@ final class ShowCommand extends Command
 
         $this->table(
             ['ID', 'Name', 'Guard', '# Roles'],
+            $rows
+        );
+    }
+
+    /**
+     * Display capabilities in a table.
+     */
+    private function displayCapabilities(?string $guard): void
+    {
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        $query = $capabilityClass::query()->with('permissions')->withCount('roles');
+
+        if ($guard !== null) {
+            $query->where('guard', $guard);
+        }
+
+        $capabilities = $query->orderBy('guard')->orderBy('name')->get();
+
+        if ($capabilities->isEmpty()) {
+            $this->components->info('No capabilities found.');
+
+            return;
+        }
+
+        $this->components->info('Capabilities');
+
+        $rows = $capabilities->map(function ($capability) {
+            $permissionCount = $capability->permissions->count();
+            $permissionNames = $capability->permissions
+                ->pluck('name')
+                ->take(3)
+                ->implode(', ');
+
+            if ($permissionCount > 3) {
+                $permissionNames .= ' ... +'.($permissionCount - 3).' more';
+            }
+
+            return [
+                $capability->id,
+                $capability->name,
+                $capability->guard,
+                $capability->roles_count,
+                $permissionCount,
+                $permissionNames ?: '-',
+            ];
+        });
+
+        $this->table(
+            ['ID', 'Name', 'Guard', '# Roles', '# Permissions', 'Permissions'],
             $rows
         );
     }

@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
+use OffloadProject\Mandate\Events\CapabilityAssigned;
+use OffloadProject\Mandate\Events\CapabilityRemoved;
 use OffloadProject\Mandate\Exceptions\RoleAlreadyExistsException;
 use OffloadProject\Mandate\Exceptions\RoleNotFoundException;
 use OffloadProject\Mandate\Guard;
@@ -20,8 +22,8 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property int|string $id
  * @property string $name
  * @property string $guard
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
  */
 class Role extends Model implements RoleContract
 {
@@ -162,6 +164,172 @@ class Role extends Model implements RoleContract
     }
 
     /**
+     * Get the capabilities assigned to this role.
+     */
+    public function capabilities(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            config('mandate.models.capability', Capability::class),
+            config('mandate.tables.capability_role', 'capability_role'),
+            config('mandate.column_names.role_id', 'role_id'),
+            config('mandate.column_names.capability_id', 'capability_id')
+        );
+    }
+
+    /**
+     * Assign capability(s) to this role.
+     *
+     * @param  string|array<string>|CapabilityContract  $capabilities
+     */
+    public function assignCapability(string|array|CapabilityContract $capabilities): RoleContract
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            return $this;
+        }
+
+        $capabilityNames = $this->collectCapabilityNames($capabilities);
+        $normalizedIds = $this->normalizeCapabilities($capabilities);
+
+        $this->capabilities()->syncWithoutDetaching($normalizedIds);
+
+        app(MandateRegistrar::class)->forgetCachedPermissions();
+
+        if (config('mandate.events', false)) {
+            CapabilityAssigned::dispatch($this, $capabilityNames);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Remove capability(s) from this role.
+     *
+     * @param  string|array<string>|CapabilityContract  $capabilities
+     */
+    public function removeCapability(string|array|CapabilityContract $capabilities): RoleContract
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            return $this;
+        }
+
+        $capabilityNames = $this->collectCapabilityNames($capabilities);
+        $normalizedIds = $this->normalizeCapabilities($capabilities);
+
+        $this->capabilities()->detach($normalizedIds);
+
+        app(MandateRegistrar::class)->forgetCachedPermissions();
+
+        if (config('mandate.events', false)) {
+            CapabilityRemoved::dispatch($this, $capabilityNames);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Sync capabilities on this role (replace all existing).
+     *
+     * @param  array<string|CapabilityContract>  $capabilities
+     */
+    public function syncCapabilities(array $capabilities): RoleContract
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            $this->capabilities()->sync([]);
+
+            return $this;
+        }
+
+        $normalized = [];
+
+        foreach ($capabilities as $capability) {
+            if ($capability instanceof CapabilityContract) {
+                $normalized[] = $capability->getKey();
+            } else {
+                $capabilityModel = $this->getCapabilityModel()::findByName($capability, $this->guard);
+                $normalized[] = $capabilityModel->getKey();
+            }
+        }
+
+        $this->capabilities()->sync($normalized);
+
+        app(MandateRegistrar::class)->forgetCachedPermissions();
+
+        return $this;
+    }
+
+    /**
+     * Check if the role has a specific capability.
+     */
+    public function hasCapability(string|CapabilityContract $capability): bool
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            return false;
+        }
+
+        if ($this->relationLoaded('capabilities')) {
+            $guard = $this->guard;
+            if (is_string($capability)) {
+                return $this->capabilities->contains(
+                    static fn (Capability $c) => $c->name === $capability && $c->guard === $guard // @phpstan-ignore argument.type
+                );
+            }
+
+            return $this->capabilities->contains(
+                static fn (Capability $c) => $c->getKey() === $capability->getKey() // @phpstan-ignore argument.type
+            );
+        }
+
+        if (is_string($capability)) {
+            return $this->capabilities()
+                ->where('name', $capability)
+                ->where('guard', $this->guard)
+                ->exists();
+        }
+
+        return $this->capabilities()
+            ->where('id', $capability->getKey())
+            ->exists();
+    }
+
+    /**
+     * Get all permissions including those from capabilities.
+     *
+     * @return Collection<int, PermissionContract>
+     */
+    public function getAllPermissions(): Collection
+    {
+        // Get direct permissions
+        $permissions = $this->permissions->keyBy('id');
+
+        // Add permissions from capabilities if enabled
+        if (config('mandate.capabilities.enabled', false)) {
+            $capabilityPermissions = $this->getPermissionsViaCapabilities();
+            $permissions = $permissions->merge($capabilityPermissions->keyBy('id')); // @phpstan-ignore argument.type
+        }
+
+        return $permissions->values();
+    }
+
+    /**
+     * Get permissions granted via capabilities.
+     *
+     * @return Collection<int, PermissionContract>
+     */
+    public function getPermissionsViaCapabilities(): Collection
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            return collect();
+        }
+
+        $capabilities = $this->relationLoaded('capabilities') && $this->capabilities->every(fn ($c) => $c->relationLoaded('permissions'))
+            ? $this->capabilities
+            : $this->capabilities()->with('permissions')->get();
+
+        /** @var \Illuminate\Database\Eloquent\Collection<int, Capability> $capabilities */
+        return $capabilities->flatMap(fn (Capability $c) => $c->permissions)->unique('id')->values(); // @phpstan-ignore argument.type
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function grantPermission(string|array|PermissionContract $permissions): RoleContract
@@ -246,10 +414,10 @@ class Role extends Model implements RoleContract
     /**
      * Scope query to specific guard.
      *
-     * @param  Builder<static>  $query
-     * @return Builder<static>
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
      */
-    public function scopeForGuard(Builder $query, string $guard): Builder
+    public function scopeForGuard(\Illuminate\Database\Eloquent\Builder $query, string $guard): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('guard', $guard);
     }
@@ -299,5 +467,64 @@ class Role extends Model implements RoleContract
     protected function getPermissionModel(): string
     {
         return config('mandate.models.permission', Permission::class);
+    }
+
+    /**
+     * Normalize capabilities to an array of IDs.
+     *
+     * @param  string|array<string|CapabilityContract>|CapabilityContract  $capabilities
+     * @return array<int|string>
+     */
+    protected function normalizeCapabilities(string|array|CapabilityContract $capabilities): array
+    {
+        if (! is_array($capabilities)) {
+            $capabilities = [$capabilities];
+        }
+
+        $normalized = [];
+
+        foreach ($capabilities as $capability) {
+            if ($capability instanceof CapabilityContract) {
+                /** @var Capability $capability */
+                Guard::assertMatch($this->guard, $capability->guard, 'capability');
+                $normalized[] = $capability->getKey();
+            } else {
+                $capabilityModel = $this->getCapabilityModel()::findByName($capability, $this->guard);
+                $normalized[] = $capabilityModel->getKey();
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Collect capability names from various input types.
+     *
+     * @param  string|array<string|CapabilityContract>|CapabilityContract  $capabilities
+     * @return array<string>
+     */
+    protected function collectCapabilityNames(string|array|CapabilityContract $capabilities): array
+    {
+        if (! is_array($capabilities)) {
+            $capabilities = [$capabilities];
+        }
+
+        return array_map(function ($capability) {
+            if ($capability instanceof CapabilityContract) {
+                return $capability->name; // @phpstan-ignore property.notFound
+            }
+
+            return $capability;
+        }, $capabilities);
+    }
+
+    /**
+     * Get the capability model class.
+     *
+     * @return class-string<Capability>
+     */
+    protected function getCapabilityModel(): string
+    {
+        return config('mandate.models.capability', Capability::class);
     }
 }

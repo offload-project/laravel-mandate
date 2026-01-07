@@ -8,6 +8,7 @@ use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 
@@ -25,6 +26,9 @@ final class MandateRegistrar
     /** @var EloquentCollection<int, Role>|null */
     private ?EloquentCollection $roles = null;
 
+    /** @var EloquentCollection<int, Capability>|null */
+    private ?EloquentCollection $capabilities = null;
+
     private CacheRepository $cache;
 
     private string $cacheKey;
@@ -36,6 +40,9 @@ final class MandateRegistrar
 
     /** @var class-string<Role>|null */
     private ?string $roleClass = null;
+
+    /** @var class-string<Capability>|null */
+    private ?string $capabilityClass = null;
 
     public function __construct(CacheManager $cacheManager)
     {
@@ -98,15 +105,17 @@ final class MandateRegistrar
     }
 
     /**
-     * Clear the cached permissions and roles.
+     * Clear the cached permissions, roles, and capabilities.
      */
     public function forgetCachedPermissions(): bool
     {
         $this->permissions = null;
         $this->roles = null;
+        $this->capabilities = null;
 
         $this->cache->forget($this->cacheKey.'.permissions');
         $this->cache->forget($this->cacheKey.'.roles');
+        $this->cache->forget($this->cacheKey.'.capabilities');
 
         return true;
     }
@@ -192,6 +201,68 @@ final class MandateRegistrar
     }
 
     /**
+     * Get all capabilities, loading from cache or database.
+     *
+     * @return EloquentCollection<int, Capability>
+     */
+    public function getCapabilities(): EloquentCollection
+    {
+        if (! config('mandate.capabilities.enabled', false)) {
+            return new EloquentCollection();
+        }
+
+        if ($this->capabilities === null) {
+            $this->capabilities = $this->loadCapabilitiesFromCacheOrDatabase();
+        }
+
+        return $this->capabilities;
+    }
+
+    /**
+     * Get capabilities for a specific guard.
+     *
+     * @return EloquentCollection<int, Capability>
+     */
+    public function getCapabilitiesForGuard(string $guard): EloquentCollection
+    {
+        return $this->getCapabilities()->filter(
+            fn (Capability $capability) => $capability->guard === $guard
+        );
+    }
+
+    /**
+     * Get a capability by name and guard.
+     */
+    public function getCapabilityByName(string $name, string $guard): ?Capability
+    {
+        return $this->getCapabilities()->first(
+            fn (Capability $capability) => $capability->name === $name && $capability->guard === $guard
+        );
+    }
+
+    /**
+     * Check if a capability exists.
+     */
+    public function capabilityExists(string $name, string $guard): bool
+    {
+        return $this->getCapabilityByName($name, $guard) !== null;
+    }
+
+    /**
+     * Get capability names as a collection.
+     *
+     * @return Collection<int, string>
+     */
+    public function getCapabilityNames(?string $guard = null): Collection
+    {
+        $capabilities = $guard !== null
+            ? $this->getCapabilitiesForGuard($guard)
+            : $this->getCapabilities();
+
+        return $capabilities->pluck('name');
+    }
+
+    /**
      * Get the permission model class (cached).
      *
      * @return class-string<Permission>
@@ -209,6 +280,16 @@ final class MandateRegistrar
     public function getRoleClass(): string
     {
         return $this->roleClass ??= config('mandate.models.role', Role::class);
+    }
+
+    /**
+     * Get the capability model class (cached).
+     *
+     * @return class-string<Capability>
+     */
+    public function getCapabilityClass(): string
+    {
+        return $this->capabilityClass ??= config('mandate.models.capability', Capability::class);
     }
 
     /**
@@ -287,5 +368,44 @@ final class MandateRegistrar
         $roleClass = $this->getRoleClass();
 
         return $roleClass::query()->get();
+    }
+
+    /**
+     * Load capabilities from cache or database.
+     *
+     * @return EloquentCollection<int, Capability>
+     */
+    private function loadCapabilitiesFromCacheOrDatabase(): EloquentCollection
+    {
+        /** @var array<int, array<string, mixed>> $data */
+        $data = $this->cache->remember(
+            $this->cacheKey.'.capabilities',
+            $this->cacheExpiration,
+            fn () => $this->loadCapabilitiesFromDatabase()->toArray()
+        );
+
+        $capabilityClass = $this->getCapabilityClass();
+
+        /** @var Capability $instance */
+        $instance = new $capabilityClass;
+
+        return $instance->newCollection(
+            array_map(
+                fn (array $attributes) => (new $capabilityClass)->forceFill($attributes),
+                $data
+            )
+        );
+    }
+
+    /**
+     * Load capabilities directly from database.
+     *
+     * @return EloquentCollection<int, Capability>
+     */
+    private function loadCapabilitiesFromDatabase(): EloquentCollection
+    {
+        $capabilityClass = $this->getCapabilityClass();
+
+        return $capabilityClass::query()->get();
     }
 }

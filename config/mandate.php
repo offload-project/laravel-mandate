@@ -4,6 +4,108 @@ declare(strict_types=1);
 
 return [
     /*
+    |==========================================================================
+    | COMMONLY CUSTOMIZED OPTIONS
+    |==========================================================================
+    |
+    | These are the settings most users will want to review and customize.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Capabilities
+    |--------------------------------------------------------------------------
+    |
+    | Capabilities are semantic groupings of permissions. When enabled,
+    | permissions can be organized into capabilities which can then be
+    | assigned to roles or directly to subjects.
+    |
+    | enabled: Whether the capabilities feature is active
+    | direct_assignment: Allow assigning capabilities directly to subjects
+    |                    (bypassing roles). Creates capability_subject table.
+    |
+    */
+
+    'capabilities' => [
+        'enabled' => false,
+        'direct_assignment' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Model (Multi-Tenancy)
+    |--------------------------------------------------------------------------
+    |
+    | Context Model support enables scoping roles and permissions to a
+    | polymorphic context (e.g., Team, Organization, Project). This allows
+    | multi-tenancy and resource-specific permission scenarios.
+    |
+    | enabled: Whether context model support is active
+    | global_fallback: When checking permissions with a context, also check
+    |                  for global (null context) permissions as fallback
+    |
+    */
+
+    'context' => [
+        'enabled' => false,
+        'global_fallback' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wildcard Permissions
+    |--------------------------------------------------------------------------
+    |
+    | Enable wildcard permission matching (e.g., "article:*" matches
+    | "article:view", "article:edit", etc.)
+    |
+    | enabled: Whether wildcard matching is active
+    | handler: Custom wildcard handler class (must implement WildcardHandler)
+    |
+    */
+
+    'wildcards' => [
+        'enabled' => false,
+        'handler' => OffloadProject\Mandate\WildcardPermission::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Events
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate will fire events when roles/permissions are
+    | assigned or revoked. Disabled by default for performance.
+    |
+    */
+
+    'events' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Laravel Gate Integration
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, permissions are automatically registered with Laravel's
+    | authorization Gate, allowing use of @can directives and Gate::allows().
+    |
+    */
+
+    'register_gate' => true,
+
+    /*
+    |==========================================================================
+    | ADVANCED OPTIONS (most apps use defaults)
+    |==========================================================================
+    |
+    | The settings below rarely need customization. They're provided for
+    | advanced use cases like custom table names, UUID primary keys, or
+    | specific caching requirements.
+    |
+    */
+
+    /*
     |--------------------------------------------------------------------------
     | Model Classes
     |--------------------------------------------------------------------------
@@ -76,88 +178,6 @@ return [
         'expiration' => 60 * 60 * 24, // 24 hours
         'key' => 'mandate.permissions.cache',
         'store' => null,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Wildcard Permissions
-    |--------------------------------------------------------------------------
-    |
-    | Enable wildcard permission matching (e.g., "article:*" matches
-    | "article:view", "article:edit", etc.)
-    |
-    | enabled: Whether wildcard matching is active
-    | handler: Custom wildcard handler class (must implement WildcardHandler)
-    |
-    */
-
-    'wildcards' => [
-        'enabled' => false,
-        'handler' => OffloadProject\Mandate\WildcardPermission::class,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Laravel Gate Integration
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, permissions are automatically registered with Laravel's
-    | authorization Gate, allowing use of @can directives and Gate::allows().
-    |
-    */
-
-    'register_gate' => true,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Capabilities
-    |--------------------------------------------------------------------------
-    |
-    | Capabilities are semantic groupings of permissions. When enabled,
-    | permissions can be organized into capabilities which can then be
-    | assigned to roles or directly to subjects.
-    |
-    | enabled: Whether the capabilities feature is active
-    | direct_assignment: Allow assigning capabilities directly to subjects
-    |                    (bypassing roles). Creates capability_subject table.
-    |
-    */
-
-    'capabilities' => [
-        'enabled' => false,
-        'direct_assignment' => false,
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Events
-    |--------------------------------------------------------------------------
-    |
-    | When enabled, Mandate will fire events when roles/permissions are
-    | assigned or revoked. Disabled by default for performance.
-    |
-    */
-
-    'events' => false,
-
-    /*
-    |--------------------------------------------------------------------------
-    | Context Model
-    |--------------------------------------------------------------------------
-    |
-    | Context Model support enables scoping roles and permissions to a
-    | polymorphic context (e.g., Team, Organization, Project). This allows
-    | multi-tenancy and resource-specific permission scenarios.
-    |
-    | enabled: Whether context model support is active
-    | global_fallback: When checking permissions with a context, also check
-    |                  for global (null context) permissions as fallback
-    |
-    */
-
-    'context' => [
-        'enabled' => false,
-        'global_fallback' => true,
     ],
 
 ];

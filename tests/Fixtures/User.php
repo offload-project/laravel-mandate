@@ -7,7 +7,7 @@ namespace OffloadProject\Mandate\Tests\Fixtures;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use OffloadProject\Mandate\Concerns\HasRoles;
 
-final class User extends Authenticatable
+class User extends Authenticatable
 {
     use HasRoles;
 

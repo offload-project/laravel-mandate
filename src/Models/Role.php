@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Support\Carbon;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Exceptions\RoleAlreadyExistsException;
@@ -18,10 +20,10 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property int|string $id
  * @property string $name
  * @property string $guard
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
-final class Role extends Model implements RoleContract
+class Role extends Model implements RoleContract
 {
     /** @var list<string> */
     protected $fillable = [
@@ -44,7 +46,7 @@ final class Role extends Model implements RoleContract
         $guard = $attributes['guard'] ?? Guard::getDefaultName();
 
         // Check if role already exists
-        $existing = self::query()
+        $existing = static::query()
             ->where('name', $attributes['name'])
             ->where('guard', $guard)
             ->first();
@@ -56,7 +58,7 @@ final class Role extends Model implements RoleContract
         $attributes['guard'] = $guard;
 
         /** @var static $role */
-        $role = self::query()->create($attributes);
+        $role = static::query()->create($attributes);
 
         app(MandateRegistrar::class)->forgetCachedPermissions();
 
@@ -244,10 +246,10 @@ final class Role extends Model implements RoleContract
     /**
      * Scope query to specific guard.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
+     * @param  Builder<static>  $query
+     * @return Builder<static>
      */
-    public function scopeForGuard(\Illuminate\Database\Eloquent\Builder $query, string $guard): \Illuminate\Database\Eloquent\Builder
+    public function scopeForGuard(Builder $query, string $guard): Builder
     {
         return $query->where('guard', $guard);
     }

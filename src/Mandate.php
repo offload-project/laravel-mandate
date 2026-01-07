@@ -8,10 +8,13 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\Concerns\HasRoles;
+use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
+use RuntimeException;
 
 /**
  * Main service class for Mandate.
@@ -259,6 +262,157 @@ final class Mandate
     }
 
     /**
+     * Check if capabilities feature is enabled.
+     */
+    public function capabilitiesEnabled(): bool
+    {
+        return (bool) config('mandate.capabilities.enabled', false);
+    }
+
+    /**
+     * Check if a model has a specific capability.
+     */
+    public function hasCapability(Model $subject, string $capability): bool
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return false;
+        }
+
+        if (! method_exists($subject, 'hasCapability')) {
+            return false;
+        }
+
+        return $subject->hasCapability($capability);
+    }
+
+    /**
+     * Check if a model has any of the given capabilities.
+     *
+     * @param  array<string>  $capabilities
+     */
+    public function hasAnyCapability(Model $subject, array $capabilities): bool
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return false;
+        }
+
+        if (! method_exists($subject, 'hasAnyCapability')) {
+            return false;
+        }
+
+        return $subject->hasAnyCapability($capabilities);
+    }
+
+    /**
+     * Check if a model has all of the given capabilities.
+     *
+     * @param  array<string>  $capabilities
+     */
+    public function hasAllCapabilities(Model $subject, array $capabilities): bool
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return false;
+        }
+
+        if (! method_exists($subject, 'hasAllCapabilities')) {
+            return false;
+        }
+
+        return $subject->hasAllCapabilities($capabilities);
+    }
+
+    /**
+     * Get all capabilities for a model.
+     *
+     * @return Collection<int, CapabilityContract>
+     */
+    public function getCapabilities(Model $subject): Collection
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return collect();
+        }
+
+        if (! method_exists($subject, 'getAllCapabilities')) {
+            return collect();
+        }
+
+        return $subject->getAllCapabilities();
+    }
+
+    /**
+     * Get capability names for a model.
+     *
+     * @return Collection<int, string>
+     */
+    public function getCapabilityNames(Model $subject): Collection
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return collect();
+        }
+
+        if (! method_exists($subject, 'getAllCapabilities')) {
+            return collect();
+        }
+
+        return $subject->getAllCapabilities()->pluck('name');
+    }
+
+    /**
+     * Create a new capability.
+     */
+    public function createCapability(string $name, ?string $guard = null): CapabilityContract
+    {
+        if (! $this->capabilitiesEnabled()) {
+            throw new RuntimeException('Capabilities feature is not enabled. Set mandate.capabilities.enabled to true in your configuration.');
+        }
+
+        $guard ??= Guard::getDefaultName();
+
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        return $capabilityClass::create([
+            'name' => $name,
+            'guard' => $guard,
+        ]);
+    }
+
+    /**
+     * Find or create a capability.
+     */
+    public function findOrCreateCapability(string $name, ?string $guard = null): CapabilityContract
+    {
+        if (! $this->capabilitiesEnabled()) {
+            throw new RuntimeException('Capabilities feature is not enabled. Set mandate.capabilities.enabled to true in your configuration.');
+        }
+
+        $guard ??= Guard::getDefaultName();
+
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        return $capabilityClass::findOrCreate($name, $guard);
+    }
+
+    /**
+     * Get all registered capabilities.
+     *
+     * @return Collection<int, Capability>
+     */
+    public function getAllCapabilities(?string $guard = null): Collection
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return collect();
+        }
+
+        if ($guard !== null) {
+            return $this->registrar->getCapabilitiesForGuard($guard);
+        }
+
+        return $this->registrar->getCapabilities();
+    }
+
+    /**
      * Clear the permission cache.
      */
     public function clearCache(): bool
@@ -277,22 +431,34 @@ final class Mandate
     /**
      * Get authorization data for sharing with frontend.
      *
-     * @return array{permissions: array<string>, roles: array<string>}
+     * @return array{permissions: array<string>, roles: array<string>, capabilities?: array<string>}
      */
     public function getAuthorizationData(?Authenticatable $subject = null): array
     {
         $subject ??= auth()->user();
 
         if ($subject === null || ! $subject instanceof Model) {
-            return [
+            $data = [
                 'permissions' => [],
                 'roles' => [],
             ];
+
+            if ($this->capabilitiesEnabled()) {
+                $data['capabilities'] = [];
+            }
+
+            return $data;
         }
 
-        return [
+        $data = [
             'permissions' => $this->getPermissionNames($subject)->toArray(),
             'roles' => $this->getRoleNames($subject)->toArray(),
         ];
+
+        if ($this->capabilitiesEnabled()) {
+            $data['capabilities'] = $this->getCapabilityNames($subject)->toArray();
+        }
+
+        return $data;
     }
 }

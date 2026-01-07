@@ -161,6 +161,19 @@ class Permission extends Model implements PermissionContract
     }
 
     /**
+     * Get the capabilities that include this permission.
+     */
+    public function capabilities(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            config('mandate.models.capability', Capability::class),
+            config('mandate.tables.capability_permission', 'capability_permission'),
+            config('mandate.column_names.permission_id', 'permission_id'),
+            config('mandate.column_names.capability_id', 'capability_id')
+        );
+    }
+
+    /**
      * Scope query to specific guard.
      *
      * @param  Builder<static>  $query

@@ -229,7 +229,7 @@ trait HasPermissions
     }
 
     /**
-     * Get all permissions for this model (direct + via roles).
+     * Get all permissions for this model (direct + via roles + via capabilities).
      *
      * @return Collection<int, PermissionContract>
      */
@@ -242,6 +242,12 @@ trait HasPermissions
         if (method_exists($this, 'getPermissionsViaRoles')) {
             $rolePermissions = $this->getPermissionsViaRoles();
             $permissions = $permissions->merge($rolePermissions->keyBy('id'));
+        }
+
+        // Add permissions from capabilities if applicable
+        if (method_exists($this, 'getPermissionsViaCapabilities')) {
+            $capabilityPermissions = $this->getPermissionsViaCapabilities();
+            $permissions = $permissions->merge($capabilityPermissions->keyBy('id'));
         }
 
         return $permissions->values();

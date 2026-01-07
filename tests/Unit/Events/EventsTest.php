@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Event;
+use OffloadProject\Mandate\Events\CapabilityAssigned;
+use OffloadProject\Mandate\Events\CapabilityRemoved;
 use OffloadProject\Mandate\Events\PermissionGranted;
 use OffloadProject\Mandate\Events\PermissionRevoked;
 use OffloadProject\Mandate\Events\RoleAssigned;
 use OffloadProject\Mandate\Events\RoleRemoved;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Tests\Fixtures\User;
@@ -142,5 +145,108 @@ describe('Event Properties', function () {
 
         expect($event->subject)->toBe($this->user)
             ->and($event->permissions)->toBe(['article:edit']);
+    });
+
+    it('CapabilityAssigned event has correct properties', function () {
+        $event = new CapabilityAssigned($this->user, ['manage-posts', 'manage-users']);
+
+        expect($event->subject)->toBe($this->user)
+            ->and($event->capabilities)->toBe(['manage-posts', 'manage-users']);
+    });
+
+    it('CapabilityRemoved event has correct properties', function () {
+        $event = new CapabilityRemoved($this->user, ['manage-posts']);
+
+        expect($event->subject)->toBe($this->user)
+            ->and($event->capabilities)->toBe(['manage-posts']);
+    });
+});
+
+describe('Capability Events on Role', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+    });
+
+    it('fires CapabilityAssigned event when assigning capability to role', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $role->assignCapability('manage-posts');
+
+        Event::assertDispatched(CapabilityAssigned::class, function ($event) use ($role) {
+            return $event->subject->id === $role->id
+                && in_array('manage-posts', $event->capabilities);
+        });
+    });
+
+    it('fires CapabilityAssigned event with multiple capabilities', function () {
+        $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+
+        $role->assignCapability(['manage-posts', 'manage-users']);
+
+        Event::assertDispatched(CapabilityAssigned::class, function ($event) {
+            return count($event->capabilities) === 2
+                && in_array('manage-posts', $event->capabilities)
+                && in_array('manage-users', $event->capabilities);
+        });
+    });
+
+    it('fires CapabilityRemoved event when removing capability from role', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        config(['mandate.events' => false]);
+        $role->assignCapability('manage-posts');
+        config(['mandate.events' => true]);
+
+        $role->removeCapability('manage-posts');
+
+        Event::assertDispatched(CapabilityRemoved::class, function ($event) use ($role) {
+            return $event->subject->id === $role->id
+                && in_array('manage-posts', $event->capabilities);
+        });
+    });
+
+    it('does not fire capability events when events disabled', function () {
+        config(['mandate.events' => false]);
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $role->assignCapability('manage-posts');
+
+        Event::assertNotDispatched(CapabilityAssigned::class);
+    });
+});
+
+describe('Capability Events on Subject', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+        $this->enableDirectCapabilityAssignment();
+    });
+
+    it('fires CapabilityAssigned event when assigning capability to user', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $this->user->assignCapability('manage-posts');
+
+        Event::assertDispatched(CapabilityAssigned::class, function ($event) {
+            return $event->subject->id === $this->user->id
+                && in_array('manage-posts', $event->capabilities);
+        });
+    });
+
+    it('fires CapabilityRemoved event when removing capability from user', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        config(['mandate.events' => false]);
+        $this->user->assignCapability('manage-posts');
+        config(['mandate.events' => true]);
+
+        $this->user->removeCapability('manage-posts');
+
+        Event::assertDispatched(CapabilityRemoved::class, function ($event) {
+            return $event->subject->id === $this->user->id
+                && in_array('manage-posts', $event->capabilities);
+        });
     });
 });

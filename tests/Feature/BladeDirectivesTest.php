@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Blade;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Tests\Fixtures\User;
@@ -169,5 +170,186 @@ describe('Guest Behavior', function () {
         $view = $this->blade('@unlessrole("admin") Guest @endunlessrole');
 
         $view->assertSee('Guest');
+    });
+});
+
+describe('Capability Blade Directives Registration', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+    });
+
+    it('registers @capability directive', function () {
+        $directives = Blade::getCustomDirectives();
+
+        expect($directives)->toHaveKey('capability')
+            ->and($directives)->toHaveKey('endcapability');
+    });
+
+    it('registers @hascapability directive', function () {
+        $directives = Blade::getCustomDirectives();
+
+        expect($directives)->toHaveKey('hascapability')
+            ->and($directives)->toHaveKey('endhascapability');
+    });
+
+    it('registers @hasanycapability directive', function () {
+        $directives = Blade::getCustomDirectives();
+
+        expect($directives)->toHaveKey('hasanycapability')
+            ->and($directives)->toHaveKey('endhasanycapability');
+    });
+
+    it('registers @hasallcapabilities directive', function () {
+        $directives = Blade::getCustomDirectives();
+
+        expect($directives)->toHaveKey('hasallcapabilities')
+            ->and($directives)->toHaveKey('endhasallcapabilities');
+    });
+});
+
+describe('Capability Blade Directives Runtime', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+    });
+
+    it('@capability shows content when user has capability via role', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $role->assignCapability('manage-posts');
+        $this->user->assignRole('editor');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@capability("manage-posts") Can Manage Posts @endcapability');
+
+        $view->assertSee('Can Manage Posts');
+    });
+
+    it('@capability hides content when user lacks capability', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@capability("manage-posts") Can Manage Posts @endcapability');
+
+        $view->assertDontSee('Can Manage Posts');
+    });
+
+    it('@hascapability works as alias for @capability', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $role->assignCapability('manage-posts');
+        $this->user->assignRole('editor');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hascapability("manage-posts") Has Capability @endhascapability');
+
+        $view->assertSee('Has Capability');
+    });
+
+    it('@hasanycapability shows content when user has any capability', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+        $role->assignCapability('manage-posts');
+        $this->user->assignRole('editor');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hasanycapability("manage-posts|manage-users") Has Any @endhasanycapability');
+
+        $view->assertSee('Has Any');
+    });
+
+    it('@hasanycapability hides content when user has none of the capabilities', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hasanycapability("manage-posts|manage-users") Has Any @endhasanycapability');
+
+        $view->assertDontSee('Has Any');
+    });
+
+    it('@hasallcapabilities shows content when user has all capabilities', function () {
+        $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+        $role->assignCapability(['manage-posts', 'manage-users']);
+        $this->user->assignRole('admin');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hasallcapabilities("manage-posts|manage-users") Has All @endhasallcapabilities');
+
+        $view->assertSee('Has All');
+    });
+
+    it('@hasallcapabilities hides content when user lacks some capabilities', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+        $role->assignCapability('manage-posts');
+        $this->user->assignRole('editor');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hasallcapabilities("manage-posts|manage-users") Has All @endhasallcapabilities');
+
+        $view->assertDontSee('Has All');
+    });
+});
+
+describe('Capability Blade Directives with Direct Assignment', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+        $this->enableDirectCapabilityAssignment();
+    });
+
+    it('@capability shows content with direct capability assignment', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $this->user->assignCapability('manage-posts');
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@capability("manage-posts") Direct Capability @endcapability');
+
+        $view->assertSee('Direct Capability');
+    });
+});
+
+describe('Capability Blade Directives when Disabled', function () {
+    it('@capability hides content when capabilities are disabled', function () {
+        config(['mandate.capabilities.enabled' => false]);
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@capability("manage-posts") Should Not Show @endcapability');
+
+        $view->assertDontSee('Should Not Show');
+    });
+
+    it('@hasanycapability hides content when capabilities are disabled', function () {
+        config(['mandate.capabilities.enabled' => false]);
+        $this->actingAs($this->user);
+
+        $view = $this->blade('@hasanycapability("manage-posts") Should Not Show @endhasanycapability');
+
+        $view->assertDontSee('Should Not Show');
+    });
+});
+
+describe('Capability Blade Directives Guest Behavior', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+    });
+
+    it('hides capability content for guests', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $view = $this->blade('@capability("manage-posts") Capability Content @endcapability');
+
+        $view->assertDontSee('Capability Content');
+    });
+
+    it('hides hasanycapability content for guests', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $view = $this->blade('@hasanycapability("manage-posts") Any Capability @endhasanycapability');
+
+        $view->assertDontSee('Any Capability');
     });
 });

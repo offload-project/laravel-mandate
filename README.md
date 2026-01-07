@@ -287,9 +287,16 @@ php artisan mandate:permission article:edit --guard=api
 php artisan mandate:role editor
 php artisan mandate:role editor --permissions=article:edit,article:view
 
+# Create a capability (requires capabilities.enabled = true)
+php artisan mandate:capability manage-posts
+php artisan mandate:capability manage-posts --permissions=post:create,post:edit
+
 # Assign a role to a subject (user, team, etc.)
 php artisan mandate:assign-role 1 admin
 php artisan mandate:assign-role 1 admin --model="App\Models\Team"
+
+# Assign a capability to a role
+php artisan mandate:assign-capability editor manage-posts
 
 # Display all roles and permissions
 php artisan mandate:show
@@ -310,14 +317,17 @@ php artisan vendor:publish --tag=mandate-config
 
 ### Key Options
 
-| Option              | Default             | Description                 |
-|---------------------|---------------------|-----------------------------|
-| `models.permission` | `Permission::class` | Custom permission model     |
-| `models.role`       | `Role::class`       | Custom role model           |
-| `cache.expiration`  | `86400` (24h)       | Cache TTL in seconds        |
-| `wildcards.enabled` | `false`             | Enable wildcard permissions |
-| `register_gate`     | `true`              | Register with Laravel Gate  |
-| `events`            | `false`             | Fire events on changes      |
+| Option                            | Default             | Description                              |
+|-----------------------------------|---------------------|------------------------------------------|
+| `models.permission`               | `Permission::class` | Custom permission model                  |
+| `models.role`                     | `Role::class`       | Custom role model                        |
+| `models.capability`               | `Capability::class` | Custom capability model                  |
+| `cache.expiration`                | `86400` (24h)       | Cache TTL in seconds                     |
+| `wildcards.enabled`               | `false`             | Enable wildcard permissions              |
+| `capabilities.enabled`            | `false`             | Enable capabilities feature              |
+| `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment |
+| `register_gate`                   | `true`              | Register with Laravel Gate               |
+| `events`                          | `false`             | Fire events on changes                   |
 
 ### Wildcard Permissions
 
@@ -344,6 +354,144 @@ Wildcard syntax:
 
 - `*` matches all at that level: `article:*` matches `article:view`, `article:edit`
 - Multiple parts: `article:view,edit` matches both `article:view` and `article:edit`
+
+---
+
+## Capabilities
+
+Capabilities are semantic groupings of permissions that can be assigned to roles or directly to subjects. This is an optional feature that must be explicitly enabled.
+
+### Enabling Capabilities
+
+```php
+// config/mandate.php
+'capabilities' => [
+    'enabled' => true,
+    'direct_assignment' => false, // Allow assigning capabilities directly to users
+],
+```
+
+### Creating Capabilities
+
+```php
+use OffloadProject\Mandate\Models\Capability;
+
+// Create a capability with permissions
+$capability = Capability::create(['name' => 'manage-posts']);
+$capability->grantPermission(['post:create', 'post:edit', 'post:delete', 'post:publish']);
+
+// Or create permissions on the fly
+$capability = Capability::create(['name' => 'manage-users']);
+$capability->grantPermission(Permission::findOrCreate('user:view'));
+$capability->grantPermission(Permission::findOrCreate('user:edit'));
+```
+
+### Assigning Capabilities to Roles
+
+```php
+$role = Role::findByName('editor');
+
+// Assign capabilities
+$role->assignCapability('manage-posts');
+$role->assignCapability(['manage-posts', 'manage-comments']);
+
+// Remove capabilities
+$role->removeCapability('manage-comments');
+
+// Sync capabilities (replace all)
+$role->syncCapabilities(['manage-posts']);
+
+// Check capabilities
+$role->hasCapability('manage-posts'); // true
+```
+
+### Checking Capabilities on Users
+
+```php
+// User gets capabilities through their roles
+$user->assignRole('editor');
+
+// Check capabilities
+$user->hasCapability('manage-posts');
+$user->hasAnyCapability(['manage-posts', 'manage-users']);
+$user->hasAllCapabilities(['manage-posts', 'manage-comments']);
+
+// Get all capabilities
+$user->getAllCapabilities();        // Direct + via roles
+$user->getCapabilitiesViaRoles();   // Via roles only
+```
+
+### Permission Resolution Through Capabilities
+
+When you check if a user has a permission, Mandate checks all paths:
+
+1. **Direct permission** - assigned directly to the user
+2. **Via role** - role has the permission
+3. **Via capability (through role)** - role has a capability that has the permission
+4. **Via capability (direct)** - user has a capability directly (if `direct_assignment` enabled)
+
+```php
+// All of these work automatically
+$user->hasPermission('post:edit');         // Checks all paths
+$user->hasPermissionViaRole('post:edit');  // Checks role + role capabilities
+$user->hasPermissionViaCapability('post:edit'); // Checks capabilities only
+```
+
+### Direct Capability Assignment
+
+Enable direct assignment to allow assigning capabilities directly to users:
+
+```php
+// config/mandate.php
+'capabilities' => [
+    'enabled' => true,
+    'direct_assignment' => true,
+],
+```
+
+```php
+// Assign capabilities directly to users
+$user->assignCapability('manage-posts');
+$user->removeCapability('manage-posts');
+$user->syncCapabilities(['manage-posts', 'manage-comments']);
+
+// Check direct capabilities
+$user->hasDirectCapability('manage-posts');
+$user->getAllCapabilities(); // Includes both direct and via roles
+```
+
+### Blade Directives for Capabilities
+
+```blade
+@capability('manage-posts')
+    {{-- User has manage-posts capability --}}
+@endcapability
+
+@hascapability('manage-posts')
+    {{-- Alias for @capability --}}
+@endhascapability
+
+@hasanycapability('manage-posts|manage-users')
+    {{-- User has any of these capabilities --}}
+@endhasanycapability
+
+@hasallcapabilities(['manage-posts', 'manage-users'])
+    {{-- User has all of these capabilities --}}
+@endhasallcapabilities
+```
+
+### Artisan Commands for Capabilities
+
+```bash
+# Create a capability
+php artisan mandate:capability manage-posts
+php artisan mandate:capability manage-posts --guard=api
+php artisan mandate:capability manage-posts --permissions=post:create,post:edit,post:delete
+
+# Assign capability to a role
+php artisan mandate:assign-capability editor manage-posts
+php artisan mandate:assign-capability editor manage-posts --guard=api
+```
 
 ---
 
@@ -375,12 +523,14 @@ Enable events to hook into role/permission changes:
 
 Available events:
 
-| Event               | Payload                        |
-|---------------------|--------------------------------|
-| `RoleAssigned`      | `$subject`, `$roleNames`       |
-| `RoleRemoved`       | `$subject`, `$roleNames`       |
-| `PermissionGranted` | `$subject`, `$permissionNames` |
-| `PermissionRevoked` | `$subject`, `$permissionNames` |
+| Event                | Payload                          |
+|----------------------|----------------------------------|
+| `RoleAssigned`       | `$subject`, `$roles`             |
+| `RoleRemoved`        | `$subject`, `$roles`             |
+| `PermissionGranted`  | `$subject`, `$permissions`       |
+| `PermissionRevoked`  | `$subject`, `$permissions`       |
+| `CapabilityAssigned` | `$subject`, `$capabilities`      |
+| `CapabilityRemoved`  | `$subject`, `$capabilities`      |
 
 ```php
 use OffloadProject\Mandate\Events\RoleAssigned;
@@ -402,14 +552,16 @@ class SendWelcomeEmail
 
 Mandate throws descriptive exceptions:
 
-| Exception                          | When                                      |
-|------------------------------------|-------------------------------------------|
-| `RoleNotFoundException`            | Role doesn't exist                        |
-| `RoleAlreadyExistsException`       | Creating duplicate role                   |
-| `PermissionNotFoundException`      | Permission doesn't exist                  |
-| `PermissionAlreadyExistsException` | Creating duplicate permission             |
-| `GuardMismatchException`           | Permission/role guard doesn't match model |
-| `UnauthorizedException`            | Middleware authorization fails            |
+| Exception                              | When                                      |
+|----------------------------------------|-------------------------------------------|
+| `RoleNotFoundException`                | Role doesn't exist                        |
+| `RoleAlreadyExistsException`           | Creating duplicate role                   |
+| `PermissionNotFoundException`          | Permission doesn't exist                  |
+| `PermissionAlreadyExistsException`     | Creating duplicate permission             |
+| `CapabilityNotFoundException`          | Capability doesn't exist                  |
+| `CapabilityAlreadyExistsException`     | Creating duplicate capability             |
+| `GuardMismatchException`               | Permission/role guard doesn't match model |
+| `UnauthorizedException`                | Middleware authorization fails            |
 
 ### UnauthorizedException Factory Methods
 

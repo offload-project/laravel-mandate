@@ -67,35 +67,16 @@ abstract class TestCase extends Orchestra
     {
         $migrationPath = __DIR__.'/../database/migrations';
 
-        $migrationFiles = [
-            '2024_01_01_000001_create_permissions_table.php',
-            '2024_01_01_000002_create_roles_table.php',
-            '2024_01_01_000003_create_permission_role_table.php',
-            '2024_01_01_000004_create_permission_subject_table.php',
-            '2024_01_01_000005_create_role_subject_table.php',
-        ];
-
-        foreach ($migrationFiles as $file) {
-            $migration = include $migrationPath.'/'.$file;
-            $migration->up();
-        }
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->up();
     }
 
     protected function runCapabilityMigrations(): void
     {
         $migrationPath = __DIR__.'/../database/migrations';
 
-        $migrationFiles = [
-            '2024_01_01_000006_create_capabilities_table.php',
-            '2024_01_01_000007_create_capability_permission_table.php',
-            '2024_01_01_000008_create_capability_role_table.php',
-            '2024_01_01_000009_create_capability_subject_table.php',
-        ];
-
-        foreach ($migrationFiles as $file) {
-            $migration = include $migrationPath.'/'.$file;
-            $migration->up();
-        }
+        $migration = include $migrationPath.'/2024_01_01_000002_create_capability_tables.php';
+        $migration->up();
     }
 
     protected function enableEvents(): void
@@ -122,43 +103,41 @@ abstract class TestCase extends Orchestra
     protected function enableContext(): void
     {
         config(['mandate.context.enabled' => true]);
-        $this->recreateTablesWithContext();
+        $this->recreateTables();
     }
 
     protected function enableContextWithoutGlobalFallback(): void
     {
         config(['mandate.context.enabled' => true]);
         config(['mandate.context.global_fallback' => false]);
-        $this->recreateTablesWithContext();
+        $this->recreateTables();
+    }
+
+    protected function enableUuids(): void
+    {
+        config(['mandate.model_id_type' => 'uuid']);
+        $this->recreateTables();
+    }
+
+    protected function enableUlids(): void
+    {
+        config(['mandate.model_id_type' => 'ulid']);
+        $this->recreateTables();
     }
 
     /**
-     * Drop and recreate tables with context columns.
-     * This simulates a fresh install with context enabled from the start.
+     * Drop and recreate all mandate tables with current config.
      */
-    protected function recreateTablesWithContext(): void
+    protected function recreateTables(): void
     {
         $migrationPath = __DIR__.'/../database/migrations';
 
-        // Drop all mandate tables (in reverse order due to foreign keys)
-        Schema::dropIfExists(config('mandate.tables.role_subject', 'role_subject'));
-        Schema::dropIfExists(config('mandate.tables.permission_subject', 'permission_subject'));
-        Schema::dropIfExists(config('mandate.tables.permission_role', 'permission_role'));
-        Schema::dropIfExists(config('mandate.tables.roles', 'roles'));
-        Schema::dropIfExists(config('mandate.tables.permissions', 'permissions'));
+        // Drop all mandate tables
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->down();
 
-        // Recreate with context enabled (config is already set)
-        $migrations = [
-            '2024_01_01_000001_create_permissions_table.php',
-            '2024_01_01_000002_create_roles_table.php',
-            '2024_01_01_000003_create_permission_role_table.php',
-            '2024_01_01_000004_create_permission_subject_table.php',
-            '2024_01_01_000005_create_role_subject_table.php',
-        ];
-
-        foreach ($migrations as $file) {
-            $migration = include $migrationPath.'/'.$file;
-            $migration->up();
-        }
+        // Recreate with current config
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->up();
     }
 }

@@ -107,6 +107,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Model Primary Key Type
+    |--------------------------------------------------------------------------
+    |
+    | The data type for primary keys on Mandate models (permissions, roles,
+    | capabilities). This affects both primary keys and foreign keys.
+    |
+    | Supported: 'int' (auto-incrementing bigint), 'uuid', 'ulid'
+    |
+    */
+
+    'model_id_type' => 'int',
+
+    /*
+    |--------------------------------------------------------------------------
     | Model Classes
     |--------------------------------------------------------------------------
     |

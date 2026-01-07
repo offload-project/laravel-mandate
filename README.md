@@ -361,6 +361,7 @@ php artisan vendor:publish --tag=mandate-config
 
 | Option                            | Default             | Description                                    |
 |-----------------------------------|---------------------|------------------------------------------------|
+| `model_id_type`                   | `'int'`             | Primary key type: `'int'`, `'uuid'`, or `'ulid'` |
 | `models.permission`               | `Permission::class` | Custom permission model                        |
 | `models.role`                     | `Role::class`       | Custom role model                              |
 | `models.capability`               | `Capability::class` | Custom capability model                        |
@@ -372,6 +373,30 @@ php artisan vendor:publish --tag=mandate-config
 | `context.global_fallback`         | `true`              | Check global when context check fails          |
 | `register_gate`                   | `true`              | Register with Laravel Gate                     |
 | `events`                          | `false`             | Fire events on changes                         |
+
+### UUID / ULID Primary Keys
+
+Mandate supports UUID or ULID primary keys for all its models. Configure before running migrations:
+
+```php
+// config/mandate.php
+'model_id_type' => 'uuid', // or 'ulid', default is 'int'
+```
+
+This affects:
+- `permissions`, `roles`, and `capabilities` tables (primary keys)
+- All pivot tables (foreign keys)
+
+```php
+// With UUID enabled, IDs are automatically generated
+$permission = Permission::create(['name' => 'article:edit']);
+$permission->id; // "550e8400-e29b-41d4-a716-446655440000"
+
+$role = Role::create(['name' => 'admin']);
+$role->id; // "550e8400-e29b-41d4-a716-446655440001"
+```
+
+> **Note:** Set `model_id_type` before running migrations. Changing it later requires recreating the tables.
 
 ### Wildcard Permissions
 

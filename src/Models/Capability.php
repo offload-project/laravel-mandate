@@ -191,13 +191,14 @@ class Capability extends Model implements CapabilityContract
     {
         // Get the model class for this capability's guard from auth config
         $modelClass = Guard::getModelClassForGuard($this->guard) ?? Model::class;
+        $subjectMorphName = config('mandate.column_names.subject_morph_name', 'subject');
 
         return $this->morphedByMany(
             $modelClass,
-            'subject',
+            $subjectMorphName,
             config('mandate.tables.capability_subject', 'capability_subject'),
             config('mandate.column_names.capability_id', 'capability_id'),
-            config('mandate.column_names.subject_morph_key', 'subject_id')
+            $subjectMorphName.'_id'
         );
     }
 

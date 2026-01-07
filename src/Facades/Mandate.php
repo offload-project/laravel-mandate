@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Facade;
 use OffloadProject\Mandate\AuthorizationBuilder;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Mandate as MandateService;
@@ -41,6 +42,14 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @method static Collection<int, Model> getRoleContexts(Model $subject, string $role)
  * @method static Collection<int, Model> getPermissionContexts(Model $subject, string $permission)
  * @method static bool contextEnabled()
+ *
+ * Feature integration (requires features.enabled = true and context.enabled = true):
+ * @method static bool featureIntegrationEnabled()
+ * @method static bool isFeatureContext(?Model $context)
+ * @method static FeatureAccessHandler|null getFeatureAccessHandler()
+ * @method static bool isFeatureActive(Model $feature)
+ * @method static bool hasFeatureAccess(Model $feature, Model $subject)
+ * @method static bool canAccessFeature(Model $feature, Model $subject)
  *
  * Creating permissions and roles:
  * @method static PermissionContract createPermission(string $name, ?string $guard = null)

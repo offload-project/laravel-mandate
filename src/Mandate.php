@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\Concerns\HasRoles;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Models\Capability;
@@ -62,6 +63,121 @@ final class Mandate
     public function contextEnabled(): bool
     {
         return (bool) config('mandate.context.enabled', false);
+    }
+
+    /**
+     * Check if feature integration is enabled.
+     */
+    public function featureIntegrationEnabled(): bool
+    {
+        return (bool) config('mandate.features.enabled', false)
+            && $this->contextEnabled();
+    }
+
+    /**
+     * Check if the given model is a Feature context.
+     */
+    public function isFeatureContext(?Model $context): bool
+    {
+        if ($context === null) {
+            return false;
+        }
+
+        $featureModels = config('mandate.features.models', []);
+
+        if (empty($featureModels)) {
+            return false;
+        }
+
+        foreach ($featureModels as $featureModel) {
+            if ($context instanceof $featureModel) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the feature access handler.
+     */
+    public function getFeatureAccessHandler(): ?FeatureAccessHandler
+    {
+        if (! app()->bound(FeatureAccessHandler::class)) {
+            return null;
+        }
+
+        return app(FeatureAccessHandler::class);
+    }
+
+    /**
+     * Check if a feature is globally active.
+     */
+    public function isFeatureActive(Model $feature): bool
+    {
+        if (! $this->featureIntegrationEnabled()) {
+            return true;
+        }
+
+        if (! $this->isFeatureContext($feature)) {
+            return true;
+        }
+
+        $handler = $this->getFeatureAccessHandler();
+
+        if ($handler === null) {
+            return $this->handleMissingFeatureHandler();
+        }
+
+        return $handler->isActive($feature);
+    }
+
+    /**
+     * Check if a subject has access to a feature.
+     */
+    public function hasFeatureAccess(Model $feature, Model $subject): bool
+    {
+        if (! $this->featureIntegrationEnabled()) {
+            return true;
+        }
+
+        if (! $this->isFeatureContext($feature)) {
+            return true;
+        }
+
+        $handler = $this->getFeatureAccessHandler();
+
+        if ($handler === null) {
+            return $this->handleMissingFeatureHandler();
+        }
+
+        return $handler->hasAccess($feature, $subject);
+    }
+
+    /**
+     * Check both feature activation and subject access.
+     *
+     * This is a convenience method that combines isActive() and hasAccess()
+     * checks. Returns true only if the feature is globally active AND
+     * the subject has been granted access.
+     */
+    public function canAccessFeature(Model $feature, Model $subject): bool
+    {
+        if (! $this->featureIntegrationEnabled()) {
+            return true;
+        }
+
+        if (! $this->isFeatureContext($feature)) {
+            return true;
+        }
+
+        $handler = $this->getFeatureAccessHandler();
+
+        if ($handler === null) {
+            return $this->handleMissingFeatureHandler();
+        }
+
+        return $handler->canAccess($feature, $subject);
     }
 
     /**
@@ -531,5 +647,18 @@ final class Mandate
         }
 
         return $data;
+    }
+
+    /**
+     * Handle the case when feature handler is not available.
+     */
+    private function handleMissingFeatureHandler(): bool
+    {
+        $behavior = config('mandate.features.on_missing_handler', 'deny');
+
+        return match ($behavior) {
+            'allow' => true,
+            default => false, // 'deny'
+        };
     }
 }

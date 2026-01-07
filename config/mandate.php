@@ -54,6 +54,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Feature Integration
+    |--------------------------------------------------------------------------
+    |
+    | Feature integration enables Mandate to delegate feature access checks
+    | to an external package (e.g., Hoist) when a Feature model is used as
+    | a context. This requires context model support to be enabled.
+    |
+    | enabled: Whether feature integration is active
+    | models: Model class(es) that are considered Feature contexts
+    | on_missing_handler: Behavior when feature handler is not available
+    |                     'allow' = fail open (allow access)
+    |                     'deny' = fail closed (deny access)
+    |                     'throw' = throw exception
+    |
+    */
+
+    'features' => [
+        'enabled' => false,
+        'models' => [
+            // App\Models\Feature::class,
+        ],
+        'on_missing_handler' => 'deny',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Wildcard Permissions
     |--------------------------------------------------------------------------
     |

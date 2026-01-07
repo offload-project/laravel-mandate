@@ -63,8 +63,9 @@ class Permission extends Model implements PermissionContract
             ->where('guard', $guard);
 
         if (config('mandate.context.enabled', false)) {
-            $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $contextType)
-                ->where(config('mandate.column_names.context_morph_key', 'context_id'), $contextId);
+            $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+            $query->where($contextMorphName.'_type', $contextType)
+                ->where($contextMorphName.'_id', $contextId);
         }
 
         if ($query->exists()) {
@@ -174,10 +175,12 @@ class Permission extends Model implements PermissionContract
      */
     public function context(): \Illuminate\Database\Eloquent\Relations\MorphTo
     {
+        $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+
         return $this->morphTo(
-            'context',
-            config('mandate.column_names.context_morph_type', 'context_type'),
-            config('mandate.column_names.context_morph_key', 'context_id')
+            $contextMorphName,
+            $contextMorphName.'_type',
+            $contextMorphName.'_id'
         );
     }
 
@@ -201,13 +204,14 @@ class Permission extends Model implements PermissionContract
     {
         // Get the model class for this permission's guard from auth config
         $modelClass = Guard::getModelClassForGuard($this->guard) ?? Model::class;
+        $subjectMorphName = config('mandate.column_names.subject_morph_name', 'subject');
 
         return $this->morphedByMany(
             $modelClass,
-            'subject',
+            $subjectMorphName,
             config('mandate.tables.permission_subject', 'permission_subject'),
             config('mandate.column_names.permission_id', 'permission_id'),
-            config('mandate.column_names.subject_morph_key', 'subject_id')
+            $subjectMorphName.'_id'
         );
     }
 
@@ -243,13 +247,15 @@ class Permission extends Model implements PermissionContract
      */
     public function scopeForContext(Builder $query, ?Model $context): Builder
     {
+        $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+
         if ($context === null) {
-            return $query->whereNull(config('mandate.column_names.context_morph_type', 'context_type'))
-                ->whereNull(config('mandate.column_names.context_morph_key', 'context_id'));
+            return $query->whereNull($contextMorphName.'_type')
+                ->whereNull($contextMorphName.'_id');
         }
 
-        return $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $context->getMorphClass())
-            ->where(config('mandate.column_names.context_morph_key', 'context_id'), $context->getKey());
+        return $query->where($contextMorphName.'_type', $context->getMorphClass())
+            ->where($contextMorphName.'_id', $context->getKey());
     }
 
     /**

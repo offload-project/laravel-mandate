@@ -14,6 +14,10 @@ beforeEach(function () {
 
 describe('MandateRegistrar', function () {
     describe('permission retrieval', function () {
+        beforeEach(function () {
+            $this->registrar = app(MandateRegistrar::class);
+        });
+
         it('gets permission by name', function () {
             $permission = Permission::create(['name' => 'article:view', 'guard' => 'web']);
 

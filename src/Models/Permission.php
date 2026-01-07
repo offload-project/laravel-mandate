@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Exceptions\PermissionAlreadyExistsException;
 use OffloadProject\Mandate\Exceptions\PermissionNotFoundException;
@@ -39,6 +40,12 @@ class Permission extends Model implements PermissionContract
         parent::__construct($attributes);
 
         $this->setTable(config('mandate.tables.permissions', 'permissions'));
+
+        $idType = config('mandate.model_id_type', 'int');
+        if (in_array($idType, ['uuid', 'ulid'], true)) {
+            $this->keyType = 'string';
+            $this->incrementing = false;
+        }
     }
 
     /**
@@ -141,6 +148,26 @@ class Permission extends Model implements PermissionContract
     }
 
     /**
+     * Get the value indicating whether the IDs are incrementing.
+     */
+    public function getIncrementing(): bool
+    {
+        $idType = config('mandate.model_id_type', 'int');
+
+        return ! in_array($idType, ['uuid', 'ulid'], true);
+    }
+
+    /**
+     * Get the primary key type.
+     */
+    public function getKeyType(): string
+    {
+        $idType = config('mandate.model_id_type', 'int');
+
+        return in_array($idType, ['uuid', 'ulid'], true) ? 'string' : 'int';
+    }
+
+    /**
      * Get the context model that this permission belongs to.
      *
      * @return \Illuminate\Database\Eloquent\Relations\MorphTo<Model, $this>
@@ -230,6 +257,16 @@ class Permission extends Model implements PermissionContract
      */
     protected static function booted(): void
     {
+        static::creating(function (self $model) {
+            $idType = config('mandate.model_id_type', 'int');
+
+            if ($idType === 'uuid' && empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            } elseif ($idType === 'ulid' && empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::ulid();
+            }
+        });
+
         static::saved(fn () => app(MandateRegistrar::class)->forgetCachedPermissions());
         static::deleted(fn () => app(MandateRegistrar::class)->forgetCachedPermissions());
     }

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
@@ -42,6 +43,12 @@ class Role extends Model implements RoleContract
         parent::__construct($attributes);
 
         $this->setTable(config('mandate.tables.roles', 'roles'));
+
+        $idType = config('mandate.model_id_type', 'int');
+        if (in_array($idType, ['uuid', 'ulid'], true)) {
+            $this->keyType = 'string';
+            $this->incrementing = false;
+        }
     }
 
     /**
@@ -141,6 +148,26 @@ class Role extends Model implements RoleContract
         app(MandateRegistrar::class)->forgetCachedPermissions();
 
         return $role;
+    }
+
+    /**
+     * Get the value indicating whether the IDs are incrementing.
+     */
+    public function getIncrementing(): bool
+    {
+        $idType = config('mandate.model_id_type', 'int');
+
+        return ! in_array($idType, ['uuid', 'ulid'], true);
+    }
+
+    /**
+     * Get the primary key type.
+     */
+    public function getKeyType(): string
+    {
+        $idType = config('mandate.model_id_type', 'int');
+
+        return in_array($idType, ['uuid', 'ulid'], true) ? 'string' : 'int';
     }
 
     /**
@@ -468,6 +495,16 @@ class Role extends Model implements RoleContract
      */
     protected static function booted(): void
     {
+        static::creating(function (self $model) {
+            $idType = config('mandate.model_id_type', 'int');
+
+            if ($idType === 'uuid' && empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            } elseif ($idType === 'ulid' && empty($model->{$model->getKeyName()})) {
+                $model->{$model->getKeyName()} = (string) Str::ulid();
+            }
+        });
+
         static::saved(fn () => app(MandateRegistrar::class)->forgetCachedPermissions());
         static::deleted(fn () => app(MandateRegistrar::class)->forgetCachedPermissions());
     }

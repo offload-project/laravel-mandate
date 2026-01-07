@@ -22,7 +22,7 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-final class Permission extends Model implements PermissionContract
+class Permission extends Model implements PermissionContract
 {
     /** @var list<string> */
     protected $fillable = [
@@ -45,7 +45,7 @@ final class Permission extends Model implements PermissionContract
         $guard = $attributes['guard'] ?? Guard::getDefaultName();
 
         // Check if permission already exists
-        $existing = self::query()
+        $existing = static::query()
             ->where('name', $attributes['name'])
             ->where('guard', $guard)
             ->first();
@@ -57,7 +57,7 @@ final class Permission extends Model implements PermissionContract
         $attributes['guard'] = $guard;
 
         /** @var static $permission */
-        $permission = self::query()->create($attributes);
+        $permission = static::query()->create($attributes);
 
         app(MandateRegistrar::class)->forgetCachedPermissions();
 

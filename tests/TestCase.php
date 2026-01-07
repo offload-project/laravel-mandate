@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate\Tests;
 
-use Illuminate\Foundation\Auth\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use OffloadProject\Hoist\HoistServiceProvider;
+use Illuminate\Support\Facades\Schema;
 use OffloadProject\Mandate\MandateServiceProvider;
-use OffloadProject\Mandate\Tests\Fixtures\Permissions\UserPermissions;
-use Orchestra\Testbench\TestCase as BaseTestCase;
-use Spatie\Permission\PermissionServiceProvider;
+use Orchestra\Testbench\TestCase as Orchestra;
 
-abstract class TestCase extends BaseTestCase
+abstract class TestCase extends Orchestra
 {
     use RefreshDatabase;
 
@@ -20,43 +18,18 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        // Configure hoist to use test fixtures for features
-        config()->set('hoist.feature_directories', [
-            __DIR__ . '/Fixtures/Features' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Features',
-        ]);
-
-        // Configure mandate to use test fixtures
-        config()->set('mandate.permission_directories', [
-            __DIR__ . '/Fixtures/Permissions' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Permissions',
-        ]);
-
-        config()->set('mandate.role_directories', [
-            __DIR__ . '/Fixtures/Roles' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Roles',
-        ]);
-
-        // Configure role permissions mapping
-        config()->set('mandate.role_permissions', [
-            'admin' => [
-                UserPermissions::class,
-            ],
-            'viewer' => [
-                UserPermissions::VIEW,
-            ],
-        ]);
+        $this->setUpDatabase();
     }
 
     protected function getPackageProviders($app): array
     {
         return [
-            PermissionServiceProvider::class,
-            HoistServiceProvider::class,
             MandateServiceProvider::class,
         ];
     }
 
-    protected function getEnvironmentSetUp($app): void
+    protected function defineEnvironment($app): void
     {
-        // Setup default database
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver' => 'sqlite',
@@ -64,21 +37,49 @@ abstract class TestCase extends BaseTestCase
             'prefix' => '',
         ]);
 
-        // Setup auth guard
-        $app['config']->set('auth.guards.web', [
-            'driver' => 'session',
-            'provider' => 'users',
-        ]);
+        $app['config']->set('auth.providers.users.model', Fixtures\User::class);
+        $app['config']->set('auth.guards.web.provider', 'users');
 
-        $app['config']->set('auth.providers.users', [
-            'driver' => 'eloquent',
-            'model' => User::class,
-        ]);
+        $app['config']->set('mandate.events', false);
     }
 
-    protected function defineDatabaseMigrations(): void
+    protected function setUpDatabase(): void
     {
-        // Run Spatie permission migrations
-        $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->timestamps();
+        });
+
+        $this->runMandateMigrations();
+    }
+
+    protected function runMandateMigrations(): void
+    {
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        $migrationFiles = [
+            '2024_01_01_000001_create_permissions_table.php',
+            '2024_01_01_000002_create_roles_table.php',
+            '2024_01_01_000003_create_permission_role_table.php',
+            '2024_01_01_000004_create_permission_subject_table.php',
+            '2024_01_01_000005_create_role_subject_table.php',
+        ];
+
+        foreach ($migrationFiles as $file) {
+            $migration = include $migrationPath.'/'.$file;
+            $migration->up();
+        }
+    }
+
+    protected function enableEvents(): void
+    {
+        config(['mandate.events' => true]);
+    }
+
+    protected function enableWildcards(): void
+    {
+        config(['mandate.wildcards.enabled' => true]);
     }
 }

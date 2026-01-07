@@ -28,6 +28,10 @@ use RuntimeException;
  * Mandate::getPermissions($subject);
  * Mandate::getRoles($subject);
  *
+ * // Fluent authorization builder
+ * Mandate::for($user)->can('edit-articles');
+ * Mandate::for($user)->hasRole('admin')->orHasPermission('edit')->check();
+ *
  * // Create permissions and roles
  * Mandate::createPermission('article:edit');
  * Mandate::createRole('admin');
@@ -37,6 +41,20 @@ final class Mandate
     public function __construct(
         private readonly MandateRegistrar $registrar
     ) {}
+
+    /**
+     * Create a fluent authorization builder for a subject.
+     *
+     * @example
+     * Mandate::for($user)->can('edit-articles');
+     * Mandate::for($user)->is('admin');
+     * Mandate::for($user)->hasRole('admin')->orHasPermission('edit')->check();
+     * Mandate::for($user)->inContext($team)->hasPermission('manage')->check();
+     */
+    public function for(Model $subject): AuthorizationBuilder
+    {
+        return new AuthorizationBuilder($subject);
+    }
 
     /**
      * Check if context model support is enabled.

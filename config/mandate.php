@@ -163,16 +163,17 @@ return [
     |
     | Customize the column names used in pivot tables.
     |
+    | For morph columns, specify the base name (e.g., 'subject') and the
+    | system will automatically append '_id' and '_type' suffixes.
+    |
     */
 
     'column_names' => [
         'role_id' => 'role_id',
         'permission_id' => 'permission_id',
         'capability_id' => 'capability_id',
-        'subject_morph_key' => 'subject_id',
-        'subject_morph_type' => 'subject_type',
-        'context_morph_key' => 'context_id',
-        'context_morph_type' => 'context_type',
+        'subject_morph_name' => 'subject',
+        'context_morph_name' => 'context',
     ],
 
     /*

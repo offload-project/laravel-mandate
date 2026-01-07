@@ -50,8 +50,9 @@ return new class extends Migration
             $table->string('guard');
 
             if ($contextEnabled) {
-                $contextTypeColumn = config('mandate.column_names.context_morph_type', 'context_type');
-                $contextIdColumn = config('mandate.column_names.context_morph_key', 'context_id');
+                $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+                $contextTypeColumn = $contextMorphName.'_type';
+                $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
                 $table->unsignedBigInteger($contextIdColumn)->nullable();
@@ -82,8 +83,9 @@ return new class extends Migration
             $table->string('guard');
 
             if ($contextEnabled) {
-                $contextTypeColumn = config('mandate.column_names.context_morph_type', 'context_type');
-                $contextIdColumn = config('mandate.column_names.context_morph_key', 'context_id');
+                $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+                $contextTypeColumn = $contextMorphName.'_type';
+                $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
                 $table->unsignedBigInteger($contextIdColumn)->nullable();
@@ -129,8 +131,9 @@ return new class extends Migration
         $tableName = config('mandate.tables.permission_subject', 'permission_subject');
         $permissionsTable = config('mandate.tables.permissions', 'permissions');
         $permissionIdColumn = config('mandate.column_names.permission_id', 'permission_id');
-        $subjectIdColumn = config('mandate.column_names.subject_morph_key', 'subject_id');
-        $subjectTypeColumn = config('mandate.column_names.subject_morph_type', 'subject_type');
+        $subjectMorphName = config('mandate.column_names.subject_morph_name', 'subject');
+        $subjectIdColumn = $subjectMorphName.'_id';
+        $subjectTypeColumn = $subjectMorphName.'_type';
 
         Schema::create($tableName, function (Blueprint $table) use ($permissionsTable, $permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType) {
             match ($idType) {
@@ -144,8 +147,9 @@ return new class extends Migration
             $table->string($subjectTypeColumn);
 
             if ($contextEnabled) {
-                $contextTypeColumn = config('mandate.column_names.context_morph_type', 'context_type');
-                $contextIdColumn = config('mandate.column_names.context_morph_key', 'context_id');
+                $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+                $contextTypeColumn = $contextMorphName.'_type';
+                $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
                 $table->string($contextIdColumn)->nullable();
@@ -166,8 +170,9 @@ return new class extends Migration
         $tableName = config('mandate.tables.role_subject', 'role_subject');
         $rolesTable = config('mandate.tables.roles', 'roles');
         $roleIdColumn = config('mandate.column_names.role_id', 'role_id');
-        $subjectIdColumn = config('mandate.column_names.subject_morph_key', 'subject_id');
-        $subjectTypeColumn = config('mandate.column_names.subject_morph_type', 'subject_type');
+        $subjectMorphName = config('mandate.column_names.subject_morph_name', 'subject');
+        $subjectIdColumn = $subjectMorphName.'_id';
+        $subjectTypeColumn = $subjectMorphName.'_type';
 
         Schema::create($tableName, function (Blueprint $table) use ($rolesTable, $roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType) {
             match ($idType) {
@@ -181,8 +186,9 @@ return new class extends Migration
             $table->string($subjectTypeColumn);
 
             if ($contextEnabled) {
-                $contextTypeColumn = config('mandate.column_names.context_morph_type', 'context_type');
-                $contextIdColumn = config('mandate.column_names.context_morph_key', 'context_id');
+                $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
+                $contextTypeColumn = $contextMorphName.'_type';
+                $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
                 $table->string($contextIdColumn)->nullable();

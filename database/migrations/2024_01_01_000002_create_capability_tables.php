@@ -107,8 +107,9 @@ return new class extends Migration
         $tableName = config('mandate.tables.capability_subject', 'capability_subject');
         $capabilitiesTable = config('mandate.tables.capabilities', 'capabilities');
         $capabilityIdColumn = config('mandate.column_names.capability_id', 'capability_id');
-        $subjectIdColumn = config('mandate.column_names.subject_morph_key', 'subject_id');
-        $subjectTypeColumn = config('mandate.column_names.subject_morph_type', 'subject_type');
+        $subjectMorphName = config('mandate.column_names.subject_morph_name', 'subject');
+        $subjectIdColumn = $subjectMorphName.'_id';
+        $subjectTypeColumn = $subjectMorphName.'_type';
 
         Schema::create($tableName, function (Blueprint $table) use ($capabilitiesTable, $capabilityIdColumn, $subjectIdColumn, $subjectTypeColumn, $idType) {
             match ($idType) {

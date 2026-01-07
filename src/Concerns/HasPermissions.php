@@ -359,10 +359,11 @@ trait HasPermissions
         $permissionName = $this->getPermissionName($permission);
         $guardName = $this->getGuardName();
 
+        $pivotTable = config('mandate.tables.permission_subject', 'permission_subject');
         $pivotRecords = $this->permissions()
             ->where('name', $permissionName)
             ->where('guard', $guardName)
-            ->whereNotNull($this->getContextTypeColumn())
+            ->whereNotNull("{$pivotTable}.{$this->getContextTypeColumn()}")
             ->get();
 
         return $pivotRecords->map(function ($permission) {

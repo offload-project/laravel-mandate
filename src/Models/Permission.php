@@ -19,6 +19,8 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property int|string $id
  * @property string $name
  * @property string $guard
+ * @property string|null $context_type
+ * @property int|string|null $context_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -28,6 +30,8 @@ class Permission extends Model implements PermissionContract
     protected $fillable = [
         'name',
         'guard',
+        'context_type',
+        'context_id',
     ];
 
     public function __construct(array $attributes = [])
@@ -43,14 +47,20 @@ class Permission extends Model implements PermissionContract
     public static function create(array $attributes): static
     {
         $guard = $attributes['guard'] ?? Guard::getDefaultName();
+        $contextType = $attributes['context_type'] ?? null;
+        $contextId = $attributes['context_id'] ?? null;
 
-        // Check if permission already exists
-        $existing = static::query()
+        // Check if permission already exists (including context if enabled)
+        $query = static::query()
             ->where('name', $attributes['name'])
-            ->where('guard', $guard)
-            ->first();
+            ->where('guard', $guard);
 
-        if ($existing) {
+        if (config('mandate.context.enabled', false)) {
+            $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $contextType)
+                ->where(config('mandate.column_names.context_morph_key', 'context_id'), $contextId);
+        }
+
+        if ($query->exists()) {
             throw PermissionAlreadyExistsException::create($attributes['name'], $guard);
         }
 
@@ -131,6 +141,20 @@ class Permission extends Model implements PermissionContract
     }
 
     /**
+     * Get the context model that this permission belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo<Model, $this>
+     */
+    public function context(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo(
+            'context',
+            config('mandate.column_names.context_morph_type', 'context_type'),
+            config('mandate.column_names.context_morph_key', 'context_id')
+        );
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function roles(): BelongsToMany
@@ -182,6 +206,23 @@ class Permission extends Model implements PermissionContract
     public function scopeForGuard(Builder $query, string $guard): Builder
     {
         return $query->where('guard', $guard);
+    }
+
+    /**
+     * Scope query to specific context.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeForContext(Builder $query, ?Model $context): Builder
+    {
+        if ($context === null) {
+            return $query->whereNull(config('mandate.column_names.context_morph_type', 'context_type'))
+                ->whereNull(config('mandate.column_names.context_morph_key', 'context_id'));
+        }
+
+        return $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $context->getMorphClass())
+            ->where(config('mandate.column_names.context_morph_key', 'context_id'), $context->getKey());
     }
 
     /**

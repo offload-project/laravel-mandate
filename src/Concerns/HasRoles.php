@@ -329,10 +329,11 @@ trait HasRoles
         $roleName = $this->getRoleName($role);
         $guardName = $this->getGuardName();
 
+        $pivotTable = config('mandate.tables.role_subject', 'role_subject');
         $pivotRecords = $this->roles()
             ->where('name', $roleName)
             ->where('guard', $guardName)
-            ->whereNotNull($this->getContextTypeColumn())
+            ->whereNotNull("{$pivotTable}.{$this->getContextTypeColumn()}")
             ->get();
 
         return $pivotRecords->map(function ($role) {

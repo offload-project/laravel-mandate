@@ -22,6 +22,8 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property int|string $id
  * @property string $name
  * @property string $guard
+ * @property string|null $context_type
+ * @property int|string|null $context_id
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  */
@@ -31,6 +33,8 @@ class Role extends Model implements RoleContract
     protected $fillable = [
         'name',
         'guard',
+        'context_type',
+        'context_id',
     ];
 
     public function __construct(array $attributes = [])
@@ -46,14 +50,20 @@ class Role extends Model implements RoleContract
     public static function create(array $attributes): static
     {
         $guard = $attributes['guard'] ?? Guard::getDefaultName();
+        $contextType = $attributes['context_type'] ?? null;
+        $contextId = $attributes['context_id'] ?? null;
 
-        // Check if role already exists
-        $existing = static::query()
+        // Check if role already exists (including context if enabled)
+        $query = static::query()
             ->where('name', $attributes['name'])
-            ->where('guard', $guard)
-            ->first();
+            ->where('guard', $guard);
 
-        if ($existing) {
+        if (config('mandate.context.enabled', false)) {
+            $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $contextType)
+                ->where(config('mandate.column_names.context_morph_key', 'context_id'), $contextId);
+        }
+
+        if ($query->exists()) {
             throw RoleAlreadyExistsException::create($attributes['name'], $guard);
         }
 
@@ -131,6 +141,20 @@ class Role extends Model implements RoleContract
         app(MandateRegistrar::class)->forgetCachedPermissions();
 
         return $role;
+    }
+
+    /**
+     * Get the context model that this role belongs to.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\MorphTo<Model, $this>
+     */
+    public function context(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo(
+            'context',
+            config('mandate.column_names.context_morph_type', 'context_type'),
+            config('mandate.column_names.context_morph_key', 'context_id')
+        );
     }
 
     /**
@@ -420,6 +444,23 @@ class Role extends Model implements RoleContract
     public function scopeForGuard(\Illuminate\Database\Eloquent\Builder $query, string $guard): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('guard', $guard);
+    }
+
+    /**
+     * Scope query to specific context.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<static>
+     */
+    public function scopeForContext(\Illuminate\Database\Eloquent\Builder $query, ?Model $context): \Illuminate\Database\Eloquent\Builder
+    {
+        if ($context === null) {
+            return $query->whereNull(config('mandate.column_names.context_morph_type', 'context_type'))
+                ->whereNull(config('mandate.column_names.context_morph_key', 'context_id'));
+        }
+
+        return $query->where(config('mandate.column_names.context_morph_type', 'context_type'), $context->getMorphClass())
+            ->where(config('mandate.column_names.context_morph_key', 'context_id'), $context->getKey());
     }
 
     /**

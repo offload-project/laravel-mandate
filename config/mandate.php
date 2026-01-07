@@ -55,6 +55,8 @@ return [
         'capability_id' => 'capability_id',
         'subject_morph_key' => 'subject_id',
         'subject_morph_type' => 'subject_type',
+        'context_morph_key' => 'context_id',
+        'context_morph_type' => 'context_type',
     ],
 
     /*
@@ -137,5 +139,25 @@ return [
     */
 
     'events' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Model
+    |--------------------------------------------------------------------------
+    |
+    | Context Model support enables scoping roles and permissions to a
+    | polymorphic context (e.g., Team, Organization, Project). This allows
+    | multi-tenancy and resource-specific permission scenarios.
+    |
+    | enabled: Whether context model support is active
+    | global_fallback: When checking permissions with a context, also check
+    |                  for global (null context) permissions as fallback
+    |
+    */
+
+    'context' => [
+        'enabled' => false,
+        'global_fallback' => true,
+    ],
 
 ];

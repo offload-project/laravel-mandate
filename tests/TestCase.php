@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate\Tests;
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Testing\Concerns\InteractsWithViews;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use OffloadProject\Mandate\MandateServiceProvider;
@@ -12,6 +13,7 @@ use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    use InteractsWithViews;
     use RefreshDatabase;
 
     protected function setUp(): void

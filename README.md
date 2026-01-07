@@ -8,6 +8,24 @@
 
 A role-based access control (RBAC) package for Laravel with a clean, intuitive API.
 
+## Features
+
+- **Roles & Permissions** — Assign roles to users, grant permissions to roles or directly to users
+- **Capabilities** — Group permissions into semantic capabilities for cleaner authorization logic
+- **Multi-Tenancy** — Scope roles and permissions to context models (Team, Organization, Project)
+- **Feature Integration** — Delegate feature access checks to external packages (Flag On, etc.)
+- **Wildcard Permissions** — Pattern matching with `article:*` or `*.edit` syntax
+- **Multiple Guards** — Scope authorization to different authentication guards
+- **Laravel Gate** — Automatic registration with Laravel's authorization system
+- **Blade Directives** — `@role`, `@permission`, `@capability`, and more
+- **Route Middleware** — Protect routes with `permission:`, `role:`, or `role_or_permission:`
+- **Fluent Builder** — Expressive chained authorization checks
+- **Query Scopes** — Filter models by role or permission
+- **UUID/ULID Support** — Use any primary key type for all models
+- **Caching** — Built-in permission caching with automatic invalidation
+- **Events** — Hook into role, permission, and capability changes
+- **Artisan Commands** — Create and manage roles, permissions, and capabilities from CLI
+
 ## Installation
 
 ```bash
@@ -371,8 +389,13 @@ php artisan vendor:publish --tag=mandate-config
 | `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment     |
 | `context.enabled`                 | `false`             | Enable context model support (multi-tenancy)   |
 | `context.global_fallback`         | `true`              | Check global when context check fails          |
+| `features.enabled`                | `false`             | Enable feature integration                     |
+| `features.models`                 | `[]`                | Model classes considered Feature contexts      |
+| `features.on_missing_handler`     | `'deny'`            | Behavior when handler is not bound             |
 | `register_gate`                   | `true`              | Register with Laravel Gate                     |
 | `events`                          | `false`             | Fire events on changes                         |
+| `column_names.subject_morph_name` | `'subject'`         | Base name for subject morph columns            |
+| `column_names.context_morph_name` | `'context'`         | Base name for context morph columns            |
 
 ### UUID / ULID Primary Keys
 
@@ -397,6 +420,30 @@ $role->id; // "550e8400-e29b-41d4-a716-446655440001"
 ```
 
 > **Note:** Set `model_id_type` before running migrations. Changing it later requires recreating the tables.
+
+### Custom Column Names
+
+Customize morph column names by setting the base name. Mandate automatically appends `_id` and `_type` suffixes:
+
+```php
+// config/mandate.php
+'column_names' => [
+    'subject_morph_name' => 'subject',  // Creates subject_id, subject_type
+    'context_morph_name' => 'context',  // Creates context_id, context_type
+],
+```
+
+For example, to use `user` instead of `subject`:
+
+```php
+'column_names' => [
+    'subject_morph_name' => 'user',  // Creates user_id, user_type columns
+],
+```
+
+This affects pivot tables (`permission_subject`, `role_subject`, `capability_subject`) and context columns on permissions/roles tables.
+
+> **Note:** Set column names before running migrations. Changing them later requires recreating the tables.
 
 ### Wildcard Permissions
 
@@ -680,6 +727,156 @@ Mandate::contextEnabled(); // true/false
 
 ---
 
+## Feature Integration
+
+Feature Integration enables Mandate to delegate feature access checks to an external package (like Flag On) when a Feature model is used as a context. This allows combining feature flags with permission checks.
+
+### How It Works
+
+When you check a permission or role with a Feature model as the context, Mandate first verifies the subject can access the feature before evaluating permissions. This ensures users only get permissions for features they have access to.
+
+### Enabling Feature Integration
+
+Feature integration requires context support to be enabled:
+
+```php
+// config/mandate.php
+'context' => [
+    'enabled' => true,
+],
+
+'features' => [
+    'enabled' => true,
+    'models' => [
+        App\Models\Feature::class,
+    ],
+    'on_missing_handler' => 'deny', // 'allow', 'deny', or 'throw'
+],
+```
+
+### Implementing the Feature Access Handler
+
+Your feature management package must implement the `FeatureAccessHandler` contract:
+
+```php
+use Illuminate\Database\Eloquent\Model;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
+
+class FlagOnFeatureHandler implements FeatureAccessHandler
+{
+    public function isActive(Model $feature): bool
+    {
+        // Check if feature is globally active
+        return $feature->is_active;
+    }
+
+    public function hasAccess(Model $feature, Model $subject): bool
+    {
+        // Check if subject has been granted access to the feature
+        return $feature->subjects()->where('id', $subject->id)->exists();
+    }
+
+    public function canAccess(Model $feature, Model $subject): bool
+    {
+        // Combined check: feature must be active AND subject must have access
+        return $this->isActive($feature) && $this->hasAccess($feature, $subject);
+    }
+}
+```
+
+Register the handler in a service provider:
+
+```php
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
+
+$this->app->bind(FeatureAccessHandler::class, FlagOnFeatureHandler::class);
+```
+
+### Permission Checks with Feature Context
+
+When you pass a Feature model as context, Mandate automatically checks feature access first:
+
+```php
+$feature = Feature::find(1);
+
+// First checks if user can access the feature via FeatureAccessHandler
+// Then checks if user has the permission within that feature context
+$user->hasPermission('edit', $feature);
+
+// Same automatic check for roles
+$user->hasRole('editor', $feature);
+```
+
+If feature access is denied, the permission/role check returns `false` immediately without evaluating the actual permission.
+
+### Bypassing Feature Checks
+
+For admin scenarios where you need to check permissions regardless of feature access:
+
+```php
+// Pass bypassFeatureCheck: true to skip the feature access check
+$user->hasPermission('edit', $feature, bypassFeatureCheck: true);
+$user->hasRole('editor', $feature, bypassFeatureCheck: true);
+```
+
+### Using the Mandate Facade
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+// Check if feature integration is enabled
+Mandate::featureIntegrationEnabled();
+
+// Check if a model is a Feature context
+Mandate::isFeatureContext($model);
+
+// Get the feature access handler
+$handler = Mandate::getFeatureAccessHandler();
+
+// Feature access checks
+Mandate::isFeatureActive($feature);
+Mandate::hasFeatureAccess($feature, $user);
+Mandate::canAccessFeature($feature, $user);
+```
+
+### Missing Handler Behavior
+
+Configure what happens when no `FeatureAccessHandler` is bound:
+
+| Value   | Behavior                                          |
+|---------|---------------------------------------------------|
+| `deny`  | Return `false` (fail closed) - **Default**        |
+| `allow` | Return `true` (fail open)                         |
+| `throw` | Throw `FeatureAccessException`                    |
+
+```php
+// config/mandate.php
+'features' => [
+    'on_missing_handler' => 'deny',
+],
+```
+
+### Non-Feature Contexts
+
+When checking permissions with a non-Feature context (like Team or Project), feature integration is bypassed entirely:
+
+```php
+$team = Team::find(1);
+
+// No feature check - works like normal context
+$user->hasPermission('edit', $team);
+```
+
+### Feature Configuration Options
+
+| Option                          | Default  | Description                                    |
+|---------------------------------|----------|------------------------------------------------|
+| `features.enabled`              | `false`  | Enable feature integration                     |
+| `features.models`               | `[]`     | Model classes considered Feature contexts      |
+| `features.on_missing_handler`   | `'deny'` | Behavior when handler is not bound             |
+
+---
+
 ## Multiple Guards
 
 Mandate scopes roles and permissions to authentication guards:
@@ -745,6 +942,7 @@ Mandate throws descriptive exceptions:
 | `PermissionAlreadyExistsException`     | Creating duplicate permission             |
 | `CapabilityNotFoundException`          | Capability doesn't exist                  |
 | `CapabilityAlreadyExistsException`     | Creating duplicate capability             |
+| `FeatureAccessException`               | Feature handler missing (when `throw`)    |
 | `GuardMismatchException`               | Permission/role guard doesn't match model |
 | `UnauthorizedException`                | Middleware authorization fails            |
 

@@ -56,9 +56,9 @@ trait HasRoles
     {
         $relation = $this->morphToMany(
             config('mandate.models.role', Role::class),
-            'subject',
+            $this->getSubjectMorphName(),
             config('mandate.tables.role_subject', 'role_subject'),
-            config('mandate.column_names.subject_morph_key', 'subject_id'),
+            $this->getSubjectIdColumn(),
             config('mandate.column_names.role_id', 'role_id')
         )->withTimestamps();
 
@@ -165,9 +165,15 @@ trait HasRoles
      * Check if the model has a specific role.
      *
      * @param  Model|null  $context  Optional context model for scoped role check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (for admin override scenarios)
      */
-    public function hasRole(string|BackedEnum|RoleContract $role, ?Model $context = null): bool
+    public function hasRole(string|BackedEnum|RoleContract $role, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
+        // Check feature access first if context is a Feature
+        if (! $this->checkFeatureAccess($context, $bypassFeatureCheck)) {
+            return false;
+        }
+
         $roleName = $this->getRoleName($role);
         $guardName = $this->getGuardName();
 
@@ -208,11 +214,12 @@ trait HasRoles
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (for admin override scenarios)
      */
-    public function hasAnyRole(array $roles, ?Model $context = null): bool
+    public function hasAnyRole(array $roles, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
         foreach ($roles as $role) {
-            if ($this->hasRole($role, $context)) {
+            if ($this->hasRole($role, $context, $bypassFeatureCheck)) {
                 return true;
             }
         }
@@ -225,11 +232,12 @@ trait HasRoles
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (for admin override scenarios)
      */
-    public function hasAllRoles(array $roles, ?Model $context = null): bool
+    public function hasAllRoles(array $roles, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
         foreach ($roles as $role) {
-            if (! $this->hasRole($role, $context)) {
+            if (! $this->hasRole($role, $context, $bypassFeatureCheck)) {
                 return false;
             }
         }
@@ -242,9 +250,15 @@ trait HasRoles
      *
      * @param  array<string|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (for admin override scenarios)
      */
-    public function hasExactRoles(array $roles, ?Model $context = null): bool
+    public function hasExactRoles(array $roles, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
+        // Check feature access first if context is a Feature
+        if (! $this->checkFeatureAccess($context, $bypassFeatureCheck)) {
+            return false;
+        }
+
         $guard = $this->getGuardName();
         $query = $this->roles()->where('guard', $guard);
 
@@ -431,9 +445,9 @@ trait HasRoles
     {
         return $this->morphToMany(
             config('mandate.models.capability', Capability::class),
-            'subject',
+            $this->getSubjectMorphName(),
             config('mandate.tables.capability_subject', 'capability_subject'),
-            config('mandate.column_names.subject_morph_key', 'subject_id'),
+            $this->getSubjectIdColumn(),
             config('mandate.column_names.capability_id', 'capability_id')
         )->withTimestamps();
     }

@@ -32,11 +32,43 @@ trait HasContext
     }
 
     /**
+     * Get the subject morph name (base name without suffix).
+     */
+    protected function getSubjectMorphName(): string
+    {
+        return config('mandate.column_names.subject_morph_name', 'subject');
+    }
+
+    /**
+     * Get the subject type column name.
+     */
+    protected function getSubjectTypeColumn(): string
+    {
+        return $this->getSubjectMorphName().'_type';
+    }
+
+    /**
+     * Get the subject ID column name.
+     */
+    protected function getSubjectIdColumn(): string
+    {
+        return $this->getSubjectMorphName().'_id';
+    }
+
+    /**
+     * Get the context morph name (base name without suffix).
+     */
+    protected function getContextMorphName(): string
+    {
+        return config('mandate.column_names.context_morph_name', 'context');
+    }
+
+    /**
      * Get the context type column name.
      */
     protected function getContextTypeColumn(): string
     {
-        return config('mandate.column_names.context_morph_type', 'context_type');
+        return $this->getContextMorphName().'_type';
     }
 
     /**
@@ -44,7 +76,7 @@ trait HasContext
      */
     protected function getContextIdColumn(): string
     {
-        return config('mandate.column_names.context_morph_key', 'context_id');
+        return $this->getContextMorphName().'_id';
     }
 
     /**

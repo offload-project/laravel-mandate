@@ -26,6 +26,7 @@ use OffloadProject\Mandate\Models\Permission;
  */
 trait HasPermissions
 {
+    use ChecksFeatureAccess;
     use HasContext;
 
     /**
@@ -51,9 +52,9 @@ trait HasPermissions
     {
         $relation = $this->morphToMany(
             config('mandate.models.permission', Permission::class),
-            'subject',
+            $this->getSubjectMorphName(),
             config('mandate.tables.permission_subject', 'permission_subject'),
-            config('mandate.column_names.subject_morph_key', 'subject_id'),
+            $this->getSubjectIdColumn(),
             config('mandate.column_names.permission_id', 'permission_id')
         )->withTimestamps();
 
@@ -160,9 +161,15 @@ trait HasPermissions
      * Check if the model has a specific permission (direct or via role).
      *
      * @param  Model|null  $context  Optional context model for scoped permission check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (e.g., admin override)
      */
-    public function hasPermission(string|BackedEnum|PermissionContract $permission, ?Model $context = null): bool
+    public function hasPermission(string|BackedEnum|PermissionContract $permission, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
+        // Check feature access first if context is a Feature
+        if (! $this->checkFeatureAccess($context, $bypassFeatureCheck)) {
+            return false;
+        }
+
         $permissionName = $this->getPermissionName($permission);
 
         // Check wildcard permissions if enabled
@@ -190,11 +197,12 @@ trait HasPermissions
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permission check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (e.g., admin override)
      */
-    public function hasAnyPermission(array $permissions, ?Model $context = null): bool
+    public function hasAnyPermission(array $permissions, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
         foreach ($permissions as $permission) {
-            if ($this->hasPermission($permission, $context)) {
+            if ($this->hasPermission($permission, $context, $bypassFeatureCheck)) {
                 return true;
             }
         }
@@ -207,11 +215,12 @@ trait HasPermissions
      *
      * @param  array<string|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permission check
+     * @param  bool  $bypassFeatureCheck  Skip feature access check (e.g., admin override)
      */
-    public function hasAllPermissions(array $permissions, ?Model $context = null): bool
+    public function hasAllPermissions(array $permissions, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
         foreach ($permissions as $permission) {
-            if (! $this->hasPermission($permission, $context)) {
+            if (! $this->hasPermission($permission, $context, $bypassFeatureCheck)) {
                 return false;
             }
         }

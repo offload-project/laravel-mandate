@@ -8,7 +8,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\Concerns\InteractsWithViews;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\MandateServiceProvider;
+use OffloadProject\Mandate\Tests\Fixtures\Feature;
+use OffloadProject\Mandate\Tests\Fixtures\MockFeatureAccessHandler;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -73,6 +76,11 @@ abstract class TestCase extends Orchestra
 
     protected function runCapabilityMigrations(): void
     {
+        // Only run if capabilities table doesn't exist (idempotent)
+        if (Schema::hasTable(config('mandate.tables.capabilities', 'capabilities'))) {
+            return;
+        }
+
         $migrationPath = __DIR__.'/../database/migrations';
 
         $migration = include $migrationPath.'/2024_01_01_000002_create_capability_tables.php';
@@ -139,5 +147,42 @@ abstract class TestCase extends Orchestra
         // Recreate with current config
         $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
         $migration->up();
+    }
+
+    /**
+     * Enable feature integration with a mock handler.
+     */
+    protected function enableFeatureIntegration(): MockFeatureAccessHandler
+    {
+        // Feature integration requires context
+        $this->enableContext();
+
+        // Create the features table if it doesn't exist
+        if (! Schema::hasTable('features')) {
+            Schema::create('features', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->boolean('is_active')->default(false);
+                $table->timestamps();
+            });
+        }
+
+        // Enable feature integration
+        config(['mandate.features.enabled' => true]);
+        config(['mandate.features.models' => [Feature::class]]);
+
+        // Bind and return the mock handler
+        $handler = new MockFeatureAccessHandler;
+        $this->app->instance(FeatureAccessHandler::class, $handler);
+
+        return $handler;
+    }
+
+    /**
+     * Set the behavior when feature handler is missing.
+     */
+    protected function setFeatureMissingHandlerBehavior(string $behavior): void
+    {
+        config(['mandate.features.on_missing_handler' => $behavior]);
     }
 }

@@ -171,6 +171,10 @@ describe('Direct Capability Assignment', function () {
     });
 
     describe('assigning capabilities directly', function () {
+        beforeEach(function () {
+            $this->enableDirectCapabilityAssignment();
+        });
+
         it('can assign capability directly to user', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
@@ -200,6 +204,9 @@ describe('Direct Capability Assignment', function () {
     });
 
     describe('removing capabilities directly', function () {
+        beforeEach(function () {
+            $this->enableDirectCapabilityAssignment();
+        });
         it('can remove capability from user', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
             $this->user->assignCapability($capability);
@@ -212,6 +219,10 @@ describe('Direct Capability Assignment', function () {
     });
 
     describe('syncing capabilities directly', function () {
+        beforeEach(function () {
+            $this->enableDirectCapabilityAssignment();
+        });
+
         it('can sync capabilities', function () {
             Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
             Capability::create(['name' => 'manage-users', 'guard' => 'web']);
@@ -229,6 +240,10 @@ describe('Direct Capability Assignment', function () {
     });
 
     describe('checking direct capabilities', function () {
+        beforeEach(function () {
+            $this->enableDirectCapabilityAssignment();
+        });
+
         it('hasDirectCapability checks direct assignment only', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
             $this->user->assignCapability($capability);
@@ -264,6 +279,10 @@ describe('Direct Capability Assignment', function () {
     });
 
     describe('permissions via direct capabilities', function () {
+        beforeEach(function () {
+            $this->enableDirectCapabilityAssignment();
+        });
+
         it('hasPermissionViaCapability checks direct capability permissions', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
             $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);

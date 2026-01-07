@@ -108,6 +108,10 @@ describe('MandateRegistrar Capabilities', function () {
     });
 
     describe('capability retrieval', function () {
+        beforeEach(function () {
+            $this->enableCapabilities();
+        });
+
         it('gets capability by name', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
@@ -153,6 +157,10 @@ describe('MandateRegistrar Capabilities', function () {
     });
 
     describe('capability caching', function () {
+        beforeEach(function () {
+            $this->enableCapabilities();
+        });
+
         it('caches capabilities on first access', function () {
             Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
@@ -185,6 +193,10 @@ describe('MandateRegistrar Capabilities', function () {
     });
 
     describe('when capabilities disabled', function () {
+        beforeEach(function () {
+            $this->enableCapabilities();
+        });
+
         it('returns empty collection when disabled', function () {
             config(['mandate.capabilities.enabled' => false]);
             Capability::create(['name' => 'manage-posts', 'guard' => 'web']);

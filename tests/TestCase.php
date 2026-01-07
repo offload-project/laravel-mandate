@@ -16,13 +16,10 @@ abstract class TestCase extends Orchestra
     use InteractsWithViews;
     use RefreshDatabase;
 
-    protected bool $contextMigrationsRun = false;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->contextMigrationsRun = false;
         $this->setUpDatabase();
     }
 
@@ -125,27 +122,43 @@ abstract class TestCase extends Orchestra
     protected function enableContext(): void
     {
         config(['mandate.context.enabled' => true]);
-        $this->runContextMigrations();
+        $this->recreateTablesWithContext();
     }
 
     protected function enableContextWithoutGlobalFallback(): void
     {
         config(['mandate.context.enabled' => true]);
         config(['mandate.context.global_fallback' => false]);
-        $this->runContextMigrations();
+        $this->recreateTablesWithContext();
     }
 
-    protected function runContextMigrations(): void
+    /**
+     * Drop and recreate tables with context columns.
+     * This simulates a fresh install with context enabled from the start.
+     */
+    protected function recreateTablesWithContext(): void
     {
-        if ($this->contextMigrationsRun) {
-            return;
-        }
-
         $migrationPath = __DIR__.'/../database/migrations';
 
-        $migration = include $migrationPath.'/2024_01_01_000010_add_context_columns_to_pivot_tables.php';
-        $migration->up();
+        // Drop all mandate tables (in reverse order due to foreign keys)
+        Schema::dropIfExists(config('mandate.tables.role_subject', 'role_subject'));
+        Schema::dropIfExists(config('mandate.tables.permission_subject', 'permission_subject'));
+        Schema::dropIfExists(config('mandate.tables.permission_role', 'permission_role'));
+        Schema::dropIfExists(config('mandate.tables.roles', 'roles'));
+        Schema::dropIfExists(config('mandate.tables.permissions', 'permissions'));
 
-        $this->contextMigrationsRun = true;
+        // Recreate with context enabled (config is already set)
+        $migrations = [
+            '2024_01_01_000001_create_permissions_table.php',
+            '2024_01_01_000002_create_roles_table.php',
+            '2024_01_01_000003_create_permission_role_table.php',
+            '2024_01_01_000004_create_permission_subject_table.php',
+            '2024_01_01_000005_create_role_subject_table.php',
+        ];
+
+        foreach ($migrations as $file) {
+            $migration = include $migrationPath.'/'.$file;
+            $migration->up();
+        }
     }
 }

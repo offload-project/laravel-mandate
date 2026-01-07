@@ -235,6 +235,48 @@ Route::get('/reports', [ReportController::class, 'index'])
 
 ---
 
+## Fluent Authorization Builder
+
+For complex authorization checks, use the fluent builder:
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+// Simple checks
+Mandate::for($user)->can('article:edit');       // Single permission
+Mandate::for($user)->is('admin');               // Single role
+
+// Chained with OR
+Mandate::for($user)
+    ->hasRole('admin')
+    ->orHasPermission('article:edit')
+    ->check();
+
+// Chained with AND
+Mandate::for($user)
+    ->hasPermission('article:view')
+    ->andHasRole('editor')
+    ->check();
+
+// Multiple conditions
+Mandate::for($user)
+    ->hasAnyRole(['admin', 'editor'])
+    ->orHasPermission('article:manage')
+    ->check();
+
+// With context (multi-tenancy)
+Mandate::for($user)
+    ->inContext($team)
+    ->hasPermission('project:manage')
+    ->check();
+
+// Alternative endings
+Mandate::for($user)->hasRole('admin')->allowed(); // Alias for check()
+Mandate::for($user)->hasRole('admin')->denied();  // Inverse of check()
+```
+
+---
+
 ## Laravel Gate Integration
 
 Mandate registers permissions with Laravel's Gate automatically:

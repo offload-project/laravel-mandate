@@ -93,15 +93,11 @@ trait ChecksFeatureAccess
     }
 
     /**
-     * Get the feature access handler from the container.
+     * Get the feature access handler (cached via registrar).
      */
     protected function getFeatureAccessHandler(): ?FeatureAccessHandler
     {
-        if (! app()->bound(FeatureAccessHandler::class)) {
-            return null;
-        }
-
-        return app(FeatureAccessHandler::class);
+        return app(\OffloadProject\Mandate\MandateRegistrar::class)->getFeatureAccessHandler();
     }
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Cache\CacheManager;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
@@ -43,6 +44,10 @@ final class MandateRegistrar
 
     /** @var class-string<Capability>|null */
     private ?string $capabilityClass = null;
+
+    private ?FeatureAccessHandler $featureHandler = null;
+
+    private bool $featureHandlerResolved = false;
 
     public function __construct(CacheManager $cacheManager)
     {
@@ -290,6 +295,24 @@ final class MandateRegistrar
     public function getCapabilityClass(): string
     {
         return $this->capabilityClass ??= config('mandate.models.capability', Capability::class);
+    }
+
+    /**
+     * Get the feature access handler (cached).
+     *
+     * Resolution is cached to avoid repeated container lookups.
+     * Returns null if no handler is bound.
+     */
+    public function getFeatureAccessHandler(): ?FeatureAccessHandler
+    {
+        if (! $this->featureHandlerResolved) {
+            $this->featureHandlerResolved = true;
+            $this->featureHandler = app()->bound(FeatureAccessHandler::class)
+                ? app(FeatureAccessHandler::class)
+                : null;
+        }
+
+        return $this->featureHandler;
     }
 
     /**

@@ -28,6 +28,7 @@ trait HasPermissions
 {
     use ChecksFeatureAccess;
     use HasContext;
+    use LogsAuthorization;
 
     /**
      * Boot the trait.
@@ -85,6 +86,8 @@ trait HasPermissions
 
         $this->forgetPermissionCache();
 
+        $this->logPermissionGranted($permissionNames, $context);
+
         if (config('mandate.events', false)) {
             PermissionGranted::dispatch($this, $permissionNames);
         }
@@ -119,6 +122,8 @@ trait HasPermissions
         $this->detachWithContext($this->permissions(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
+
+        $this->logPermissionRevoked($permissionNames, $context);
 
         if (config('mandate.events', false)) {
             PermissionRevoked::dispatch($this, $permissionNames);
@@ -243,37 +248,8 @@ trait HasPermissions
             ->where('name', $permissionName)
             ->where('guard', $guardName);
 
-        if ($this->contextEnabled()) {
-            $resolved = $this->resolveContext($context);
-
-            // Check for specific context
-            if ($context !== null) {
-                if ($this->globalFallbackEnabled()) {
-                    // Check for context OR global
-                    $query->where(function ($q) use ($resolved) {
-                        $table = config('mandate.tables.permission_subject', 'permission_subject');
-                        $typeCol = $this->getContextTypeColumn();
-                        $idCol = $this->getContextIdColumn();
-
-                        $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                            $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                                ->where("{$table}.{$idCol}", $resolved['id']);
-                        })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                            $inner->whereNull("{$table}.{$typeCol}")
-                                ->whereNull("{$table}.{$idCol}");
-                        });
-                    });
-                } else {
-                    // Check for specific context only
-                    $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                        ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-                }
-            } else {
-                // Check for global (null context) only
-                $query->wherePivot($this->getContextTypeColumn(), null)
-                    ->wherePivot($this->getContextIdColumn(), null);
-            }
-        }
+        $pivotTable = config('mandate.tables.permission_subject', 'permission_subject');
+        $query = $this->applyContextConstraints($query, $context, $pivotTable);
 
         return $query->exists();
     }
@@ -328,28 +304,8 @@ trait HasPermissions
         }
 
         $query = $this->permissions();
-        $resolved = $this->resolveContext($context);
-
-        if ($context !== null && $this->globalFallbackEnabled()) {
-            // Get permissions for context OR global
-            $table = config('mandate.tables.permission_subject', 'permission_subject');
-            $typeCol = $this->getContextTypeColumn();
-            $idCol = $this->getContextIdColumn();
-
-            $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
-                $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                    $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                        ->where("{$table}.{$idCol}", $resolved['id']);
-                })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                    $inner->whereNull("{$table}.{$typeCol}")
-                        ->whereNull("{$table}.{$idCol}");
-                });
-            });
-        } else {
-            // Get permissions for specific context only
-            $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-        }
+        $pivotTable = config('mandate.tables.permission_subject', 'permission_subject');
+        $query = $this->applyContextConstraints($query, $context, $pivotTable);
 
         return $query->get();
     }
@@ -432,17 +388,26 @@ trait HasPermissions
     /**
      * Check if model has permission via wildcard patterns.
      *
+     * Optimized to filter wildcard permissions first before matching.
+     *
      * @param  Model|null  $context  Optional context model for scoped permission check
      */
     protected function hasWildcardPermission(string $permission, ?Model $context = null): bool
     {
         $wildcardHandler = $this->getWildcardHandler();
 
-        foreach ($this->getAllPermissions($context) as $grantedPermission) {
-            if ($wildcardHandler->containsWildcard($grantedPermission->name)) {
-                if ($wildcardHandler->matches($grantedPermission->name, $permission)) {
-                    return true;
-                }
+        // Filter to only permissions containing wildcards first
+        $wildcardPermissions = $this->getAllPermissions($context)
+            ->filter(fn ($p) => $wildcardHandler->containsWildcard($p->name));
+
+        // Early exit if no wildcard permissions
+        if ($wildcardPermissions->isEmpty()) {
+            return false;
+        }
+
+        foreach ($wildcardPermissions as $grantedPermission) {
+            if ($wildcardHandler->matches($grantedPermission->name, $permission)) {
+                return true;
             }
         }
 

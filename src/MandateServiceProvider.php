@@ -17,6 +17,7 @@ use OffloadProject\Mandate\Commands\ClearCacheCommand;
 use OffloadProject\Mandate\Commands\CreateCapabilityCommand;
 use OffloadProject\Mandate\Commands\CreatePermissionCommand;
 use OffloadProject\Mandate\Commands\CreateRoleCommand;
+use OffloadProject\Mandate\Commands\HealthCheckCommand;
 use OffloadProject\Mandate\Commands\MakeCapabilityCommand;
 use OffloadProject\Mandate\Commands\MakeFeatureCommand;
 use OffloadProject\Mandate\Commands\MakePermissionCommand;
@@ -155,6 +156,8 @@ final class MandateServiceProvider extends ServiceProvider
                 SyncCommand::class,
                 TypeScriptCommand::class,
                 UpgradeFromSpatieCommand::class,
+                // Utility commands
+                HealthCheckCommand::class,
             ]);
         }
     }

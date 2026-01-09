@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate\Concerns;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
@@ -177,6 +178,53 @@ trait HasContext
     }
 
     /**
+     * Apply context constraints to a query with optional global fallback.
+     *
+     * This method centralizes the repeated context query logic used throughout
+     * the permission and role traits.
+     *
+     * @param  MorphToMany<Model>|Builder<Model>  $query
+     * @param  string  $pivotTable  The name of the pivot table for building column references
+     * @return MorphToMany<Model>|Builder<Model>
+     */
+    protected function applyContextConstraints(
+        MorphToMany|Builder $query,
+        ?Model $context,
+        string $pivotTable
+    ): MorphToMany|Builder {
+        if (! $this->contextEnabled()) {
+            return $query;
+        }
+
+        $resolved = $this->resolveContext($context);
+        $typeCol = $this->getContextTypeColumn();
+        $idCol = $this->getContextIdColumn();
+
+        // If no context provided, just query for global (null context)
+        if ($context === null) {
+            return $query->wherePivot($typeCol, null)
+                ->wherePivot($idCol, null);
+        }
+
+        // If global fallback is enabled, query for either context or global
+        if ($this->globalFallbackEnabled()) {
+            return $query->where(function ($q) use ($pivotTable, $typeCol, $idCol, $resolved) {
+                $q->where(function ($inner) use ($pivotTable, $typeCol, $idCol, $resolved) {
+                    $inner->where("{$pivotTable}.{$typeCol}", $resolved['type'])
+                        ->where("{$pivotTable}.{$idCol}", $resolved['id']);
+                })->orWhere(function ($inner) use ($pivotTable, $typeCol, $idCol) {
+                    $inner->whereNull("{$pivotTable}.{$typeCol}")
+                        ->whereNull("{$pivotTable}.{$idCol}");
+                });
+            });
+        }
+
+        // No fallback, just query for specific context
+        return $query->wherePivot($typeCol, $resolved['type'])
+            ->wherePivot($idCol, $resolved['id']);
+    }
+
+    /**
      * Check if a pivot record exists with specific context.
      */
     protected function pivotExistsWithContext(
@@ -229,17 +277,15 @@ trait HasContext
             $this->detachWithContext($relation, null, $context);
             $relation->attach($syncData);
         } else {
-            // Sync without detaching
-            foreach ($syncData as $id => $attributes) {
-                if (! $this->pivotExistsWithContext($relation, $id, $context)) {
-                    $relation->attach($id, $attributes);
-                }
-            }
+            // Sync without detaching - use optimized batch attach
+            $this->attachWithContext($relation, $ids, $context);
         }
     }
 
     /**
      * Attach relations with context support.
+     *
+     * Uses batch operations for better performance instead of individual queries.
      *
      * @param  array<int|string>  $ids
      */
@@ -248,12 +294,33 @@ trait HasContext
         array $ids,
         ?Model $context
     ): void {
+        if (empty($ids)) {
+            return;
+        }
+
         $pivotData = $this->getContextPivotData($context);
 
-        foreach ($ids as $id) {
-            if (! $this->pivotExistsWithContext($relation, $id, $context)) {
-                $relation->attach($id, $pivotData);
+        // Get existing IDs in a single query for better performance
+        $query = $relation->newPivotQuery()->whereIn($relation->getRelatedPivotKeyName(), $ids);
+
+        if ($this->contextEnabled()) {
+            $resolved = $this->resolveContext($context);
+            $query->where($this->getContextTypeColumn(), $resolved['type'])
+                ->where($this->getContextIdColumn(), $resolved['id']);
+        }
+
+        $existingIds = $query->pluck($relation->getRelatedPivotKeyName())->all();
+
+        // Filter to only new IDs
+        $newIds = array_diff($ids, $existingIds);
+
+        if (! empty($newIds)) {
+            // Bulk attach all new IDs at once
+            $attachData = [];
+            foreach ($newIds as $id) {
+                $attachData[$id] = $pivotData;
             }
+            $relation->attach($attachData);
         }
     }
 

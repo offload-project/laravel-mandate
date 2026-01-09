@@ -89,6 +89,8 @@ trait HasRoles
 
         $this->forgetPermissionCache();
 
+        $this->logRoleAssigned($roleNames, $context);
+
         if (config('mandate.events', false)) {
             RoleAssigned::dispatch($this, $roleNames);
         }
@@ -123,6 +125,8 @@ trait HasRoles
         $this->detachWithContext($this->roles(), $normalizedIds, $context);
 
         $this->forgetPermissionCache();
+
+        $this->logRoleRemoved($roleNames, $context);
 
         if (config('mandate.events', false)) {
             RoleRemoved::dispatch($this, $roleNames);
@@ -181,30 +185,8 @@ trait HasRoles
             ->where('name', $roleName)
             ->where('guard', $guardName);
 
-        if ($this->contextEnabled()) {
-            $resolved = $this->resolveContext($context);
-
-            if ($context !== null && $this->globalFallbackEnabled()) {
-                // Check for context OR global
-                $table = config('mandate.tables.role_subject', 'role_subject');
-                $typeCol = $this->getContextTypeColumn();
-                $idCol = $this->getContextIdColumn();
-
-                $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
-                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                            ->where("{$table}.{$idCol}", $resolved['id']);
-                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                        $inner->whereNull("{$table}.{$typeCol}")
-                            ->whereNull("{$table}.{$idCol}");
-                    });
-                });
-            } else {
-                // Check for specific context only
-                $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-            }
-        }
+        $pivotTable = config('mandate.tables.role_subject', 'role_subject');
+        $query = $this->applyContextConstraints($query, $context, $pivotTable);
 
         return $query->exists();
     }
@@ -303,28 +285,8 @@ trait HasRoles
         }
 
         $query = $this->roles();
-        $resolved = $this->resolveContext($context);
-
-        if ($context !== null && $this->globalFallbackEnabled()) {
-            // Get roles for context OR global
-            $table = config('mandate.tables.role_subject', 'role_subject');
-            $typeCol = $this->getContextTypeColumn();
-            $idCol = $this->getContextIdColumn();
-
-            $query->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
-                $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                    $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                        ->where("{$table}.{$idCol}", $resolved['id']);
-                })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                    $inner->whereNull("{$table}.{$typeCol}")
-                        ->whereNull("{$table}.{$idCol}");
-                });
-            });
-        } else {
-            // Get roles for specific context only
-            $query->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-        }
+        $pivotTable = config('mandate.tables.role_subject', 'role_subject');
+        $query = $this->applyContextConstraints($query, $context, $pivotTable);
 
         return $query->get();
     }
@@ -373,30 +335,8 @@ trait HasRoles
 
         // Build query for roles with context support
         $rolesQuery = $this->roles();
-
-        if ($this->contextEnabled()) {
-            $resolved = $this->resolveContext($context);
-
-            if ($context !== null && $this->globalFallbackEnabled()) {
-                // Check for context OR global
-                $table = config('mandate.tables.role_subject', 'role_subject');
-                $typeCol = $this->getContextTypeColumn();
-                $idCol = $this->getContextIdColumn();
-
-                $rolesQuery->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
-                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                            ->where("{$table}.{$idCol}", $resolved['id']);
-                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                        $inner->whereNull("{$table}.{$typeCol}")
-                            ->whereNull("{$table}.{$idCol}");
-                    });
-                });
-            } else {
-                $rolesQuery->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-            }
-        }
+        $pivotTable = config('mandate.tables.role_subject', 'role_subject');
+        $rolesQuery = $this->applyContextConstraints($rolesQuery, $context, $pivotTable);
 
         // Check direct role permissions
         $hasDirectRolePermission = (clone $rolesQuery)
@@ -749,29 +689,8 @@ trait HasRoles
 
         // Check capabilities via roles (with context)
         $rolesQuery = $this->roles();
-
-        if ($this->contextEnabled()) {
-            $resolved = $this->resolveContext($context);
-
-            if ($context !== null && $this->globalFallbackEnabled()) {
-                $table = config('mandate.tables.role_subject', 'role_subject');
-                $typeCol = $this->getContextTypeColumn();
-                $idCol = $this->getContextIdColumn();
-
-                $rolesQuery->where(function ($q) use ($table, $typeCol, $idCol, $resolved) {
-                    $q->where(function ($inner) use ($table, $typeCol, $idCol, $resolved) {
-                        $inner->where("{$table}.{$typeCol}", $resolved['type'])
-                            ->where("{$table}.{$idCol}", $resolved['id']);
-                    })->orWhere(function ($inner) use ($table, $typeCol, $idCol) {
-                        $inner->whereNull("{$table}.{$typeCol}")
-                            ->whereNull("{$table}.{$idCol}");
-                    });
-                });
-            } else {
-                $rolesQuery->wherePivot($this->getContextTypeColumn(), $resolved['type'])
-                    ->wherePivot($this->getContextIdColumn(), $resolved['id']);
-            }
-        }
+        $pivotTable = config('mandate.tables.role_subject', 'role_subject');
+        $rolesQuery = $this->applyContextConstraints($rolesQuery, $context, $pivotTable);
 
         return $rolesQuery
             ->whereHas('capabilities.permissions', fn ($q) => $q->where('name', $permission)->where('guard', $guardName))

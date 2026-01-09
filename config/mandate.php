@@ -160,6 +160,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Audit Logging
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate will log authorization-related actions such as
+    | permission grants, role assignments, and access denials. This is useful
+    | for security compliance and debugging.
+    |
+    | enabled: Whether audit logging is active
+    | handler: Custom audit handler class (must implement AuditLogger contract)
+    |          If null, uses Laravel's logger with 'mandate' channel
+    | log_checks: Log permission/role check attempts (can be verbose)
+    | log_changes: Log permission/role grants, revokes, and assignments
+    | log_denials: Log access denial events for security monitoring
+    |
+    */
+
+    'audit' => [
+        'enabled' => false,
+        'handler' => null,
+        'log_checks' => false,
+        'log_changes' => true,
+        'log_denials' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Laravel Gate Integration
     |--------------------------------------------------------------------------
     |

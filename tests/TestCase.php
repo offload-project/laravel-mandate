@@ -4,59 +4,37 @@ declare(strict_types=1);
 
 namespace OffloadProject\Mandate\Tests;
 
-use Illuminate\Foundation\Auth\User;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Testing\Concerns\InteractsWithViews;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use OffloadProject\Hoist\HoistServiceProvider;
+use Illuminate\Support\Facades\Schema;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\MandateServiceProvider;
-use OffloadProject\Mandate\Tests\Fixtures\Permissions\UserPermissions;
-use Orchestra\Testbench\TestCase as BaseTestCase;
-use Spatie\Permission\PermissionServiceProvider;
+use OffloadProject\Mandate\Tests\Fixtures\Feature;
+use OffloadProject\Mandate\Tests\Fixtures\MockFeatureAccessHandler;
+use Orchestra\Testbench\TestCase as Orchestra;
 
-abstract class TestCase extends BaseTestCase
+abstract class TestCase extends Orchestra
 {
+    use InteractsWithViews;
     use RefreshDatabase;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Configure hoist to use test fixtures for features
-        config()->set('hoist.feature_directories', [
-            __DIR__ . '/Fixtures/Features' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Features',
-        ]);
-
-        // Configure mandate to use test fixtures
-        config()->set('mandate.permission_directories', [
-            __DIR__ . '/Fixtures/Permissions' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Permissions',
-        ]);
-
-        config()->set('mandate.role_directories', [
-            __DIR__ . '/Fixtures/Roles' => 'OffloadProject\\Mandate\\Tests\\Fixtures\\Roles',
-        ]);
-
-        // Configure role permissions mapping
-        config()->set('mandate.role_permissions', [
-            'admin' => [
-                UserPermissions::class,
-            ],
-            'viewer' => [
-                UserPermissions::VIEW,
-            ],
-        ]);
+        $this->setUpDatabase();
     }
 
     protected function getPackageProviders($app): array
     {
         return [
-            PermissionServiceProvider::class,
-            HoistServiceProvider::class,
             MandateServiceProvider::class,
         ];
     }
 
-    protected function getEnvironmentSetUp($app): void
+    protected function defineEnvironment($app): void
     {
-        // Setup default database
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver' => 'sqlite',
@@ -64,21 +42,147 @@ abstract class TestCase extends BaseTestCase
             'prefix' => '',
         ]);
 
-        // Setup auth guard
-        $app['config']->set('auth.guards.web', [
-            'driver' => 'session',
-            'provider' => 'users',
-        ]);
+        $app['config']->set('auth.providers.users.model', Fixtures\User::class);
+        $app['config']->set('auth.guards.web.provider', 'users');
 
-        $app['config']->set('auth.providers.users', [
-            'driver' => 'eloquent',
-            'model' => User::class,
-        ]);
+        $app['config']->set('mandate.events', false);
     }
 
-    protected function defineDatabaseMigrations(): void
+    protected function setUpDatabase(): void
     {
-        // Run Spatie permission migrations
-        $this->loadMigrationsFrom(__DIR__ . '/database/migrations');
+        Schema::create('users', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->timestamps();
+        });
+
+        Schema::create('teams', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
+
+        $this->runMandateMigrations();
+    }
+
+    protected function runMandateMigrations(): void
+    {
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->up();
+    }
+
+    protected function runCapabilityMigrations(): void
+    {
+        // Only run if capabilities table doesn't exist (idempotent)
+        if (Schema::hasTable(config('mandate.tables.capabilities', 'capabilities'))) {
+            return;
+        }
+
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        $migration = include $migrationPath.'/2024_01_01_000002_create_capability_tables.php';
+        $migration->up();
+    }
+
+    protected function enableEvents(): void
+    {
+        config(['mandate.events' => true]);
+    }
+
+    protected function enableWildcards(): void
+    {
+        config(['mandate.wildcards.enabled' => true]);
+    }
+
+    protected function enableCapabilities(): void
+    {
+        config(['mandate.capabilities.enabled' => true]);
+        $this->runCapabilityMigrations();
+    }
+
+    protected function enableDirectCapabilityAssignment(): void
+    {
+        config(['mandate.capabilities.direct_assignment' => true]);
+    }
+
+    protected function enableContext(): void
+    {
+        config(['mandate.context.enabled' => true]);
+        $this->recreateTables();
+    }
+
+    protected function enableContextWithoutGlobalFallback(): void
+    {
+        config(['mandate.context.enabled' => true]);
+        config(['mandate.context.global_fallback' => false]);
+        $this->recreateTables();
+    }
+
+    protected function enableUuids(): void
+    {
+        config(['mandate.model_id_type' => 'uuid']);
+        $this->recreateTables();
+    }
+
+    protected function enableUlids(): void
+    {
+        config(['mandate.model_id_type' => 'ulid']);
+        $this->recreateTables();
+    }
+
+    /**
+     * Drop and recreate all mandate tables with current config.
+     */
+    protected function recreateTables(): void
+    {
+        $migrationPath = __DIR__.'/../database/migrations';
+
+        // Drop all mandate tables
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->down();
+
+        // Recreate with current config
+        $migration = include $migrationPath.'/2024_01_01_000001_create_mandate_tables.php';
+        $migration->up();
+    }
+
+    /**
+     * Enable feature integration with a mock handler.
+     */
+    protected function enableFeatureIntegration(): MockFeatureAccessHandler
+    {
+        // Feature integration requires context
+        $this->enableContext();
+
+        // Create the features table if it doesn't exist
+        if (! Schema::hasTable('features')) {
+            Schema::create('features', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->boolean('is_active')->default(false);
+                $table->timestamps();
+            });
+        }
+
+        // Enable feature integration
+        config(['mandate.features.enabled' => true]);
+        config(['mandate.features.models' => [Feature::class]]);
+
+        // Bind and return the mock handler
+        $handler = new MockFeatureAccessHandler;
+        $this->app->instance(FeatureAccessHandler::class, $handler);
+
+        return $handler;
+    }
+
+    /**
+     * Set the behavior when feature handler is missing.
+     */
+    protected function setFeatureMissingHandlerBehavior(string $behavior): void
+    {
+        config(['mandate.features.on_missing_handler' => $behavior]);
     }
 }

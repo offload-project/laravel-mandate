@@ -4,24 +4,26 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
 use OffloadProject\Mandate\Attributes\Label;
-use OffloadProject\Mandate\Attributes\PermissionsSet;
 
-#[PermissionsSet('{{ set }}')]
+#[Guard('{{ guard }}')]
 final class {{ class }}
 {
-    #[Label('View all {{ resource }}')]
-    public const string VIEW_ALL = 'view any {{ resource }}';
-
     #[Label('View {{ resource }}')]
-    public const string VIEW = 'view {{ resource }}';
+    #[Description('View {{ resource }} records')]
+    public const string VIEW = '{{ resource }}.view';
 
     #[Label('Create {{ resource }}')]
-    public const string CREATE = 'create {{ resource }}';
+    #[Description('Create new {{ resource }} records')]
+    public const string CREATE = '{{ resource }}.create';
 
     #[Label('Update {{ resource }}')]
-    public const string UPDATE = 'update {{ resource }}';
+    #[Description('Update existing {{ resource }} records')]
+    public const string UPDATE = '{{ resource }}.update';
 
     #[Label('Delete {{ resource }}')]
-    public const string DELETE = 'delete {{ resource }}';
+    #[Description('Delete {{ resource }} records')]
+    public const string DELETE = '{{ resource }}.delete';
 }

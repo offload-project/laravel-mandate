@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace {{ namespace }};
 
-use OffloadProject\Mandate\Attributes\Inherits;
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
 use OffloadProject\Mandate\Attributes\Label;
-use OffloadProject\Mandate\Attributes\RoleSet;
 
-#[RoleSet('{{ set }}')]
+#[Guard('{{ guard }}')]
 final class {{ class }}
 {
+    #[Label('Administrator')]
+    #[Description('Full system access')]
+    public const string ADMIN = 'admin';
+
     #[Label('User')]
+    #[Description('Standard user access')]
     public const string USER = 'user';
 
-    #[Label('Administrator')]
-    #[Inherits(self::USER)]
-    public const string ADMINISTRATOR = 'administrator';
+    #[Label('Guest')]
+    #[Description('Limited read-only access')]
+    public const string GUEST = 'guest';
 }

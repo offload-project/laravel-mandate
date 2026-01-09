@@ -5,38 +5,25 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Collection;
 
 /**
- * Event dispatched after permissions have been synced to the database.
+ * Event dispatched when permissions are synced from code-first definitions.
  */
 final class PermissionsSynced
 {
     use Dispatchable;
+    use SerializesModels;
 
     /**
      * @param  int  $created  Number of permissions created
-     * @param  int  $existing  Number of existing permissions found
      * @param  int  $updated  Number of permissions updated
-     * @param  string|null  $guard  The guard that was synced
+     * @param  Collection<int, string>  $permissions  Permission names that were synced
      */
     public function __construct(
         public readonly int $created,
-        public readonly int $existing,
         public readonly int $updated,
-        public readonly ?string $guard = null,
+        public readonly Collection $permissions
     ) {}
-
-    /**
-     * Get the sync statistics as an array.
-     *
-     * @return array{created: int, existing: int, updated: int}
-     */
-    public function toArray(): array
-    {
-        return [
-            'created' => $this->created,
-            'existing' => $this->existing,
-            'updated' => $this->updated,
-        ];
-    }
 }

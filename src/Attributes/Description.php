@@ -7,12 +7,18 @@ namespace OffloadProject\Mandate\Attributes;
 use Attribute;
 
 /**
- * Define a description for a permission or user group enum case.
+ * Defines a longer description for a permission, role, or capability.
+ *
+ * Can be applied to a class (default for all constants) or individual constants.
+ *
+ * @example
+ * #[Description('Allows viewing user profiles and account details')]
+ * public const string VIEW = 'user:view';
  */
-#[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_CLASS_CONSTANT)]
 final readonly class Description
 {
     public function __construct(
-        public string $value,
+        public string $value
     ) {}
 }

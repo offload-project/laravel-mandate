@@ -7,13 +7,21 @@ namespace OffloadProject\Mandate\Attributes;
 use Attribute;
 
 /**
- * Define the guard for permissions or user groups in an enum.
- * Can be applied at class level (all cases) or case level (override).
+ * Specifies the authentication guard for a permission or role class.
+ *
+ * When applied to a class, all constants in that class inherit this guard.
+ *
+ * @example
+ * #[Guard('api')]
+ * final class ApiPermissions
+ * {
+ *     public const string VIEW = 'api.view';
+ * }
  */
-#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_CLASS_CONSTANT)]
+#[Attribute(Attribute::TARGET_CLASS)]
 final readonly class Guard
 {
     public function __construct(
-        public string $name,
+        public string $name = 'web'
     ) {}
 }

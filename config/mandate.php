@@ -3,162 +3,298 @@
 declare(strict_types=1);
 
 return [
-
     /*
-    |--------------------------------------------------------------------------
-    | Permission Class Directories
-    |--------------------------------------------------------------------------
+    |==========================================================================
+    | COMMONLY CUSTOMIZED OPTIONS
+    |==========================================================================
     |
-    | These directories will be scanned for permission classes. Classes must
-    | use the #[PermissionsSet] attribute.
-    |
-    | Example permission class:
-    |
-    | #[PermissionsSet('users')]
-    | final class UserPermissions
-    | {
-    |     #[Label('View Users')]
-    |     public const VIEW = 'view users';
-    |
-    |     #[Label('Create Users')]
-    |     public const CREATE = 'create users';
-    | }
+    | These are the settings most users will want to review and customize.
     |
     */
 
-    'permission_directories' => [
-        app_path('Permissions') => 'App\\Permissions',
+    /*
+    |--------------------------------------------------------------------------
+    | Capabilities
+    |--------------------------------------------------------------------------
+    |
+    | Capabilities are semantic groupings of permissions. When enabled,
+    | permissions can be organized into capabilities which can then be
+    | assigned to roles or directly to subjects.
+    |
+    | enabled: Whether the capabilities feature is active
+    | direct_assignment: Allow assigning capabilities directly to subjects
+    |                    (bypassing roles). Creates capability_subject table.
+    |
+    */
+
+    'capabilities' => [
+        'enabled' => false,
+        'direct_assignment' => false,
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Role Class Directories
+    | Context Model (Multi-Tenancy)
     |--------------------------------------------------------------------------
     |
-    | These directories will be scanned for role classes. Classes must
-    | use the #[RoleSet] attribute.
+    | Context Model support enables scoping roles and permissions to a
+    | polymorphic context (e.g., Team, Organization, Project). This allows
+    | multi-tenancy and resource-specific permission scenarios.
     |
-    | Example role class:
-    |
-    | #[RoleSet('system')]
-    | final class SystemRoles
-    | {
-    |     #[Label('Administrator')]
-    |     public const string ADMINISTRATOR = 'administrator';
-    |
-    |     #[Label('User')]
-    |     public const string USER = 'user';
-    | }
+    | enabled: Whether context model support is active
+    | global_fallback: When checking permissions with a context, also check
+    |                  for global (null context) permissions as fallback
     |
     */
 
-    'role_directories' => [
-        app_path('Roles') => 'App\\Roles',
+    'context' => [
+        'enabled' => false,
+        'global_fallback' => true,
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Role Permissions Mapping
+    | Feature Integration
     |--------------------------------------------------------------------------
     |
-    | Map roles to their permissions. Supports:
-    | - Permission classes (all constants)
-    | - String permission names
+    | Feature integration enables Mandate to delegate feature access checks
+    | to an external package (e.g., Hoist) when a Feature model is used as
+    | a context. This requires context model support to be enabled.
     |
-    | IMPORTANT: These mappings are only applied when:
-    | 1. A role is first created (during any sync)
-    | 2. Running `php artisan mandate:sync --seed`
-    |
-    | By default, `mandate:sync` will NOT overwrite role-permission
-    | relationships in the database. This allows you to manage permissions
-    | via UI/database without config overwriting your changes.
-    |
-    | Use `--seed` flag for initial setup or when you intentionally want
-    | to reset role permissions to match this config.
-    |
-    | Example:
-    |
-    | use App\Permissions\UserPermissions;
-    | use App\Permissions\PostPermissions;
-    | use App\Roles\SystemRoles;
-    |
-    | 'role_permissions' => [
-    |     SystemRoles::ADMINISTRATOR => [
-    |         UserPermissions::class,    // All user permissions
-    |         PostPermissions::class,    // All post permissions
-    |     ],
-    |
-    |     SystemRoles::EDITOR => [
-    |         PostPermissions::VIEW,
-    |         PostPermissions::CREATE,
-    |         PostPermissions::UPDATE,
-    |     ],
-    |
-    |     'viewer' => [                  // String role name also works
-    |         'view posts',
-    |         'view users',
-    |     ],
-    | ],
+    | enabled: Whether feature integration is active
+    | models: Model class(es) that are considered Feature contexts
+    | on_missing_handler: Behavior when feature handler is not available
+    |                     'allow' = fail open (allow access)
+    |                     'deny' = fail closed (deny access)
+    |                     'throw' = throw exception
     |
     */
 
-    'role_permissions' => [
-        //
+    'features' => [
+        'enabled' => false,
+        'models' => [
+            // App\Models\Feature::class,
+        ],
+        'on_missing_handler' => 'deny',
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Sync Additional Columns
+    | Code-First Definitions
     |--------------------------------------------------------------------------
     |
-    | Configure which additional columns to sync to the permissions and roles
-    | tables. By default, only 'name' and 'guard_name' are synced (required
-    | by Spatie Permission).
+    | Code-first allows defining permissions, roles, and capabilities in PHP
+    | classes with attributes, then syncing them to the database. This provides
+    | better IDE support, version control, and type safety.
     |
-    | Available columns:
-    | - 'set': The set name from #[PermissionsSet] or #[RoleSet]
-    | - 'label': The label from #[Label] attribute
-    | - 'description': The description from #[Description] attribute
-    |
-    | To use these columns, you must add them to your permissions/roles tables.
-    | Publish the migration to add 'set' column:
-    |   php artisan vendor:publish --tag=mandate-migrations
-    |
-    | For 'label' and 'description', add them manually or modify the migration.
-    |
-    | Set to true to sync all columns, or an array of specific columns:
-    | - true: Sync all columns (set, label, description)
-    | - ['set', 'label']: Only sync set and label
-    | - false: Only sync name and guard_name (default)
+    | enabled: Whether code-first mode is active
+    | paths: Directories to scan for definition classes
+    | assignments: Role-permission and role-capability assignments for seeding
     |
     */
 
-    'sync_columns' => false,
+    'code_first' => [
+        'enabled' => false,
+
+        'paths' => [
+            'permissions' => app_path('Permissions'),
+            'roles' => app_path('Roles'),
+            'capabilities' => app_path('Capabilities'),
+        ],
+
+        'assignments' => [
+            // 'admin' => [
+            //     'permissions' => ['user:*', 'article:*'],
+            //     'capabilities' => ['user-management'],
+            // ],
+            // 'editor' => [
+            //     'permissions' => ['article:view', 'article:edit'],
+            // ],
+        ],
+
+        'typescript_path' => resource_path('js/types/mandate.ts'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
-    | Auto Sync
+    | Feature Generator
     |--------------------------------------------------------------------------
     |
-    | When enabled, permissions and roles will be automatically synced
-    | to the database when the service provider boots. Disable in production
-    | and use the artisan command instead.
+    | Class that handles generating feature classes for the mandate:make:feature
+    | command. External packages (e.g., Flagged) can provide their own generator.
+    | Must implement OffloadProject\Mandate\Contracts\FeatureGenerator.
     |
     */
 
-    'auto_sync' => env('MANDATE_AUTO_SYNC', false),
+    'feature_generator' => null,
 
     /*
     |--------------------------------------------------------------------------
-    | TypeScript Export Path
+    | Wildcard Permissions
     |--------------------------------------------------------------------------
     |
-    | The path where the TypeScript permissions/roles file will be generated
-    | when running the mandate:typescript command. Set to null to require
-    | the --output option to be specified.
+    | Enable wildcard permission matching (e.g., "article:*" matches
+    | "article:view", "article:edit", etc.)
+    |
+    | enabled: Whether wildcard matching is active
+    | handler: Custom wildcard handler class (must implement WildcardHandler)
     |
     */
 
-    'typescript_path' => resource_path('js/permissions.ts'),
+    'wildcards' => [
+        'enabled' => false,
+        'handler' => OffloadProject\Mandate\WildcardPermission::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Events
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate will fire events when roles/permissions are
+    | assigned or revoked. Disabled by default for performance.
+    |
+    */
+
+    'events' => false,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit Logging
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, Mandate will log authorization-related actions such as
+    | permission grants, role assignments, and access denials. This is useful
+    | for security compliance and debugging.
+    |
+    | enabled: Whether audit logging is active
+    | handler: Custom audit handler class (must implement AuditLogger contract)
+    |          If null, uses Laravel's logger with 'mandate' channel
+    | log_checks: Log permission/role check attempts (can be verbose)
+    | log_changes: Log permission/role grants, revokes, and assignments
+    | log_denials: Log access denial events for security monitoring
+    |
+    */
+
+    'audit' => [
+        'enabled' => false,
+        'handler' => null,
+        'log_checks' => false,
+        'log_changes' => true,
+        'log_denials' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Laravel Gate Integration
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, permissions are automatically registered with Laravel's
+    | authorization Gate, allowing use of @can directives and Gate::allows().
+    |
+    */
+
+    'register_gate' => true,
+
+    /*
+    |==========================================================================
+    | ADVANCED OPTIONS (most apps use defaults)
+    |==========================================================================
+    |
+    | The settings below rarely need customization. They're provided for
+    | advanced use cases like custom table names, UUID primary keys, or
+    | specific caching requirements.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Primary Key Type
+    |--------------------------------------------------------------------------
+    |
+    | The data type for primary keys on Mandate models (permissions, roles,
+    | capabilities). This affects both primary keys and foreign keys.
+    |
+    | Supported: 'int' (auto-incrementing bigint), 'uuid', 'ulid'
+    |
+    */
+
+    'model_id_type' => 'int',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Model Classes
+    |--------------------------------------------------------------------------
+    |
+    | Customize the model classes used by Mandate. Your custom models must
+    | implement the corresponding contract interfaces.
+    |
+    */
+
+    'models' => [
+        'permission' => OffloadProject\Mandate\Models\Permission::class,
+        'role' => OffloadProject\Mandate\Models\Role::class,
+        'capability' => OffloadProject\Mandate\Models\Capability::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Table Names
+    |--------------------------------------------------------------------------
+    |
+    | Customize the database table names used by Mandate.
+    |
+    */
+
+    'tables' => [
+        'permissions' => 'permissions',
+        'roles' => 'roles',
+        'capabilities' => 'capabilities',
+        'permission_role' => 'permission_role',
+        'permission_subject' => 'permission_subject',
+        'role_subject' => 'role_subject',
+        'capability_permission' => 'capability_permission',
+        'capability_role' => 'capability_role',
+        'capability_subject' => 'capability_subject',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Column Names
+    |--------------------------------------------------------------------------
+    |
+    | Customize the column names used in pivot tables.
+    |
+    | For morph columns, specify the base name (e.g., 'subject') and the
+    | system will automatically append '_id' and '_type' suffixes.
+    |
+    */
+
+    'column_names' => [
+        'role_id' => 'role_id',
+        'permission_id' => 'permission_id',
+        'capability_id' => 'capability_id',
+        'subject_morph_name' => 'subject',
+        'context_morph_name' => 'context',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configure how permissions are cached for performance optimization.
+    |
+    | expiration: Cache TTL in seconds (default: 24 hours)
+    | key: The cache key prefix used for storing permissions
+    | store: The cache store to use (null = default store)
+    |
+    */
+
+    'cache' => [
+        'expiration' => 60 * 60 * 24, // 24 hours
+        'key' => 'mandate.permissions.cache',
+        'store' => null,
+    ],
 
 ];

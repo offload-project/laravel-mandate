@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('{{ guard }}')]
+final class {{ class }}
+{
+    #[Label('{{ capability }} Management')]
+    #[Description('Manage {{ capability }} resources')]
+    public const string MANAGE = '{{ capability }}-management';
+}

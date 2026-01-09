@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('{{ guard }}')]
+final class {{ class }}
+{
+    #[Label('View {{ resource }}')]
+    #[Description('View {{ resource }} records')]
+    public const string VIEW = '{{ resource }}.view';
+
+    #[Label('Create {{ resource }}')]
+    #[Description('Create new {{ resource }} records')]
+    public const string CREATE = '{{ resource }}.create';
+
+    #[Label('Update {{ resource }}')]
+    #[Description('Update existing {{ resource }} records')]
+    public const string UPDATE = '{{ resource }}.update';
+
+    #[Label('Delete {{ resource }}')]
+    #[Description('Delete {{ resource }} records')]
+    public const string DELETE = '{{ resource }}.delete';
+}

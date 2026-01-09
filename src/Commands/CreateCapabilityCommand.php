@@ -15,7 +15,7 @@ use OffloadProject\Mandate\Models\Permission;
  * Usage:
  * - php artisan mandate:capability manage-posts
  * - php artisan mandate:capability manage-posts --guard=api
- * - php artisan mandate:capability manage-posts --permissions=posts:view,posts:edit,posts:delete
+ * - php artisan mandate:capability manage-posts --permissions=post:view,post:edit,post:delete
  */
 final class CreateCapabilityCommand extends Command
 {

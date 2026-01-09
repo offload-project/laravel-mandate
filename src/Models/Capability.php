@@ -21,6 +21,8 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @property int|string $id
  * @property string $name
  * @property string $guard
+ * @property string|null $label
+ * @property string|null $description
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -30,7 +32,14 @@ class Capability extends Model implements CapabilityContract
     protected $fillable = [
         'name',
         'guard',
+        'label',
+        'description',
     ];
+
+    /**
+     * Cache for whether the label column exists.
+     */
+    private static ?bool $hasLabelColumn = null;
 
     public function __construct(array $attributes = [])
     {
@@ -136,6 +145,30 @@ class Capability extends Model implements CapabilityContract
         app(MandateRegistrar::class)->forgetCachedPermissions();
 
         return $capability;
+    }
+
+    /**
+     * Check if the label column exists in the database.
+     */
+    public static function hasLabelColumn(): bool
+    {
+        if (self::$hasLabelColumn === null) {
+            /** @phpstan-ignore new.static */
+            $instance = new static;
+            self::$hasLabelColumn = $instance->getConnection()
+                ->getSchemaBuilder()
+                ->hasColumn($instance->getTable(), 'label');
+        }
+
+        return self::$hasLabelColumn;
+    }
+
+    /**
+     * Reset the label column cache (useful for testing).
+     */
+    public static function resetLabelColumnCache(): void
+    {
+        self::$hasLabelColumn = null;
     }
 
     /**

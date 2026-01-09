@@ -201,25 +201,25 @@ describe('UnauthorizedException', function () {
         });
 
         it('replaces :permission placeholder with permission name', function () {
-            $exception = UnauthorizedException::forPermission('users:delete');
+            $exception = UnauthorizedException::forPermission('user:delete');
 
-            expect($exception->getMessage())->toContain('users:delete');
+            expect($exception->getMessage())->toContain('user:delete');
         });
 
         it('replaces :permissions placeholder with comma-separated names', function () {
-            $exception = UnauthorizedException::forPermissions(['users:create', 'users:delete']);
+            $exception = UnauthorizedException::forPermissions(['user:create', 'user:delete']);
 
-            expect($exception->getMessage())->toContain('users:create, users:delete');
+            expect($exception->getMessage())->toContain('user:create, user:delete');
         });
 
         it('stores required roles and permissions for custom handling', function () {
             $exception = UnauthorizedException::forRolesOrPermissions(
                 ['admin', 'super'],
-                ['users:manage']
+                ['user:manage']
             );
 
             expect($exception->requiredRoles)->toBe(['admin', 'super'])
-                ->and($exception->requiredPermissions)->toBe(['users:manage']);
+                ->and($exception->requiredPermissions)->toBe(['user:manage']);
         });
 
         it('returns default message when translation key not found', function () {

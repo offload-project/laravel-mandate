@@ -80,6 +80,56 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Code-First Definitions
+    |--------------------------------------------------------------------------
+    |
+    | Code-first allows defining permissions, roles, and capabilities in PHP
+    | classes with attributes, then syncing them to the database. This provides
+    | better IDE support, version control, and type safety.
+    |
+    | enabled: Whether code-first mode is active
+    | paths: Directories to scan for definition classes
+    | assignments: Role-permission and role-capability assignments for seeding
+    |
+    */
+
+    'code_first' => [
+        'enabled' => false,
+
+        'paths' => [
+            'permissions' => app_path('Permissions'),
+            'roles' => app_path('Roles'),
+            'capabilities' => app_path('Capabilities'),
+        ],
+
+        'assignments' => [
+            // 'admin' => [
+            //     'permissions' => ['user:*', 'article:*'],
+            //     'capabilities' => ['user-management'],
+            // ],
+            // 'editor' => [
+            //     'permissions' => ['article:view', 'article:edit'],
+            // ],
+        ],
+
+        'typescript_path' => resource_path('js/types/mandate.ts'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Feature Generator
+    |--------------------------------------------------------------------------
+    |
+    | Class that handles generating feature classes for the mandate:make:feature
+    | command. External packages (e.g., Flagged) can provide their own generator.
+    | Must implement OffloadProject\Mandate\Contracts\FeatureGenerator.
+    |
+    */
+
+    'feature_generator' => null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Wildcard Permissions
     |--------------------------------------------------------------------------
     |

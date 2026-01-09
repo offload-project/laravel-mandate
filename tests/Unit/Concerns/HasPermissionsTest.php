@@ -218,7 +218,7 @@ describe('HasPermissions with Wildcards', function () {
 
         expect($this->user->hasPermission('article:view'))->toBeTrue()
             ->and($this->user->hasPermission('article:edit'))->toBeTrue()
-            ->and($this->user->hasPermission('users:view'))->toBeFalse();
+            ->and($this->user->hasPermission('user:view'))->toBeFalse();
     });
 
     it('matches universal wildcard', function () {

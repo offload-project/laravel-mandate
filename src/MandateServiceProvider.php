@@ -9,13 +9,22 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use OffloadProject\Mandate\CodeFirst\DefinitionCache;
+use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
 use OffloadProject\Mandate\Commands\AssignCapabilityCommand;
 use OffloadProject\Mandate\Commands\AssignRoleCommand;
 use OffloadProject\Mandate\Commands\ClearCacheCommand;
 use OffloadProject\Mandate\Commands\CreateCapabilityCommand;
 use OffloadProject\Mandate\Commands\CreatePermissionCommand;
 use OffloadProject\Mandate\Commands\CreateRoleCommand;
+use OffloadProject\Mandate\Commands\MakeCapabilityCommand;
+use OffloadProject\Mandate\Commands\MakeFeatureCommand;
+use OffloadProject\Mandate\Commands\MakePermissionCommand;
+use OffloadProject\Mandate\Commands\MakeRoleCommand;
 use OffloadProject\Mandate\Commands\ShowCommand;
+use OffloadProject\Mandate\Commands\SyncCommand;
+use OffloadProject\Mandate\Commands\TypeScriptCommand;
+use OffloadProject\Mandate\Commands\UpgradeFromSpatieCommand;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
@@ -38,6 +47,8 @@ final class MandateServiceProvider extends ServiceProvider
 
         $this->app->singleton(MandateRegistrar::class);
         $this->app->singleton(Mandate::class);
+        $this->app->singleton(DefinitionDiscoverer::class);
+        $this->app->singleton(DefinitionCache::class);
 
         $this->app->bind(PermissionContract::class, fn () => $this->app->make(config('mandate.models.permission', Permission::class)));
         $this->app->bind(RoleContract::class, fn () => $this->app->make(config('mandate.models.role', Role::class)));
@@ -54,6 +65,7 @@ final class MandateServiceProvider extends ServiceProvider
         $this->publishConfig();
         $this->publishMigrations();
         $this->publishTranslations();
+        $this->publishStubs();
         $this->registerCommands();
         $this->registerMiddleware();
         $this->registerBladeDirectives();
@@ -84,9 +96,20 @@ final class MandateServiceProvider extends ServiceProvider
      */
     private function publishMigrations(): void
     {
+        // Core migrations (permissions, roles, pivot tables)
         $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
+            __DIR__.'/../database/migrations/2024_01_01_000001_create_mandate_tables.php' => database_path('migrations/2024_01_01_000001_create_mandate_tables.php'),
         ], 'mandate-migrations');
+
+        // Capability migrations (optional feature)
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations/2024_01_01_000002_create_capability_tables.php' => database_path('migrations/2024_01_01_000002_create_capability_tables.php'),
+        ], 'mandate-migrations-capabilities');
+
+        // Metadata migrations (label/description columns)
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations/2024_01_01_000003_add_label_description_to_mandate_tables.php' => database_path('migrations/2024_01_01_000003_add_label_description_to_mandate_tables.php'),
+        ], 'mandate-migrations-meta');
     }
 
     /**
@@ -100,12 +123,23 @@ final class MandateServiceProvider extends ServiceProvider
     }
 
     /**
+     * Publish the stub files for code-first generators.
+     */
+    private function publishStubs(): void
+    {
+        $this->publishes([
+            __DIR__.'/../stubs' => base_path('stubs/mandate'),
+        ], 'mandate-stubs');
+    }
+
+    /**
      * Register the Artisan commands.
      */
     private function registerCommands(): void
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
+                // Database commands
                 AssignCapabilityCommand::class,
                 AssignRoleCommand::class,
                 ClearCacheCommand::class,
@@ -113,6 +147,14 @@ final class MandateServiceProvider extends ServiceProvider
                 CreatePermissionCommand::class,
                 CreateRoleCommand::class,
                 ShowCommand::class,
+                // Code-first commands
+                MakeCapabilityCommand::class,
+                MakeFeatureCommand::class,
+                MakePermissionCommand::class,
+                MakeRoleCommand::class,
+                SyncCommand::class,
+                TypeScriptCommand::class,
+                UpgradeFromSpatieCommand::class,
             ]);
         }
     }

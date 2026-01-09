@@ -406,7 +406,7 @@ php artisan mandate:assign-capability editor manage-posts
 php artisan mandate:show
 
 # Clear permission cache
-php artisan mandate:clear-cache
+php artisan mandate:cache-clear
 
 # Migrate from Spatie Laravel Permission
 php artisan mandate:upgrade-from-spatie --dry-run              # Preview changes
@@ -560,8 +560,8 @@ $capability->grantPermission(['post:create', 'post:edit', 'post:delete', 'post:p
 
 // Or create permissions on the fly
 $capability = Capability::create(['name' => 'manage-users']);
-$capability->grantPermission(Permission::findOrCreate(''user:view'));
-$capability->grantPermission(Permission::findOrCreate(''user:edit'));
+$capability->grantPermission(Permission::findOrCreate('user:view'));
+$capability->grantPermission(Permission::findOrCreate('user:edit'));
 ```
 
 ### Assigning Capabilities to Roles

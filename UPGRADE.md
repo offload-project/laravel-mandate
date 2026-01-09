@@ -172,7 +172,7 @@ return [
     'permission_directories' => [app_path('Permissions')],
     'role_directories' => [app_path('Roles')],
     'role_permissions' => [
-        'admin' => ['user:*', 'user:*'],
+        'admin' => ['user:*', 'article:*'],
     ],
     'sync_columns' => ['set', 'label', 'description'],
     'auto_sync' => env('MANDATE_AUTO_SYNC', false),
@@ -195,7 +195,7 @@ return [
         ],
         'assignments' => [
             'admin' => [
-                'permissions' => ['user:*', 'user:*'],
+                'permissions' => ['user:*', 'article:*'],
                 'capabilities' => ['user-management'],
             ],
         ],

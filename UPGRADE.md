@@ -155,7 +155,7 @@ class SystemRoles
 
 **Key Differences:**
 
-- `#[PermissionsSet]` → Use **Capabilities** instead (see [Capabilities](#capabilities-replace-permissionsset))
+- `#[PermissionsSet]` → Use **Capabilities** instead (see [Capabilities](#8-capabilities-replace-permissionsset))
 - `#[RoleSet]` → Removed (all classes with string constants in configured paths are discovered)
 - `#[Inherits]` → Removed (use config-based role-permission assignments instead)
 - `#[Guard]` → New attribute for specifying authentication guard

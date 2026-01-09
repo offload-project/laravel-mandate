@@ -7,12 +7,12 @@ use OffloadProject\Mandate\CodeFirst\PermissionDefinition;
 use OffloadProject\Mandate\CodeFirst\RoleDefinition;
 
 describe('DefinitionDiscoverer', function () {
-    beforeEach(function () {
-        $this->discoverer = new DefinitionDiscoverer;
-        $this->fixturesPath = __DIR__.'/../../Fixtures/CodeFirst';
-    });
-
     describe('discoverPermissions', function () {
+        beforeEach(function () {
+            $this->discoverer = new DefinitionDiscoverer;
+            $this->fixturesPath = __DIR__.'/../../Fixtures/CodeFirst';
+        });
+
         it('discovers permissions from directory', function () {
             $permissions = $this->discoverer->discoverPermissions($this->fixturesPath);
 
@@ -67,6 +67,11 @@ describe('DefinitionDiscoverer', function () {
     });
 
     describe('discoverRoles', function () {
+        beforeEach(function () {
+            $this->discoverer = new DefinitionDiscoverer;
+            $this->fixturesPath = __DIR__.'/../../Fixtures/CodeFirst';
+        });
+
         it('discovers roles from directory', function () {
             $roles = $this->discoverer->discoverRoles($this->fixturesPath);
 

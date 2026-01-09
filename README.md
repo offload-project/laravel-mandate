@@ -13,7 +13,7 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - **Roles & Permissions** — Assign roles to users, grant permissions to roles or directly to users
 - **Capabilities** — Group permissions into semantic capabilities for cleaner authorization logic
 - **Multi-Tenancy** — Scope roles and permissions to context models (Team, Organization, Project)
-- **Feature Integration** — Delegate feature access checks to external packages (Flag On, etc.)
+- **Feature Integration** — Delegate feature access checks to external packages (Flagged, etc.)
 - **Wildcard Permissions** — Pattern matching with `article:*` or `*.edit` syntax
 - **Multiple Guards** — Scope authorization to different authentication guards
 - **Laravel Gate** — Automatic registration with Laravel's authorization system
@@ -25,6 +25,39 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - **Caching** — Built-in permission caching with automatic invalidation
 - **Events** — Hook into role, permission, and capability changes
 - **Artisan Commands** — Create and manage roles, permissions, and capabilities from CLI
+- **Code-First Definitions** — Define permissions, roles, and capabilities in PHP classes with attributes
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+    - [Roles](#roles)
+    - [Permissions](#permissions)
+    - [Assigning Permissions to Roles](#assigning-permissions-to-roles)
+    - [Using PHP Enums](#using-php-enums)
+- [Protecting Routes](#protecting-routes)
+- [Blade Directives](#blade-directives)
+- [Fluent Authorization Builder](#fluent-authorization-builder)
+- [Laravel Gate Integration](#laravel-gate-integration)
+- [Query Scopes](#query-scopes)
+- [Artisan Commands](#artisan-commands)
+- [Configuration](#configuration)
+    - [UUID / ULID Primary Keys](#uuid--ulid-primary-keys)
+    - [Custom Column Names](#custom-column-names)
+    - [Wildcard Permissions](#wildcard-permissions)
+- [Capabilities](#capabilities)
+- [Context Model (Multi-Tenancy)](#context-model-multi-tenancy)
+- [Feature Integration](#feature-integration)
+- [Code-First Definitions](#code-first-definitions)
+- [Multiple Guards](#multiple-guards)
+- [Events](#events)
+- [Exceptions](#exceptions)
+- [Extending Models](#extending-models)
+- [Testing](#testing)
+- [Upgrading from 1.x](#upgrading-from-1x)
+- [Requirements](#requirements)
+- [License](#license)
 
 ## Installation
 
@@ -33,11 +66,22 @@ composer require offload-project/laravel-mandate
 ```
 
 ```bash
+# Core migrations (permissions, roles, pivot tables)
 php artisan vendor:publish --tag=mandate-migrations
 php artisan migrate
 ```
 
 That's it. No configuration required for most applications.
+
+**Optional migrations** (publish only what you need):
+
+```bash
+# Capabilities feature (semantic permission groups)
+php artisan vendor:publish --tag=mandate-migrations-capabilities
+
+# Metadata columns (label/description for permissions, roles, capabilities)
+php artisan vendor:publish --tag=mandate-migrations-meta
+```
 
 ## Quick Start
 
@@ -177,7 +221,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 
 // Role OR permission (user needs any one)
 Route::get('/reports', [ReportController::class, 'index'])
-    ->middleware('role_or_permission:admin|reports:view');
+    ->middleware('role_or_permission:admin|report:view');
 ```
 
 ### Route Macros
@@ -192,7 +236,7 @@ Route::get('/admin', [AdminController::class, 'index'])
     ->role('admin');
 
 Route::get('/reports', [ReportController::class, 'index'])
-    ->roleOrPermission('admin|reports:view');
+    ->roleOrPermission('admin|report:view');
 ```
 
 ---
@@ -363,6 +407,12 @@ php artisan mandate:show
 
 # Clear permission cache
 php artisan mandate:clear-cache
+
+# Migrate from Spatie Laravel Permission
+php artisan mandate:upgrade-from-spatie --dry-run              # Preview changes
+php artisan mandate:upgrade-from-spatie                        # Run migration
+php artisan mandate:upgrade-from-spatie --create-capabilities  # Also create capabilities from prefixes
+php artisan mandate:upgrade-from-spatie --convert-permission-sets  # Convert 1.x #[PermissionsSet] to capabilities
 ```
 
 ---
@@ -377,25 +427,25 @@ php artisan vendor:publish --tag=mandate-config
 
 ### Key Options
 
-| Option                            | Default             | Description                                    |
-|-----------------------------------|---------------------|------------------------------------------------|
+| Option                            | Default             | Description                                      |
+|-----------------------------------|---------------------|--------------------------------------------------|
 | `model_id_type`                   | `'int'`             | Primary key type: `'int'`, `'uuid'`, or `'ulid'` |
-| `models.permission`               | `Permission::class` | Custom permission model                        |
-| `models.role`                     | `Role::class`       | Custom role model                              |
-| `models.capability`               | `Capability::class` | Custom capability model                        |
-| `cache.expiration`                | `86400` (24h)       | Cache TTL in seconds                           |
-| `wildcards.enabled`               | `false`             | Enable wildcard permissions                    |
-| `capabilities.enabled`            | `false`             | Enable capabilities feature                    |
-| `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment     |
-| `context.enabled`                 | `false`             | Enable context model support (multi-tenancy)   |
-| `context.global_fallback`         | `true`              | Check global when context check fails          |
-| `features.enabled`                | `false`             | Enable feature integration                     |
-| `features.models`                 | `[]`                | Model classes considered Feature contexts      |
-| `features.on_missing_handler`     | `'deny'`            | Behavior when handler is not bound             |
-| `register_gate`                   | `true`              | Register with Laravel Gate                     |
-| `events`                          | `false`             | Fire events on changes                         |
-| `column_names.subject_morph_name` | `'subject'`         | Base name for subject morph columns            |
-| `column_names.context_morph_name` | `'context'`         | Base name for context morph columns            |
+| `models.permission`               | `Permission::class` | Custom permission model                          |
+| `models.role`                     | `Role::class`       | Custom role model                                |
+| `models.capability`               | `Capability::class` | Custom capability model                          |
+| `cache.expiration`                | `86400` (24h)       | Cache TTL in seconds                             |
+| `wildcards.enabled`               | `false`             | Enable wildcard permissions                      |
+| `capabilities.enabled`            | `false`             | Enable capabilities feature                      |
+| `capabilities.direct_assignment`  | `false`             | Allow direct capability-to-user assignment       |
+| `context.enabled`                 | `false`             | Enable context model support (multi-tenancy)     |
+| `context.global_fallback`         | `true`              | Check global when context check fails            |
+| `features.enabled`                | `false`             | Enable feature integration                       |
+| `features.models`                 | `[]`                | Model classes considered Feature contexts        |
+| `features.on_missing_handler`     | `'deny'`            | Behavior when handler is not bound               |
+| `register_gate`                   | `true`              | Register with Laravel Gate                       |
+| `events`                          | `false`             | Fire events on changes                           |
+| `column_names.subject_morph_name` | `'subject'`         | Base name for subject morph columns              |
+| `column_names.context_morph_name` | `'context'`         | Base name for context morph columns              |
 
 ### UUID / ULID Primary Keys
 
@@ -407,6 +457,7 @@ Mandate supports UUID or ULID primary keys for all its models. Configure before 
 ```
 
 This affects:
+
 - `permissions`, `roles`, and `capabilities` tables (primary keys)
 - All pivot tables (foreign keys)
 
@@ -441,7 +492,8 @@ For example, to use `user` instead of `subject`:
 ],
 ```
 
-This affects pivot tables (`permission_subject`, `role_subject`, `capability_subject`) and context columns on permissions/roles tables.
+This affects pivot tables (`permission_subject`, `role_subject`, `capability_subject`) and context columns on
+permissions/roles tables.
 
 > **Note:** Set column names before running migrations. Changing them later requires recreating the tables.
 
@@ -475,9 +527,19 @@ Wildcard syntax:
 
 ## Capabilities
 
-Capabilities are semantic groupings of permissions that can be assigned to roles or directly to subjects. This is an optional feature that must be explicitly enabled.
+Capabilities are semantic groupings of permissions that can be assigned to roles or directly to subjects. This is an
+optional feature that must be explicitly enabled.
 
 ### Enabling Capabilities
+
+First, publish and run the capability migrations:
+
+```bash
+php artisan vendor:publish --tag=mandate-migrations-capabilities
+php artisan migrate
+```
+
+Then enable in config:
 
 ```php
 // config/mandate.php
@@ -498,8 +560,8 @@ $capability->grantPermission(['post:create', 'post:edit', 'post:delete', 'post:p
 
 // Or create permissions on the fly
 $capability = Capability::create(['name' => 'manage-users']);
-$capability->grantPermission(Permission::findOrCreate('user:view'));
-$capability->grantPermission(Permission::findOrCreate('user:edit'));
+$capability->grantPermission(Permission::findOrCreate(''user:view'));
+$capability->grantPermission(Permission::findOrCreate(''user:edit'));
 ```
 
 ### Assigning Capabilities to Roles
@@ -555,7 +617,7 @@ $user->hasPermissionViaCapability('post:edit'); // Checks capabilities only
 
 ### Direct Capability Assignment
 
-Enable direct assignment to allow assigning capabilities directly to users:
+Enable direct assignment to allow assigning capabilities directly to user:
 
 ```php
 // config/mandate.php
@@ -613,7 +675,8 @@ php artisan mandate:assign-capability editor manage-posts --guard=api
 
 ## Context Model (Multi-Tenancy)
 
-Context Model enables scoping roles and permissions to a specific model (like Team, Organization, or Project). This allows for resource-specific authorization in multi-tenant applications.
+Context Model enables scoping roles and permissions to a specific model (like Team, Organization, or Project). This
+allows for resource-specific authorization in multi-tenant applications.
 
 ### Enabling Context Support
 
@@ -667,14 +730,14 @@ When `global_fallback` is enabled (default), checking permissions with a context
 
 ```php
 // Global permission (no context)
-$user->grantPermission('reports:view');
+$user->grantPermission('report:view');
 
 // With global fallback enabled, this returns true
-$user->hasPermission('reports:view', $team);
+$user->hasPermission('report:view', $team);
 
 // Disable global fallback to check only context-specific
 // config: 'context.global_fallback' => false
-$user->hasPermission('reports:view', $team); // false (no context-specific grant)
+$user->hasPermission('report:view', $team); // false (no context-specific grant)
 ```
 
 ### Getting Permissions and Roles for Context
@@ -720,20 +783,22 @@ Mandate::contextEnabled(); // true/false
 
 ### Context Configuration Options
 
-| Option                    | Default | Description                                      |
-|---------------------------|---------|--------------------------------------------------|
-| `context.enabled`         | `false` | Enable context model support                     |
-| `context.global_fallback` | `true`  | Check global when context-specific check fails   |
+| Option                    | Default | Description                                    |
+|---------------------------|---------|------------------------------------------------|
+| `context.enabled`         | `false` | Enable context model support                   |
+| `context.global_fallback` | `true`  | Check global when context-specific check fails |
 
 ---
 
 ## Feature Integration
 
-Feature Integration enables Mandate to delegate feature access checks to an external package (like Flag On) when a Feature model is used as a context. This allows combining feature flags with permission checks.
+Feature Integration enables Mandate to delegate feature access checks to an external package (like Flagged) when a
+Feature model is used as a context. This allows combining feature flags with permission checks.
 
 ### How It Works
 
-When you check a permission or role with a Feature model as the context, Mandate first verifies the subject can access the feature before evaluating permissions. This ensures users only get permissions for features they have access to.
+When you check a permission or role with a Feature model as the context, Mandate first verifies the subject can access
+the feature before evaluating permissions. This ensures users only get permissions for features they have access to.
 
 ### Enabling Feature Integration
 
@@ -762,7 +827,7 @@ Your feature management package must implement the `FeatureAccessHandler` contra
 use Illuminate\Database\Eloquent\Model;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 
-class FlagOnFeatureHandler implements FeatureAccessHandler
+class FlaggedFeatureHandler implements FeatureAccessHandler
 {
     public function isActive(Model $feature): bool
     {
@@ -789,7 +854,7 @@ Register the handler in a service provider:
 ```php
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 
-$this->app->bind(FeatureAccessHandler::class, FlagOnFeatureHandler::class);
+$this->app->bind(FeatureAccessHandler::class, FlaggedFeatureHandler::class);
 ```
 
 ### Permission Checks with Feature Context
@@ -807,7 +872,8 @@ $user->hasPermission('edit', $feature);
 $user->hasRole('editor', $feature);
 ```
 
-If feature access is denied, the permission/role check returns `false` immediately without evaluating the actual permission.
+If feature access is denied, the permission/role check returns `false` immediately without evaluating the actual
+permission.
 
 ### Bypassing Feature Checks
 
@@ -843,11 +909,11 @@ Mandate::canAccessFeature($feature, $user);
 
 Configure what happens when no `FeatureAccessHandler` is bound:
 
-| Value   | Behavior                                          |
-|---------|---------------------------------------------------|
-| `deny`  | Return `false` (fail closed) - **Default**        |
-| `allow` | Return `true` (fail open)                         |
-| `throw` | Throw `FeatureAccessException`                    |
+| Value   | Behavior                                   |
+|---------|--------------------------------------------|
+| `deny`  | Return `false` (fail closed) - **Default** |
+| `allow` | Return `true` (fail open)                  |
+| `throw` | Throw `FeatureAccessException`             |
 
 ```php
 // config/mandate.php
@@ -869,11 +935,315 @@ $user->hasPermission('edit', $team);
 
 ### Feature Configuration Options
 
-| Option                          | Default  | Description                                    |
-|---------------------------------|----------|------------------------------------------------|
-| `features.enabled`              | `false`  | Enable feature integration                     |
-| `features.models`               | `[]`     | Model classes considered Feature contexts      |
-| `features.on_missing_handler`   | `'deny'` | Behavior when handler is not bound             |
+| Option                        | Default  | Description                               |
+|-------------------------------|----------|-------------------------------------------|
+| `features.enabled`            | `false`  | Enable feature integration                |
+| `features.models`             | `[]`     | Model classes considered Feature contexts |
+| `features.on_missing_handler` | `'deny'` | Behavior when handler is not bound        |
+
+---
+
+## Code-First Definitions
+
+Code-first allows you to define permissions, roles, and capabilities in PHP classes using attributes, then sync them to
+the database. This provides better IDE support, version control, and type safety.
+
+### Enabling Code-First
+
+```php
+// config/mandate.php
+'code_first' => [
+    'enabled' => true,
+    'paths' => [
+        'permissions' => app_path('Permissions'),
+        'roles' => app_path('Roles'),
+        'capabilities' => app_path('Capabilities'),
+    ],
+],
+```
+
+### Defining Permissions
+
+Create a class with string constants for each permission:
+
+```php
+<?php
+
+namespace App\Permissions;
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('web')]
+class ArticlePermissions
+{
+    #[Label('View Articles')]
+    #[Description('Allows viewing articles')]
+    public const string VIEW = 'article:view';
+
+    #[Label('Create Articles')]
+    #[Description('Allows creating new articles')]
+    public const string CREATE = 'article:create';
+
+    #[Label('Edit Articles')]
+    public const string EDIT = 'article:edit';
+
+    #[Label('Delete Articles')]
+    public const string DELETE = 'article:delete';
+}
+```
+
+### Defining Roles
+
+```php
+<?php
+
+namespace App\Roles;
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('web')]
+class SystemRoles
+{
+    #[Label('Administrator')]
+    #[Description('Has all permissions')]
+    public const string ADMIN = 'admin';
+
+    #[Label('Editor')]
+    #[Description('Can edit content')]
+    public const string EDITOR = 'editor';
+
+    #[Label('Viewer')]
+    public const string VIEWER = 'viewer';
+}
+```
+
+### Available Attributes
+
+| Attribute        | Target          | Description                                |
+|------------------|-----------------|--------------------------------------------|
+| `#[Guard]`       | Class           | Sets the auth guard for all constants      |
+| `#[Label]`       | Class, Constant | Human-readable name                        |
+| `#[Description]` | Class, Constant | Longer description                         |
+| `#[Context]`     | Constant        | Context model class for scoped permissions |
+| `#[Capability]`  | Constant        | Assigns permission to a capability         |
+
+When `#[Label]` or `#[Description]` is on both the class and a constant, the constant-level attribute takes precedence.
+
+### Syncing to Database
+
+Use the `mandate:sync` command to create or update database records from your definitions:
+
+```bash
+# Sync all definitions
+php artisan mandate:sync
+
+# Sync only permissions
+php artisan mandate:sync --permissions
+
+# Sync only roles
+php artisan mandate:sync --roles
+
+# Sync only capabilities
+php artisan mandate:sync --capabilities
+
+# Preview changes without applying
+php artisan mandate:sync --dry-run
+
+# Sync for specific guard
+php artisan mandate:sync --guard=api
+
+# Skip confirmation in production
+php artisan mandate:sync --force
+```
+
+The sync is **additive only** — it never deletes database records to prevent data loss.
+
+### Seeding Role Assignments
+
+Configure role-permission assignments in the config file:
+
+```php
+// config/mandate.php
+'code_first' => [
+    'enabled' => true,
+    'assignments' => [
+        'admin' => [
+            'permissions' => ['article:*', 'user:*'],
+            'capabilities' => ['content-management'],
+        ],
+        'editor' => [
+            'permissions' => ['article:view', 'article:edit'],
+        ],
+    ],
+],
+```
+
+Then sync with the `--seed` flag:
+
+```bash
+php artisan mandate:sync --seed
+```
+
+### Label and Description Columns
+
+To store labels and descriptions in the database, publish and run the metadata migration:
+
+```bash
+php artisan vendor:publish --tag=mandate-migrations-meta
+php artisan migrate
+```
+
+This adds `label` and `description` columns to the permissions, roles, and capabilities tables. These columns are useful for displaying human-readable names in admin UIs, regardless of whether you use code-first definitions.
+
+### Generator Commands
+
+Generate new definition classes with scaffolded constants:
+
+```bash
+# Generate a permission class with CRUD constants
+php artisan mandate:make:permission ArticlePermissions
+php artisan mandate:make:permission ArticlePermissions --guard=api
+
+# Generate a role class
+php artisan mandate:make:role SystemRoles
+
+# Generate a capability class
+php artisan mandate:make:capability ContentCapabilities
+```
+
+Customize the generated stubs:
+
+```bash
+php artisan vendor:publish --tag=mandate-stubs
+```
+
+### TypeScript Generation
+
+Generate TypeScript types for frontend type safety. The command automatically merges both sources:
+
+- **Code-first definitions** — PHP classes with attributes (if enabled)
+- **Database records** — Permissions, roles, and capabilities from the database
+
+This allows you to define permissions in code (tied to features) while managing roles in the database (business-defined).
+
+```bash
+# Generate to configured location (default: resources/js/types/mandate.ts)
+php artisan mandate:typescript
+
+# Override output path
+php artisan mandate:typescript --output=resources/js/permissions.ts
+
+# Generate only specific types
+php artisan mandate:typescript --permissions
+php artisan mandate:typescript --roles
+```
+
+Configure the default output path:
+
+```php
+// config/mandate.php
+'code_first' => [
+    'typescript_path' => resource_path('js/types/mandate.ts'),
+],
+```
+
+**Grouping behavior:**
+
+- Code-first: grouped by source class name (e.g., `ArticlePermissions`)
+- Database: grouped by prefix (e.g., `article:view` → `ArticlePermissions`, `admin` → `Roles`)
+
+Generated output (mixed sources example):
+
+```typescript
+// Auto-generated by Laravel Mandate - do not edit manually
+
+// From code-first PHP class
+export const ArticlePermissions = {
+    VIEW: "article:view",
+    CREATE: "article:create",
+    EDIT: "article:edit",
+    DELETE: "article:delete",
+} as const;
+
+// From database records (no prefix → grouped as "Roles")
+export const Roles = {
+    ADMIN: "admin",
+    EDITOR: "editor",
+    MODERATOR: "moderator",
+} as const;
+
+export type Permission = typeof ArticlePermissions[keyof typeof ArticlePermissions];
+export type Role = typeof Roles[keyof typeof Roles];
+```
+
+### Using Definitions in Code
+
+Reference your code-first constants for type-safe permission checks:
+
+```php
+use App\Permissions\ArticlePermissions;
+
+// Type-safe permission checks (code-first)
+$user->hasPermission(ArticlePermissions::EDIT);
+$user->grantPermission(ArticlePermissions::VIEW);
+
+// Database-defined roles (use string names)
+$user->hasRole('admin');
+$user->assignRole('editor');
+```
+
+On the frontend, use the generated TypeScript types:
+
+```typescript
+import { ArticlePermissions, Roles, type Permission, type Role } from '@/types/mandate';
+
+// Type-safe permission checks
+function canEdit(userPermissions: Permission[]): boolean {
+    return userPermissions.includes(ArticlePermissions.EDIT);
+}
+
+// Type-safe role checks
+function isAdmin(userRole: Role): boolean {
+    return userRole === Roles.ADMIN;
+}
+```
+
+### Sync Events
+
+Listen to sync events for custom post-sync logic:
+
+```php
+use OffloadProject\Mandate\Events\PermissionsSynced;
+use OffloadProject\Mandate\Events\RolesSynced;
+use OffloadProject\Mandate\Events\CapabilitiesSynced;
+use OffloadProject\Mandate\Events\MandateSynced;
+
+// Individual sync events
+Event::listen(PermissionsSynced::class, function ($event) {
+    Log::info("Synced {$event->created} new permissions, {$event->updated} updated");
+});
+
+// Aggregate event (fired after all syncs complete)
+Event::listen(MandateSynced::class, function ($event) {
+    // $event->permissions, $event->roles, $event->capabilities
+});
+```
+
+### Code-First Configuration Options
+
+| Option                          | Default                              | Description                              |
+|---------------------------------|--------------------------------------|------------------------------------------|
+| `code_first.enabled`            | `false`                              | Enable code-first mode                   |
+| `code_first.paths.permissions`  | `app_path('Permissions')`            | Directory to scan for permission classes |
+| `code_first.paths.roles`        | `app_path('Roles')`                  | Directory to scan for role classes       |
+| `code_first.paths.capabilities` | `app_path('Capabilities')`           | Directory to scan for capability classes |
+| `code_first.assignments`        | `[]`                                 | Role-permission/capability assignments   |
+| `code_first.typescript_path`    | `resource_path('js/types/mandate.ts')` | Default output path for TypeScript types |
+| `feature_generator`             | `null`                               | Custom feature generator class           |
 
 ---
 
@@ -905,14 +1275,14 @@ Enable events to hook into role/permission changes:
 
 Available events:
 
-| Event                | Payload                          |
-|----------------------|----------------------------------|
-| `RoleAssigned`       | `$subject`, `$roles`             |
-| `RoleRemoved`        | `$subject`, `$roles`             |
-| `PermissionGranted`  | `$subject`, `$permissions`       |
-| `PermissionRevoked`  | `$subject`, `$permissions`       |
-| `CapabilityAssigned` | `$subject`, `$capabilities`      |
-| `CapabilityRemoved`  | `$subject`, `$capabilities`      |
+| Event                | Payload                     |
+|----------------------|-----------------------------|
+| `RoleAssigned`       | `$subject`, `$roles`        |
+| `RoleRemoved`        | `$subject`, `$roles`        |
+| `PermissionGranted`  | `$subject`, `$permissions`  |
+| `PermissionRevoked`  | `$subject`, `$permissions`  |
+| `CapabilityAssigned` | `$subject`, `$capabilities` |
+| `CapabilityRemoved`  | `$subject`, `$capabilities` |
 
 ```php
 use OffloadProject\Mandate\Events\RoleAssigned;
@@ -934,17 +1304,17 @@ class SendWelcomeEmail
 
 Mandate throws descriptive exceptions:
 
-| Exception                              | When                                      |
-|----------------------------------------|-------------------------------------------|
-| `RoleNotFoundException`                | Role doesn't exist                        |
-| `RoleAlreadyExistsException`           | Creating duplicate role                   |
-| `PermissionNotFoundException`          | Permission doesn't exist                  |
-| `PermissionAlreadyExistsException`     | Creating duplicate permission             |
-| `CapabilityNotFoundException`          | Capability doesn't exist                  |
-| `CapabilityAlreadyExistsException`     | Creating duplicate capability             |
-| `FeatureAccessException`               | Feature handler missing (when `throw`)    |
-| `GuardMismatchException`               | Permission/role guard doesn't match model |
-| `UnauthorizedException`                | Middleware authorization fails            |
+| Exception                          | When                                      |
+|------------------------------------|-------------------------------------------|
+| `RoleNotFoundException`            | Role doesn't exist                        |
+| `RoleAlreadyExistsException`       | Creating duplicate role                   |
+| `PermissionNotFoundException`      | Permission doesn't exist                  |
+| `PermissionAlreadyExistsException` | Creating duplicate permission             |
+| `CapabilityNotFoundException`      | Capability doesn't exist                  |
+| `CapabilityAlreadyExistsException` | Creating duplicate capability             |
+| `FeatureAccessException`           | Feature handler missing (when `throw`)    |
+| `GuardMismatchException`           | Permission/role guard doesn't match model |
+| `UnauthorizedException`            | Middleware authorization fails            |
 
 ### UnauthorizedException Factory Methods
 
@@ -1062,6 +1432,24 @@ protected function setUp(): void
     app(MandateRegistrar::class)->forgetCachedPermissions();
 }
 ```
+
+---
+
+## Upgrading from 1.x
+
+Version 2.x is a complete rewrite of Laravel Mandate. It is now a standalone RBAC package that does not depend on Spatie
+Laravel Permission.
+
+**Major changes:**
+
+- Spatie Laravel Permission dependency removed — Mandate is now standalone
+- New API — use `$user->hasPermission()` instead of `Mandate::can($user, ...)`
+- `#[PermissionsSet]` → **Capabilities** (assignable permission groups)
+- `#[RoleSet]` removed — use `#[Guard]` on classes instead
+- Code-first is optional — disabled by default, enable via config
+- New features — multi-tenancy (Context), wildcard permissions
+
+See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ---
 

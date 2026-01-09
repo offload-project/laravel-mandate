@@ -85,28 +85,28 @@ describe('Capability Model', function () {
     describe('permissions', function () {
         it('can grant permission to capability', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
 
             $capability->grantPermission($permission);
 
             expect($capability->permissions)->toHaveCount(1)
-                ->and($capability->permissions->first()->name)->toBe('posts:edit');
+                ->and($capability->permissions->first()->name)->toBe('post:edit');
         });
 
         it('can grant multiple permissions to capability', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:view', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:delete', 'guard' => 'web']);
+            Permission::create(['name' => 'post:view', 'guard' => 'web']);
+            Permission::create(['name' => 'post:edit', 'guard' => 'web']);
+            Permission::create(['name' => 'post:delete', 'guard' => 'web']);
 
-            $capability->grantPermission(['posts:view', 'posts:edit', 'posts:delete']);
+            $capability->grantPermission(['post:view', 'post:edit', 'post:delete']);
 
             expect($capability->permissions)->toHaveCount(3);
         });
 
         it('can revoke permission from capability', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
 
             $capability->grantPermission($permission);
             expect($capability->permissions)->toHaveCount(1);
@@ -119,34 +119,34 @@ describe('Capability Model', function () {
 
         it('can sync permissions on capability', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:view', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:delete', 'guard' => 'web']);
+            Permission::create(['name' => 'post:view', 'guard' => 'web']);
+            Permission::create(['name' => 'post:edit', 'guard' => 'web']);
+            Permission::create(['name' => 'post:delete', 'guard' => 'web']);
 
-            $capability->grantPermission(['posts:view', 'posts:edit']);
+            $capability->grantPermission(['post:view', 'post:edit']);
             expect($capability->permissions)->toHaveCount(2);
 
-            $capability->syncPermissions(['posts:delete']);
+            $capability->syncPermissions(['post:delete']);
             $capability->refresh();
 
             expect($capability->permissions)->toHaveCount(1)
-                ->and($capability->permissions->first()->name)->toBe('posts:delete');
+                ->and($capability->permissions->first()->name)->toBe('post:delete');
         });
 
         it('can check if capability has permission', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
 
-            expect($capability->hasPermission('posts:edit'))->toBeFalse();
+            expect($capability->hasPermission('post:edit'))->toBeFalse();
 
             $capability->grantPermission($permission);
 
-            expect($capability->hasPermission('posts:edit'))->toBeTrue();
+            expect($capability->hasPermission('post:edit'))->toBeTrue();
         });
 
         it('prevents granting permission from different guard', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'api']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'api']);
 
             $capability->grantPermission($permission);
         })->throws(GuardMismatchException::class);

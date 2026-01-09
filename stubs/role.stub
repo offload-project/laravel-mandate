@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('{{ guard }}')]
+final class {{ class }}
+{
+    #[Label('Administrator')]
+    #[Description('Full system access')]
+    public const string ADMIN = 'admin';
+
+    #[Label('User')]
+    #[Description('Standard user access')]
+    public const string USER = 'user';
+
+    #[Label('Guest')]
+    #[Description('Limited read-only access')]
+    public const string GUEST = 'guest';
+}

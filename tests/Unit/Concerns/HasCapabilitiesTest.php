@@ -101,9 +101,9 @@ describe('HasCapabilities via Roles', function () {
     describe('permissions via capabilities', function () {
         it('can get permissions via capabilities', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:view', 'guard' => 'web']);
-            Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
-            $capability->grantPermission(['posts:view', 'posts:edit']);
+            Permission::create(['name' => 'post:view', 'guard' => 'web']);
+            Permission::create(['name' => 'post:edit', 'guard' => 'web']);
+            $capability->grantPermission(['post:view', 'post:edit']);
 
             $role = Role::create(['name' => 'editor', 'guard' => 'web']);
             $role->assignCapability($capability);
@@ -116,27 +116,27 @@ describe('HasCapabilities via Roles', function () {
 
         it('hasPermissionViaCapability checks permission through capabilities', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
             $capability->grantPermission($permission);
 
             $role = Role::create(['name' => 'editor', 'guard' => 'web']);
             $role->assignCapability($capability);
             $this->user->assignRole($role);
 
-            expect($this->user->hasPermissionViaCapability('posts:edit'))->toBeTrue()
-                ->and($this->user->hasPermissionViaCapability('posts:delete'))->toBeFalse();
+            expect($this->user->hasPermissionViaCapability('post:edit'))->toBeTrue()
+                ->and($this->user->hasPermissionViaCapability('post:delete'))->toBeFalse();
         });
 
         it('hasPermission includes capability permissions', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
             $capability->grantPermission($permission);
 
             $role = Role::create(['name' => 'editor', 'guard' => 'web']);
             $role->assignCapability($capability);
             $this->user->assignRole($role);
 
-            expect($this->user->hasPermission('posts:edit'))->toBeTrue();
+            expect($this->user->hasPermission('post:edit'))->toBeTrue();
         });
 
         it('getAllPermissions includes capability permissions', function () {
@@ -285,11 +285,11 @@ describe('Direct Capability Assignment', function () {
 
         it('hasPermissionViaCapability checks direct capability permissions', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
-            $permission = Permission::create(['name' => 'posts:edit', 'guard' => 'web']);
+            $permission = Permission::create(['name' => 'post:edit', 'guard' => 'web']);
             $capability->grantPermission($permission);
             $this->user->assignCapability($capability);
 
-            expect($this->user->hasPermissionViaCapability('posts:edit'))->toBeTrue();
+            expect($this->user->hasPermissionViaCapability('post:edit'))->toBeTrue();
         });
     });
 });

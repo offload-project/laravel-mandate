@@ -20,7 +20,7 @@ describe('WildcardPermission', function () {
     describe('universal wildcard', function () {
         it('matches everything with asterisk', function () {
             expect($this->handler->matches('*', 'article:view'))->toBeTrue()
-                ->and($this->handler->matches('*', 'users:edit'))->toBeTrue()
+                ->and($this->handler->matches('*', 'user:edit'))->toBeTrue()
                 ->and($this->handler->matches('*', 'anything'))->toBeTrue();
         });
     });
@@ -30,7 +30,7 @@ describe('WildcardPermission', function () {
             expect($this->handler->matches('article:*', 'article:view'))->toBeTrue()
                 ->and($this->handler->matches('article:*', 'article:edit'))->toBeTrue()
                 ->and($this->handler->matches('article:*', 'article:delete'))->toBeTrue()
-                ->and($this->handler->matches('article:*', 'users:view'))->toBeFalse();
+                ->and($this->handler->matches('article:*', 'user:view'))->toBeFalse();
         });
 
         it('matches multi-segment actions', function () {
@@ -42,7 +42,7 @@ describe('WildcardPermission', function () {
     describe('prefix wildcard', function () {
         it('matches *.action patterns', function () {
             expect($this->handler->matches('*:view', 'article:view'))->toBeTrue()
-                ->and($this->handler->matches('*:view', 'users:view'))->toBeTrue()
+                ->and($this->handler->matches('*:view', 'user:view'))->toBeTrue()
                 ->and($this->handler->matches('*:view', 'article:edit'))->toBeFalse();
         });
     });
@@ -103,7 +103,7 @@ describe('WildcardPermission', function () {
             $permissions = collect([
                 Permission::create(['name' => 'article:view', 'guard' => 'web']),
                 Permission::create(['name' => 'article:edit', 'guard' => 'web']),
-                Permission::create(['name' => 'users:view', 'guard' => 'web']),
+                Permission::create(['name' => 'user:view', 'guard' => 'web']),
             ]);
 
             $matches = $this->handler->getMatchingPermissions('article:*', $permissions);

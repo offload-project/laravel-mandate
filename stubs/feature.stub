@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use OffloadProject\Mandate\Attributes\Description;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Label('{{ class }}')]
+#[Description('Feature description here')]
+#[Guard('{{ guard }}')]
+class {{ class }}
+{
+    /**
+     * The feature name used for lookups.
+     */
+    public string $name = '{{ name }}';
+
+    /**
+     * Resolve if the feature is active for the given user.
+     */
+    public function resolve(mixed $user): bool
+    {
+        // Implement your feature resolution logic here
+        return false;
+    }
+}

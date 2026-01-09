@@ -13,7 +13,7 @@ use OffloadProject\Mandate\Models\Permission;
  *
  * Supports the following patterns:
  * - "article:*" matches "article:view", "article:edit", "article:delete"
- * - "*.view" matches "article:view", "users:view", "posts:view"
+ * - "*.view" matches "article:view", "user:view", "post:view"
  * - "*" matches everything
  * - "article:edit,delete" matches "article:edit" and "article:delete"
  *

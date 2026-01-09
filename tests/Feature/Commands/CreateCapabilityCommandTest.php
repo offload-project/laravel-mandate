@@ -31,7 +31,7 @@ describe('CreateCapabilityCommand', function () {
     it('creates a capability with permissions', function () {
         $this->artisan('mandate:capability', [
             'name' => 'manage-posts',
-            '--permissions' => 'posts:view,posts:edit,posts:delete',
+            '--permissions' => 'post:view,post:edit,post:delete',
         ])->assertSuccessful()
             ->expectsOutputToContain('Assigned 3 permission(s)');
 

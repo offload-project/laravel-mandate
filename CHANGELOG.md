@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/offload-project/laravel-mandate/compare/v1.4.0...v2.0.0) (2026-01-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* mandate v2 ([#21](https://github.com/offload-project/laravel-mandate/issues/21))
+
+### Features
+
+* mandate v2 ([#21](https://github.com/offload-project/laravel-mandate/issues/21)) ([28d0a0e](https://github.com/offload-project/laravel-mandate/commit/28d0a0e92ea607242de30f10c9db7a8454473bb0))
+
 ## [1.4.0](https://github.com/offload-project/laravel-mandate/compare/v1.3.0...v1.4.0) (2026-01-03)
 
 

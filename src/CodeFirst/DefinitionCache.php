@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
  */
 final class DefinitionCache
 {
-    private const string CACHE_KEY_PREFIX = 'mandate.code_first';
+    private const CACHE_KEY_PREFIX = 'mandate.code_first';
 
     private CacheRepository $cache;
 

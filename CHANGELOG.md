@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/offload-project/laravel-mandate/compare/v2.0.0...v2.0.1) (2026-01-10)
+
+
+### Bug Fixes
+
+* lower php version ([#25](https://github.com/offload-project/laravel-mandate/issues/25)) ([8451a49](https://github.com/offload-project/laravel-mandate/commit/8451a493c0f72dfb03820c27a2fed0c3d8f4ce9e))
+
 ## [2.0.0](https://github.com/offload-project/laravel-mandate/compare/v1.4.0...v2.0.0) (2026-01-09)
 
 

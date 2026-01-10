@@ -15,10 +15,10 @@ class SystemRoles
 {
     #[Label('Administrator')]
     #[Description('Has all permissions')]
-    public const string ADMIN = 'admin';
+    public const ADMIN = 'admin';
 
     #[Label('Editor')]
-    public const string EDITOR = 'editor';
+    public const EDITOR = 'editor';
 
-    public const string VIEWER = 'viewer';
+    public const VIEWER = 'viewer';
 }

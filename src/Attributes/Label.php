@@ -13,7 +13,7 @@ use Attribute;
  *
  * @example
  * #[Label('View Users')]
- * public const string VIEW = 'user:view';
+ * public const VIEW = 'user:view';
  */
 #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_CLASS_CONSTANT)]
 final readonly class Label

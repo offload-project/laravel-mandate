@@ -13,7 +13,7 @@ use Attribute;
  *
  * @example
  * #[Context(ExportFeature::class)]
- * public const string EXPORT = 'user:export';
+ * public const EXPORT = 'user:export';
  */
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT)]
 final readonly class Context

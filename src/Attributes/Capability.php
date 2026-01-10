@@ -13,11 +13,11 @@ use Attribute;
  *
  * @example
  * #[Capability('user-management')]
- * public const string VIEW = 'user:view';
+ * public const VIEW = 'user:view';
  *
  * #[Capability('user-management')]
  * #[Capability('reporting')]
- * public const string EXPORT = 'user:export';
+ * public const EXPORT = 'user:export';
  */
 #[Attribute(Attribute::TARGET_CLASS_CONSTANT | Attribute::IS_REPEATABLE)]
 final readonly class Capability

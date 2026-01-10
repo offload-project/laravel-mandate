@@ -13,8 +13,8 @@ class ContentCapabilities
 {
     #[Label('Content Management')]
     #[Description('Manage all content')]
-    public const string MANAGE_CONTENT = 'content-management';
+    public const MANAGE_CONTENT = 'content-management';
 
     #[Label('User Management')]
-    public const string MANAGE_USERS = 'user-management';
+    public const MANAGE_USERS = 'user-management';
 }

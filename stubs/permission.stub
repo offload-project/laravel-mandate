@@ -13,17 +13,17 @@ final class {{ class }}
 {
     #[Label('View {{ resource }}')]
     #[Description('View {{ resource }} records')]
-    public const string VIEW = '{{ resource }}.view';
+    public const VIEW = '{{ resource }}.view';
 
     #[Label('Create {{ resource }}')]
     #[Description('Create new {{ resource }} records')]
-    public const string CREATE = '{{ resource }}.create';
+    public const CREATE = '{{ resource }}.create';
 
     #[Label('Update {{ resource }}')]
     #[Description('Update existing {{ resource }} records')]
-    public const string UPDATE = '{{ resource }}.update';
+    public const UPDATE = '{{ resource }}.update';
 
     #[Label('Delete {{ resource }}')]
     #[Description('Delete {{ resource }} records')]
-    public const string DELETE = '{{ resource }}.delete';
+    public const DELETE = '{{ resource }}.delete';
 }

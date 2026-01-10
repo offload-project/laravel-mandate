@@ -13,7 +13,7 @@ use Attribute;
  *
  * @example
  * #[Description('Allows viewing user profiles and account details')]
- * public const string VIEW = 'user:view';
+ * public const VIEW = 'user:view';
  */
 #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_CLASS_CONSTANT)]
 final readonly class Description

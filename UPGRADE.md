@@ -118,14 +118,14 @@ class UserPermissions
 {
     #[Label('View Users')]
     #[Description('Can view user list')]
-    public const string VIEW = 'user:view';
+    public const VIEW = 'user:view';
 }
 
 #[RoleSet('system')]
 #[Inherits(EditorRole::class)]
 class AdminRole
 {
-    public const string ADMIN = 'admin';
+    public const ADMIN = 'admin';
 }
 ```
 
@@ -142,14 +142,14 @@ class UserPermissions
 {
     #[Label('View Users')]
     #[Description('Can view user list')]
-    public const string VIEW = 'user:view';
+    public const VIEW = 'user:view';
 }
 
 #[Guard('web')]
 class SystemRoles
 {
     #[Label('Administrator')]
-    public const string ADMIN = 'admin';
+    public const ADMIN = 'admin';
 }
 ```
 
@@ -291,10 +291,10 @@ serve this purpose but with more power — they can be assigned to roles and opt
 #[PermissionsSet('users', label: 'User Management', description: 'Manage users')]
 class UserPermissions
 {
-    public const string VIEW = 'user:view';
-    public const string CREATE = 'user:create';
-    public const string EDIT = 'user:edit';
-    public const string DELETE = 'user:delete';
+    public const VIEW = 'user:view';
+    public const CREATE = 'user:create';
+    public const EDIT = 'user:edit';
+    public const DELETE = 'user:delete';
 }
 ```
 
@@ -306,16 +306,16 @@ class UserPermissions
 class UserPermissions
 {
     #[Label('View Users')]
-    public const string VIEW = 'user:view';
+    public const VIEW = 'user:view';
 
     #[Label('Create Users')]
-    public const string CREATE = 'user:create';
+    public const CREATE = 'user:create';
 
     #[Label('Edit Users')]
-    public const string EDIT = 'user:edit';
+    public const EDIT = 'user:edit';
 
     #[Label('Delete Users')]
-    public const string DELETE = 'user:delete';
+    public const DELETE = 'user:delete';
 }
 
 // 2. Create a capability to group them
@@ -438,8 +438,8 @@ If you used the code-first approach in 1.x with `#[PermissionsSet]` attributes, 
 #[PermissionsSet('users', label: 'User Management', description: 'Manage users')]
 class UserPermissions
 {
-    public const string VIEW = 'user:view';
-    public const string CREATE = 'user:create';
+    public const VIEW = 'user:view';
+    public const CREATE = 'user:create';
 }
 
 // After: Creates a "users-management" capability with those permissions

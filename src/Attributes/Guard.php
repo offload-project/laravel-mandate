@@ -15,7 +15,7 @@ use Attribute;
  * #[Guard('api')]
  * final class ApiPermissions
  * {
- *     public const string VIEW = 'api.view';
+ *     public const VIEW = 'api.view';
  * }
  */
 #[Attribute(Attribute::TARGET_CLASS)]

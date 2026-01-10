@@ -49,9 +49,9 @@ describe('MakePermissionCommand', function () {
             ->assertSuccessful();
 
         $content = File::get(app_path('Permissions/TestPermissions.php'));
-        expect($content)->toContain('const string VIEW');
-        expect($content)->toContain('const string CREATE');
-        expect($content)->toContain('const string UPDATE');
-        expect($content)->toContain('const string DELETE');
+        expect($content)->toContain('const VIEW');
+        expect($content)->toContain('const CREATE');
+        expect($content)->toContain('const UPDATE');
+        expect($content)->toContain('const DELETE');
     });
 })->skip(fn () => ! class_exists(Illuminate\Console\GeneratorCommand::class), 'GeneratorCommand not available');

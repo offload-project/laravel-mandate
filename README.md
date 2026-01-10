@@ -1457,7 +1457,7 @@ See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ## Requirements
 
-- PHP 8.4+
+- PHP 8.2+
 - Laravel 11.x or 12.x
 
 ## License

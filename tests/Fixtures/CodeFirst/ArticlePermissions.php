@@ -13,14 +13,14 @@ class ArticlePermissions
 {
     #[Label('View Articles')]
     #[Description('Allows viewing articles')]
-    public const string VIEW = 'article:view';
+    public const VIEW = 'article:view';
 
     #[Label('Create Articles')]
     #[Description('Allows creating new articles')]
-    public const string CREATE = 'article:create';
+    public const CREATE = 'article:create';
 
     #[Label('Edit Articles')]
-    public const string EDIT = 'article:edit';
+    public const EDIT = 'article:edit';
 
-    public const string DELETE = 'article:delete';
+    public const DELETE = 'article:delete';
 }

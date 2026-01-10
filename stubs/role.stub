@@ -13,13 +13,13 @@ final class {{ class }}
 {
     #[Label('Administrator')]
     #[Description('Full system access')]
-    public const string ADMIN = 'admin';
+    public const ADMIN = 'admin';
 
     #[Label('User')]
     #[Description('Standard user access')]
-    public const string USER = 'user';
+    public const USER = 'user';
 
     #[Label('Guest')]
     #[Description('Limited read-only access')]
-    public const string GUEST = 'guest';
+    public const GUEST = 'guest';
 }

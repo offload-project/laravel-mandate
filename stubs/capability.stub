@@ -13,5 +13,5 @@ final class {{ class }}
 {
     #[Label('{{ capability }} Management')]
     #[Description('Manage {{ capability }} resources')]
-    public const string MANAGE = '{{ capability }}-management';
+    public const MANAGE = '{{ capability }}-management';
 }

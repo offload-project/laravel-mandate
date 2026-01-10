@@ -23,12 +23,12 @@ final class UnauthorizedException extends HttpException
     /**
      * @var array<string>
      */
-    public private(set) array $requiredRoles = [];
+    public array $requiredRoles = [];
 
     /**
      * @var array<string>
      */
-    public private(set) array $requiredPermissions = [];
+    public array $requiredPermissions = [];
 
     public function __construct(
         string $message = 'Subject does not have the required authorization.',

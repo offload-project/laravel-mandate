@@ -980,17 +980,17 @@ class ArticlePermissions
 {
     #[Label('View Articles')]
     #[Description('Allows viewing articles')]
-    public const string VIEW = 'article:view';
+    public const VIEW = 'article:view';
 
     #[Label('Create Articles')]
     #[Description('Allows creating new articles')]
-    public const string CREATE = 'article:create';
+    public const CREATE = 'article:create';
 
     #[Label('Edit Articles')]
-    public const string EDIT = 'article:edit';
+    public const EDIT = 'article:edit';
 
     #[Label('Delete Articles')]
-    public const string DELETE = 'article:delete';
+    public const DELETE = 'article:delete';
 }
 ```
 
@@ -1010,14 +1010,14 @@ class SystemRoles
 {
     #[Label('Administrator')]
     #[Description('Has all permissions')]
-    public const string ADMIN = 'admin';
+    public const ADMIN = 'admin';
 
     #[Label('Editor')]
     #[Description('Can edit content')]
-    public const string EDITOR = 'editor';
+    public const EDITOR = 'editor';
 
     #[Label('Viewer')]
-    public const string VIEWER = 'viewer';
+    public const VIEWER = 'viewer';
 }
 ```
 
@@ -1097,7 +1097,8 @@ php artisan vendor:publish --tag=mandate-migrations-meta
 php artisan migrate
 ```
 
-This adds `label` and `description` columns to the permissions, roles, and capabilities tables. These columns are useful for displaying human-readable names in admin UIs, regardless of whether you use code-first definitions.
+This adds `label` and `description` columns to the permissions, roles, and capabilities tables. These columns are useful
+for displaying human-readable names in admin UIs, regardless of whether you use code-first definitions.
 
 ### Generator Commands
 
@@ -1128,7 +1129,8 @@ Generate TypeScript types for frontend type safety. The command automatically me
 - **Code-first definitions** — PHP classes with attributes (if enabled)
 - **Database records** — Permissions, roles, and capabilities from the database
 
-This allows you to define permissions in code (tied to features) while managing roles in the database (business-defined).
+This allows you to define permissions in code (tied to features) while managing roles in the database (
+business-defined).
 
 ```bash
 # Generate to configured location (default: resources/js/types/mandate.ts)
@@ -1199,7 +1201,7 @@ $user->assignRole('editor');
 On the frontend, use the generated TypeScript types:
 
 ```typescript
-import { ArticlePermissions, Roles, type Permission, type Role } from '@/types/mandate';
+import {ArticlePermissions, Roles, type Permission, type Role} from '@/types/mandate';
 
 // Type-safe permission checks
 function canEdit(userPermissions: Permission[]): boolean {
@@ -1235,15 +1237,15 @@ Event::listen(MandateSynced::class, function ($event) {
 
 ### Code-First Configuration Options
 
-| Option                          | Default                              | Description                              |
-|---------------------------------|--------------------------------------|------------------------------------------|
-| `code_first.enabled`            | `false`                              | Enable code-first mode                   |
-| `code_first.paths.permissions`  | `app_path('Permissions')`            | Directory to scan for permission classes |
-| `code_first.paths.roles`        | `app_path('Roles')`                  | Directory to scan for role classes       |
-| `code_first.paths.capabilities` | `app_path('Capabilities')`           | Directory to scan for capability classes |
-| `code_first.assignments`        | `[]`                                 | Role-permission/capability assignments   |
+| Option                          | Default                                | Description                              |
+|---------------------------------|----------------------------------------|------------------------------------------|
+| `code_first.enabled`            | `false`                                | Enable code-first mode                   |
+| `code_first.paths.permissions`  | `app_path('Permissions')`              | Directory to scan for permission classes |
+| `code_first.paths.roles`        | `app_path('Roles')`                    | Directory to scan for role classes       |
+| `code_first.paths.capabilities` | `app_path('Capabilities')`             | Directory to scan for capability classes |
+| `code_first.assignments`        | `[]`                                   | Role-permission/capability assignments   |
 | `code_first.typescript_path`    | `resource_path('js/types/mandate.ts')` | Default output path for TypeScript types |
-| `feature_generator`             | `null`                               | Custom feature generator class           |
+| `feature_generator`             | `null`                                 | Custom feature generator class           |
 
 ---
 
@@ -1455,7 +1457,7 @@ See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ## Requirements
 
-- PHP 8.4+
+- PHP 8.2+
 - Laravel 11.x or 12.x
 
 ## License

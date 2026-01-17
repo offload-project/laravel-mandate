@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/offload-project/laravel-mandate/compare/v2.0.1...v2.1.0) (2026-01-17)
+
+
+### Features
+
+* update signature for file gen commands ([#27](https://github.com/offload-project/laravel-mandate/issues/27)) ([89c1db5](https://github.com/offload-project/laravel-mandate/commit/89c1db51bea2ee76e642345c6ee38d0f37c1dd50))
+
 ## [2.0.1](https://github.com/offload-project/laravel-mandate/compare/v2.0.0...v2.0.1) (2026-01-10)
 
 

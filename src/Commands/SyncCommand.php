@@ -54,7 +54,14 @@ final class SyncCommand extends Command
         DefinitionCache $cache,
         MandateRegistrar $registrar
     ): int {
-        if (! config('mandate.code_first.enabled', false)) {
+        $codeFirstEnabled = config('mandate.code_first.enabled', false);
+        $seedOnly = $this->option('seed')
+            && ! $this->option('permissions')
+            && ! $this->option('roles')
+            && ! $this->option('capabilities');
+
+        // Allow --seed to work without code-first enabled
+        if (! $codeFirstEnabled && ! $seedOnly) {
             $this->components->error('Code-first mode is not enabled. Set mandate.code_first.enabled to true.');
 
             return self::FAILURE;
@@ -71,16 +78,16 @@ final class SyncCommand extends Command
         $isDryRun = (bool) $this->option('dry-run');
         /** @var string|null $guard */
         $guard = $this->option('guard') ?: null;
-        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities');
+        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities') && ! $seedOnly;
 
         if ($isDryRun) {
             $this->components->info('Dry run mode - no changes will be made.');
         }
 
-        // Determine what to sync
-        $syncPermissions = $syncAll || $this->option('permissions');
-        $syncRoles = $syncAll || $this->option('roles');
-        $syncCapabilities = ($syncAll || $this->option('capabilities')) && config('mandate.capabilities.enabled', false);
+        // Determine what to sync (skip if seed-only mode)
+        $syncPermissions = $codeFirstEnabled && ($syncAll || $this->option('permissions'));
+        $syncRoles = $codeFirstEnabled && ($syncAll || $this->option('roles'));
+        $syncCapabilities = $codeFirstEnabled && ($syncAll || $this->option('capabilities')) && config('mandate.capabilities.enabled', false);
 
         // Discover and sync
         if ($syncPermissions) {
@@ -414,7 +421,7 @@ final class SyncCommand extends Command
      */
     private function seedAssignments(?string $guard): void
     {
-        $assignments = config('mandate.code_first.assignments', []);
+        $assignments = config('mandate.assignments', []);
 
         if (empty($assignments)) {
             return;
@@ -438,28 +445,43 @@ final class SyncCommand extends Command
                 ->where('guard', $roleGuard)
                 ->first();
 
-            if (! $role) {
-                $this->components->warn("Role '{$roleName}' not found, skipping assignments.");
-
-                continue;
+            if ($role === null) {
+                $role = $roleClass::create([
+                    'name' => $roleName,
+                    'guard' => $roleGuard,
+                ]);
+                $this->components->twoColumnDetail(
+                    '  <fg=green>Created role</>',
+                    $roleName
+                );
             }
 
             // Sync permissions
             if (! empty($assignment['permissions'])) {
                 /** @var array<string> $permissionNames */
                 $permissionNames = $assignment['permissions'];
-                $permissionIds = collect($permissionNames)
-                    ->map(function (string $name) use ($permissionClass, $roleGuard) {
-                        /** @var Permission|null $permission */
-                        $permission = $permissionClass::query()
-                            ->where('name', $name)
-                            ->where('guard', $roleGuard)
-                            ->first();
+                $permissionIds = [];
 
-                        return $permission?->getKey();
-                    })
-                    ->filter()
-                    ->all();
+                foreach ($permissionNames as $permissionName) {
+                    /** @var Permission|null $permission */
+                    $permission = $permissionClass::query()
+                        ->where('name', $permissionName)
+                        ->where('guard', $roleGuard)
+                        ->first();
+
+                    if ($permission === null) {
+                        $permission = $permissionClass::create([
+                            'name' => $permissionName,
+                            'guard' => $roleGuard,
+                        ]);
+                        $this->components->twoColumnDetail(
+                            '  <fg=green>Created permission</>',
+                            $permissionName
+                        );
+                    }
+
+                    $permissionIds[] = $permission->getKey();
+                }
 
                 if (! empty($permissionIds)) {
                     $role->permissions()->syncWithoutDetaching($permissionIds);
@@ -474,18 +496,28 @@ final class SyncCommand extends Command
             if (config('mandate.capabilities.enabled', false) && ! empty($assignment['capabilities'])) {
                 /** @var array<string> $capabilityNames */
                 $capabilityNames = $assignment['capabilities'];
-                $capabilityIds = collect($capabilityNames)
-                    ->map(function (string $name) use ($capabilityClass, $roleGuard) {
-                        /** @var Capability|null $capability */
-                        $capability = $capabilityClass::query()
-                            ->where('name', $name)
-                            ->where('guard', $roleGuard)
-                            ->first();
+                $capabilityIds = [];
 
-                        return $capability?->getKey();
-                    })
-                    ->filter()
-                    ->all();
+                foreach ($capabilityNames as $capabilityName) {
+                    /** @var Capability|null $capability */
+                    $capability = $capabilityClass::query()
+                        ->where('name', $capabilityName)
+                        ->where('guard', $roleGuard)
+                        ->first();
+
+                    if ($capability === null) {
+                        $capability = $capabilityClass::create([
+                            'name' => $capabilityName,
+                            'guard' => $roleGuard,
+                        ]);
+                        $this->components->twoColumnDetail(
+                            '  <fg=green>Created capability</>',
+                            $capabilityName
+                        );
+                    }
+
+                    $capabilityIds[] = $capability->getKey();
+                }
 
                 if (! empty($capabilityIds)) {
                     $role->capabilities()->syncWithoutDetaching($capabilityIds);

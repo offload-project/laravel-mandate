@@ -1076,29 +1076,32 @@ The sync is **additive only** — it never deletes database records to prevent d
 
 ### Seeding Role Assignments
 
-Configure role-permission assignments in the config file:
+Configure role-permission assignments in the config file. This works with **both code-first and database-only workflows**:
 
 ```php
 // config/mandate.php
-'code_first' => [
-    'enabled' => true,
-    'assignments' => [
-        'admin' => [
-            'permissions' => ['article:*', 'user:*'],
-            'capabilities' => ['content-management'],
-        ],
-        'editor' => [
-            'permissions' => ['article:view', 'article:edit'],
-        ],
+'assignments' => [
+    'admin' => [
+        'permissions' => ['article:*', 'user:*'],
+        'capabilities' => ['content-management'],
+    ],
+    'editor' => [
+        'permissions' => ['article:view', 'article:edit'],
     ],
 ],
 ```
 
-Then sync with the `--seed` flag:
+Then seed with the `--seed` flag:
 
 ```bash
 php artisan mandate:sync --seed
 ```
+
+The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the database, then assign permissions to roles as configured. This makes it easy to define your entire RBAC structure in config.
+
+**Behavior based on code-first setting:**
+- **Code-first enabled**: Syncs PHP class definitions to database first, then seeds assignments
+- **Code-first disabled**: Only seeds assignments (useful for database-only workflows)
 
 ### Label and Description Columns
 
@@ -1247,6 +1250,12 @@ Event::listen(MandateSynced::class, function ($event) {
 });
 ```
 
+### Assignments Configuration
+
+| Option        | Default | Description                                                                |
+|---------------|---------|----------------------------------------------------------------------------|
+| `assignments` | `[]`    | Role-permission/capability assignments (works with or without code-first)  |
+
 ### Code-First Configuration Options
 
 | Option                          | Default                                | Description                              |
@@ -1255,7 +1264,6 @@ Event::listen(MandateSynced::class, function ($event) {
 | `code_first.paths.permissions`  | `app_path('Permissions')`              | Directory to scan for permission classes |
 | `code_first.paths.roles`        | `app_path('Roles')`                    | Directory to scan for role classes       |
 | `code_first.paths.capabilities` | `app_path('Capabilities')`             | Directory to scan for capability classes |
-| `code_first.assignments`        | `[]`                                   | Role-permission/capability assignments   |
 | `code_first.typescript_path`    | `resource_path('js/types/mandate.ts')` | Default output path for TypeScript types |
 | `feature_generator`             | `null`                                 | Custom feature generator class           |
 

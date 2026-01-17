@@ -81,7 +81,7 @@ final class MakeCapabilityCommand extends GeneratorCommand
         }
 
         if ($permissionsOption !== null) {
-            $permissions = array_map('trim', explode(',', $permissionsOption));
+            $permissions = array_filter(array_map('trim', explode(',', $permissionsOption)));
             $assignedCount = 0;
 
             /** @var class-string<Permission> $permissionClass */

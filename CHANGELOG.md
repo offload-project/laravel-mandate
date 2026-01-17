@@ -1,7 +1,20 @@
 # Changelog
 
+## [3.0.0](https://github.com/offload-project/laravel-mandate/compare/v2.1.0...v3.0.0) (2026-01-17)
+
+Refactored the role/permission assignments configuration to make it work independently of code-first mode. The assignments configuration is moved from mandate.code_first.assignments to mandate.assignments at the top level, and the --seed flag now works even when code-first is disabled.
+
+### ⚠ BREAKING CHANGES
+
+* use assignments to seed roles and permissions without code-fir… ([#29](https://github.com/offload-project/laravel-mandate/issues/29))
+
+### Features
+
+* use assignments to seed roles and permissions without code-fir… ([#29](https://github.com/offload-project/laravel-mandate/issues/29)) ([1330a65](https://github.com/offload-project/laravel-mandate/commit/1330a65f4fb7a016c21ca1bf30eff8f3d5a36270))
+
 ## [2.1.0](https://github.com/offload-project/laravel-mandate/compare/v2.0.1...v2.1.0) (2026-01-17)
 
+Consolidates the command interface by renaming file generation commands from mandate:make:* to mandate:* and merging database creation functionality into the same commands via a --db flag. This simplifies the command structure and provides a more intuitive API where the default behavior generates PHP classes (code-first approach) and the --db flag creates database records directly (database-first approach).
 
 ### Features
 

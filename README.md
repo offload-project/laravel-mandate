@@ -1094,14 +1094,14 @@ Configure role-permission assignments in the config file. This works with **both
 Then seed with the `--seed` flag:
 
 ```bash
-# With code-first enabled (syncs definitions AND seeds assignments)
-php artisan mandate:sync --seed
-
-# Without code-first (seeds assignments only)
 php artisan mandate:sync --seed
 ```
 
-The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the database. This makes it easy to define your entire RBAC structure in config and have it created automatically.
+The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the database, then assign permissions to roles as configured. This makes it easy to define your entire RBAC structure in config.
+
+**Behavior based on code-first setting:**
+- **Code-first enabled**: Syncs PHP class definitions to database first, then seeds assignments
+- **Code-first disabled**: Only seeds assignments (useful for database-only workflows)
 
 ### Label and Description Columns
 

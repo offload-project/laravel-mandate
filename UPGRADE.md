@@ -235,6 +235,7 @@ php artisan mandate:capability ContentCapabilities
 # Database-first commands (use --db flag)
 php artisan mandate:permission user:view --db
 php artisan mandate:role admin --db
+php artisan mandate:capability manage-posts --db
 
 # Sync code-first definitions to database
 php artisan mandate:sync

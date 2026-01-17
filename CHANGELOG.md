@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/offload-project/laravel-mandate/compare/v2.1.0...v3.0.0) (2026-01-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* use assignments to seed roles and permissions without code-fir… ([#29](https://github.com/offload-project/laravel-mandate/issues/29))
+
+### Features
+
+* use assignments to seed roles and permissions without code-fir… ([#29](https://github.com/offload-project/laravel-mandate/issues/29)) ([1330a65](https://github.com/offload-project/laravel-mandate/commit/1330a65f4fb7a016c21ca1bf30eff8f3d5a36270))
+
 ## [2.1.0](https://github.com/offload-project/laravel-mandate/compare/v2.0.1...v2.1.0) (2026-01-17)
 
 

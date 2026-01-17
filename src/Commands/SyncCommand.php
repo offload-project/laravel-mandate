@@ -451,7 +451,7 @@ final class SyncCommand extends Command
                     'guard' => $roleGuard,
                 ]);
                 $this->components->twoColumnDetail(
-                    "  <fg=green>Created role</>",
+                    '  <fg=green>Created role</>',
                     $roleName
                 );
             }

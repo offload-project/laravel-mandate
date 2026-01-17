@@ -141,19 +141,28 @@ describe('SyncCommand --seed', function () {
         expect($role->hasPermission('article:edit'))->toBeTrue();
     });
 
-    it('warns when role not found during seeding', function () {
+    it('creates roles and permissions that do not exist', function () {
         config(['mandate.code_first.enabled' => false]);
 
-        // Configure assignments for non-existent role
+        // Configure assignments for non-existent role and permissions
         config(['mandate.assignments' => [
-            'nonexistent' => [
-                'permissions' => ['some:permission'],
+            'new-role' => [
+                'permissions' => ['new:permission', 'another:permission'],
             ],
         ]]);
 
         $this->artisan('mandate:sync', ['--seed' => true])
-            ->expectsOutputToContain("Role 'nonexistent' not found")
             ->assertSuccessful();
+
+        // Role should be created
+        $role = Role::where('name', 'new-role')->first();
+        expect($role)->not->toBeNull();
+
+        // Permissions should be created and assigned
+        expect(Permission::where('name', 'new:permission')->exists())->toBeTrue();
+        expect(Permission::where('name', 'another:permission')->exists())->toBeTrue();
+        expect($role->hasPermission('new:permission'))->toBeTrue();
+        expect($role->hasPermission('another:permission'))->toBeTrue();
     });
 
     it('reads assignments from top-level config not code_first', function () {

@@ -1097,11 +1097,11 @@ Then seed with the `--seed` flag:
 # With code-first enabled (syncs definitions AND seeds assignments)
 php artisan mandate:sync --seed
 
-# Without code-first (seeds assignments only - roles/permissions must exist in database)
+# Without code-first (seeds assignments only)
 php artisan mandate:sync --seed
 ```
 
-This is useful for database-only workflows where you create roles and permissions via migrations or seeders, then use the config to define which permissions belong to which roles.
+The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the database. This makes it easy to define your entire RBAC structure in config and have it created automatically.
 
 ### Label and Description Columns
 

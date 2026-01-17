@@ -445,10 +445,15 @@ final class SyncCommand extends Command
                 ->where('guard', $roleGuard)
                 ->first();
 
-            if (! $role) {
-                $this->components->warn("Role '{$roleName}' not found, skipping assignments.");
-
-                continue;
+            if ($role === null) {
+                $role = $roleClass::create([
+                    'name' => $roleName,
+                    'guard' => $roleGuard,
+                ]);
+                $this->components->twoColumnDetail(
+                    "  <fg=green>Created role</>",
+                    $roleName
+                );
             }
 
             // Sync permissions
@@ -463,9 +468,15 @@ final class SyncCommand extends Command
                             ->where('guard', $roleGuard)
                             ->first();
 
-                        return $permission?->getKey();
+                        if ($permission === null) {
+                            $permission = $permissionClass::create([
+                                'name' => $name,
+                                'guard' => $roleGuard,
+                            ]);
+                        }
+
+                        return $permission->getKey();
                     })
-                    ->filter()
                     ->all();
 
                 if (! empty($permissionIds)) {
@@ -489,9 +500,15 @@ final class SyncCommand extends Command
                             ->where('guard', $roleGuard)
                             ->first();
 
-                        return $capability?->getKey();
+                        if ($capability === null) {
+                            $capability = $capabilityClass::create([
+                                'name' => $name,
+                                'guard' => $roleGuard,
+                            ]);
+                        }
+
+                        return $capability->getKey();
                     })
-                    ->filter()
                     ->all();
 
                 if (! empty($capabilityIds)) {

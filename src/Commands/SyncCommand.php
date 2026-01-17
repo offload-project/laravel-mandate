@@ -460,24 +460,28 @@ final class SyncCommand extends Command
             if (! empty($assignment['permissions'])) {
                 /** @var array<string> $permissionNames */
                 $permissionNames = $assignment['permissions'];
-                $permissionIds = collect($permissionNames)
-                    ->map(function (string $name) use ($permissionClass, $roleGuard) {
-                        /** @var Permission|null $permission */
-                        $permission = $permissionClass::query()
-                            ->where('name', $name)
-                            ->where('guard', $roleGuard)
-                            ->first();
+                $permissionIds = [];
 
-                        if ($permission === null) {
-                            $permission = $permissionClass::create([
-                                'name' => $name,
-                                'guard' => $roleGuard,
-                            ]);
-                        }
+                foreach ($permissionNames as $permissionName) {
+                    /** @var Permission|null $permission */
+                    $permission = $permissionClass::query()
+                        ->where('name', $permissionName)
+                        ->where('guard', $roleGuard)
+                        ->first();
 
-                        return $permission->getKey();
-                    })
-                    ->all();
+                    if ($permission === null) {
+                        $permission = $permissionClass::create([
+                            'name' => $permissionName,
+                            'guard' => $roleGuard,
+                        ]);
+                        $this->components->twoColumnDetail(
+                            '  <fg=green>Created permission</>',
+                            $permissionName
+                        );
+                    }
+
+                    $permissionIds[] = $permission->getKey();
+                }
 
                 if (! empty($permissionIds)) {
                     $role->permissions()->syncWithoutDetaching($permissionIds);
@@ -492,24 +496,28 @@ final class SyncCommand extends Command
             if (config('mandate.capabilities.enabled', false) && ! empty($assignment['capabilities'])) {
                 /** @var array<string> $capabilityNames */
                 $capabilityNames = $assignment['capabilities'];
-                $capabilityIds = collect($capabilityNames)
-                    ->map(function (string $name) use ($capabilityClass, $roleGuard) {
-                        /** @var Capability|null $capability */
-                        $capability = $capabilityClass::query()
-                            ->where('name', $name)
-                            ->where('guard', $roleGuard)
-                            ->first();
+                $capabilityIds = [];
 
-                        if ($capability === null) {
-                            $capability = $capabilityClass::create([
-                                'name' => $name,
-                                'guard' => $roleGuard,
-                            ]);
-                        }
+                foreach ($capabilityNames as $capabilityName) {
+                    /** @var Capability|null $capability */
+                    $capability = $capabilityClass::query()
+                        ->where('name', $capabilityName)
+                        ->where('guard', $roleGuard)
+                        ->first();
 
-                        return $capability->getKey();
-                    })
-                    ->all();
+                    if ($capability === null) {
+                        $capability = $capabilityClass::create([
+                            'name' => $capabilityName,
+                            'guard' => $roleGuard,
+                        ]);
+                        $this->components->twoColumnDetail(
+                            '  <fg=green>Created capability</>',
+                            $capabilityName
+                        );
+                    }
+
+                    $capabilityIds[] = $capability->getKey();
+                }
 
                 if (! empty($capabilityIds)) {
                     $role->capabilities()->syncWithoutDetaching($capabilityIds);

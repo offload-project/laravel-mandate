@@ -93,3 +93,91 @@ describe('SyncCommand', function () {
         Event::assertDispatched(MandateSynced::class);
     });
 })->skip(fn () => ! class_exists(OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer::class), 'Code-first not implemented');
+
+describe('SyncCommand --seed', function () {
+    it('works without code-first enabled', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        // Create role and permission in database
+        $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+        $permission = Permission::create(['name' => 'user:manage', 'guard' => 'web']);
+
+        // Configure assignments
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => ['user:manage'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role->refresh();
+        expect($role->hasPermission('user:manage'))->toBeTrue();
+    });
+
+    it('seeds role-permission assignments from config', function () {
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirst']);
+        config(['mandate.code_first.paths.roles' => __DIR__.'/../../Fixtures/CodeFirst']);
+
+        // Create role and permission
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Permission::create(['name' => 'article:view', 'guard' => 'web']);
+        Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+
+        // Configure assignments
+        config(['mandate.assignments' => [
+            'editor' => [
+                'permissions' => ['article:view', 'article:edit'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role->refresh();
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:edit'))->toBeTrue();
+    });
+
+    it('warns when role not found during seeding', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        // Configure assignments for non-existent role
+        config(['mandate.assignments' => [
+            'nonexistent' => [
+                'permissions' => ['some:permission'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->expectsOutputToContain("Role 'nonexistent' not found")
+            ->assertSuccessful();
+    });
+
+    it('reads assignments from top-level config not code_first', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        // Create role and permission
+        $role = Role::create(['name' => 'tester', 'guard' => 'web']);
+        Permission::create(['name' => 'test:run', 'guard' => 'web']);
+
+        // Set assignments at wrong location (old location) - should NOT work
+        config(['mandate.code_first.assignments' => [
+            'tester' => [
+                'permissions' => ['test:run'],
+            ],
+        ]]);
+
+        // Ensure top-level assignments is empty
+        config(['mandate.assignments' => []]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role->refresh();
+        // Should NOT have the permission since we used wrong config location
+        expect($role->hasPermission('test:run'))->toBeFalse();
+    });
+});

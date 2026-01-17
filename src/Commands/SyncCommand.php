@@ -54,7 +54,14 @@ final class SyncCommand extends Command
         DefinitionCache $cache,
         MandateRegistrar $registrar
     ): int {
-        if (! config('mandate.code_first.enabled', false)) {
+        $codeFirstEnabled = config('mandate.code_first.enabled', false);
+        $seedOnly = $this->option('seed')
+            && ! $this->option('permissions')
+            && ! $this->option('roles')
+            && ! $this->option('capabilities');
+
+        // Allow --seed to work without code-first enabled
+        if (! $codeFirstEnabled && ! $seedOnly) {
             $this->components->error('Code-first mode is not enabled. Set mandate.code_first.enabled to true.');
 
             return self::FAILURE;
@@ -71,16 +78,16 @@ final class SyncCommand extends Command
         $isDryRun = (bool) $this->option('dry-run');
         /** @var string|null $guard */
         $guard = $this->option('guard') ?: null;
-        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities');
+        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities') && ! $seedOnly;
 
         if ($isDryRun) {
             $this->components->info('Dry run mode - no changes will be made.');
         }
 
-        // Determine what to sync
-        $syncPermissions = $syncAll || $this->option('permissions');
-        $syncRoles = $syncAll || $this->option('roles');
-        $syncCapabilities = ($syncAll || $this->option('capabilities')) && config('mandate.capabilities.enabled', false);
+        // Determine what to sync (skip if seed-only mode)
+        $syncPermissions = $codeFirstEnabled && ($syncAll || $this->option('permissions'));
+        $syncRoles = $codeFirstEnabled && ($syncAll || $this->option('roles'));
+        $syncCapabilities = $codeFirstEnabled && ($syncAll || $this->option('capabilities')) && config('mandate.capabilities.enabled', false);
 
         // Discover and sync
         if ($syncPermissions) {
@@ -414,7 +421,7 @@ final class SyncCommand extends Command
      */
     private function seedAssignments(?string $guard): void
     {
-        $assignments = config('mandate.code_first.assignments', []);
+        $assignments = config('mandate.assignments', []);
 
         if (empty($assignments)) {
             return;

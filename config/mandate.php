@@ -80,6 +80,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Role Assignments
+    |--------------------------------------------------------------------------
+    |
+    | Define role-permission and role-capability assignments for seeding.
+    | Use `php artisan mandate:sync --seed` to apply these assignments.
+    | This works with both code-first and database-only workflows.
+    |
+    */
+
+    'assignments' => [
+        // 'admin' => [
+        //     'permissions' => ['user:*', 'article:*'],
+        //     'capabilities' => ['user-management'],
+        // ],
+        // 'editor' => [
+        //     'permissions' => ['article:view', 'article:edit'],
+        // ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Code-First Definitions
     |--------------------------------------------------------------------------
     |
@@ -89,7 +110,6 @@ return [
     |
     | enabled: Whether code-first mode is active
     | paths: Directories to scan for definition classes
-    | assignments: Role-permission and role-capability assignments for seeding
     |
     */
 
@@ -100,16 +120,6 @@ return [
             'permissions' => app_path('Permissions'),
             'roles' => app_path('Roles'),
             'capabilities' => app_path('Capabilities'),
-        ],
-
-        'assignments' => [
-            // 'admin' => [
-            //     'permissions' => ['user:*', 'article:*'],
-            //     'capabilities' => ['user-management'],
-            // ],
-            // 'editor' => [
-            //     'permissions' => ['article:view', 'article:edit'],
-            // ],
         ],
 
         'typescript_path' => resource_path('js/types/mandate.ts'),

@@ -185,6 +185,14 @@ return [
 ```php
 // config/mandate.php
 return [
+    // Role-permission assignments (works with or without code-first)
+    'assignments' => [
+        'admin' => [
+            'permissions' => ['user:*', 'article:*'],
+            'capabilities' => ['user-management'],
+        ],
+    ],
+
     // Code-first is now optional (disabled by default)
     'code_first' => [
         'enabled' => false,
@@ -192,12 +200,6 @@ return [
             'permissions' => app_path('Permissions'),
             'roles' => app_path('Roles'),
             'capabilities' => app_path('Capabilities'),
-        ],
-        'assignments' => [
-            'admin' => [
-                'permissions' => ['user:*', 'article:*'],
-                'capabilities' => ['user-management'],
-            ],
         ],
         'typescript_path' => resource_path('js/types/mandate.ts'),
     ],

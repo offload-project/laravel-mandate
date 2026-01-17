@@ -6,20 +6,69 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Guard;
+use OffloadProject\Mandate\Models\Permission;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * Generate a new permission class for code-first definitions.
+ * Create a new permission class or database record.
+ *
+ * Usage:
+ * - php artisan mandate:permission ArticlePermissions (generates class)
+ * - php artisan mandate:permission article:view --db (creates in database)
  */
-#[AsCommand(name: 'mandate:make:permission')]
+#[AsCommand(name: 'mandate:permission')]
 final class MakePermissionCommand extends GeneratorCommand
 {
-    protected $name = 'mandate:make:permission';
+    protected $name = 'mandate:permission';
 
-    protected $description = 'Create a new permission class for code-first definitions';
+    protected $description = 'Create a new permission class or database record';
 
     protected $type = 'Permission';
+
+    /** @phpstan-ignore method.childReturnType */
+    public function handle(): int
+    {
+        if ($this->option('db')) {
+            return $this->createInDatabase();
+        }
+
+        return parent::handle() === false ? self::FAILURE : self::SUCCESS;
+    }
+
+    protected function createInDatabase(): int
+    {
+        /** @var string $name */
+        $name = $this->getNameInput();
+
+        /** @var string|null $guard */
+        $guard = $this->option('guard');
+        $guard ??= Guard::getDefaultName();
+
+        /** @var class-string<Permission> $permissionClass */
+        $permissionClass = config('mandate.models.permission', Permission::class);
+
+        $existing = $permissionClass::query()
+            ->where('name', $name)
+            ->where('guard', $guard)
+            ->first();
+
+        if ($existing) {
+            $this->components->warn("Permission '{$name}' already exists for guard '{$guard}'.");
+
+            return self::SUCCESS;
+        }
+
+        $permissionClass::create([
+            'name' => $name,
+            'guard' => $guard,
+        ]);
+
+        $this->components->info("Permission '{$name}' created for guard '{$guard}'.");
+
+        return self::SUCCESS;
+    }
 
     protected function getStub(): string
     {
@@ -43,8 +92,9 @@ final class MakePermissionCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['guard', 'g', InputOption::VALUE_OPTIONAL, 'The guard to use for the permission class', 'web'],
-            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the permission already exists'],
+            ['guard', 'g', InputOption::VALUE_OPTIONAL, 'The guard to use', 'web'],
+            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if it already exists'],
+            ['db', null, InputOption::VALUE_NONE, 'Create a database record instead of a class file'],
         ];
     }
 

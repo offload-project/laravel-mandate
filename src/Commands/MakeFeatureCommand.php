@@ -13,10 +13,10 @@ use Symfony\Component\Console\Attribute\AsCommand;
  *
  * Delegates to a configured FeatureGenerator implementation.
  */
-#[AsCommand(name: 'mandate:make:feature')]
+#[AsCommand(name: 'mandate:feature')]
 final class MakeFeatureCommand extends Command
 {
-    protected $signature = 'mandate:make:feature
+    protected $signature = 'mandate:feature
                             {name : The name of the feature}
                             {--guard=web : The guard to use}
                             {--force : Overwrite the feature if it exists}';

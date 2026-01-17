@@ -5,10 +5,11 @@ declare(strict_types=1);
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 
-describe('CreateRoleCommand', function () {
-    it('creates a role', function () {
+describe('mandate:role --db', function () {
+    it('creates a role in database', function () {
         $this->artisan('mandate:role', [
             'name' => 'admin',
+            '--db' => true,
         ])
             ->assertSuccessful();
 
@@ -19,6 +20,7 @@ describe('CreateRoleCommand', function () {
         $this->artisan('mandate:role', [
             'name' => 'admin',
             '--guard' => 'api',
+            '--db' => true,
         ])
             ->assertSuccessful();
 
@@ -32,6 +34,7 @@ describe('CreateRoleCommand', function () {
         $this->artisan('mandate:role', [
             'name' => 'editor',
             '--permissions' => 'article:view,article:edit',
+            '--db' => true,
         ])
             ->assertSuccessful();
 
@@ -45,6 +48,7 @@ describe('CreateRoleCommand', function () {
 
         $this->artisan('mandate:role', [
             'name' => 'admin',
+            '--db' => true,
         ])
             ->assertSuccessful();
     });

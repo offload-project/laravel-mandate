@@ -46,6 +46,9 @@ abstract class TestCase extends Orchestra
         $app['config']->set('auth.guards.web.provider', 'users');
 
         $app['config']->set('mandate.events', false);
+
+        // Use array cache driver for tests to avoid needing a cache table
+        $app['config']->set('cache.default', 'array');
     }
 
     protected function setUpDatabase(): void

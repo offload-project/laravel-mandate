@@ -6,20 +6,94 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Guard;
+use OffloadProject\Mandate\Models\Permission;
+use OffloadProject\Mandate\Models\Role;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * Generate a new role class for code-first definitions.
+ * Create a new role class or database record.
+ *
+ * Usage:
+ * - php artisan mandate:role SystemRoles (generates class)
+ * - php artisan mandate:role admin --db (creates in database)
+ * - php artisan mandate:role admin --db --permissions=article:view,article:edit
  */
-#[AsCommand(name: 'mandate:make:role')]
+#[AsCommand(name: 'mandate:role')]
 final class MakeRoleCommand extends GeneratorCommand
 {
-    protected $name = 'mandate:make:role';
+    protected $name = 'mandate:role';
 
-    protected $description = 'Create a new role class for code-first definitions';
+    protected $description = 'Create a new role class or database record';
 
     protected $type = 'Role';
+
+    /** @phpstan-ignore method.childReturnType */
+    public function handle(): int
+    {
+        if ($this->option('db')) {
+            return $this->createInDatabase();
+        }
+
+        return parent::handle() === false ? self::FAILURE : self::SUCCESS;
+    }
+
+    protected function createInDatabase(): int
+    {
+        /** @var string $name */
+        $name = $this->getNameInput();
+
+        /** @var string|null $guard */
+        $guard = $this->option('guard');
+        $guard ??= Guard::getDefaultName();
+
+        /** @var string|null $permissionsOption */
+        $permissionsOption = $this->option('permissions');
+
+        /** @var class-string<Role> $roleClass */
+        $roleClass = config('mandate.models.role', Role::class);
+
+        $existing = $roleClass::query()
+            ->where('name', $name)
+            ->where('guard', $guard)
+            ->first();
+
+        if ($existing) {
+            $this->components->warn("Role '{$name}' already exists for guard '{$guard}'.");
+            $role = $existing;
+        } else {
+            $role = $roleClass::create([
+                'name' => $name,
+                'guard' => $guard,
+            ]);
+
+            $this->components->info("Role '{$name}' created for guard '{$guard}'.");
+        }
+
+        if ($permissionsOption !== null) {
+            $permissions = array_map('trim', explode(',', $permissionsOption));
+            $assignedCount = 0;
+
+            /** @var class-string<Permission> $permissionClass */
+            $permissionClass = config('mandate.models.permission', Permission::class);
+
+            foreach ($permissions as $permissionName) {
+                $permission = $permissionClass::findOrCreate($permissionName, $guard);
+
+                if (! $role->hasPermission($permission)) {
+                    $role->grantPermission($permission);
+                    $assignedCount++;
+                }
+            }
+
+            if ($assignedCount > 0) {
+                $this->components->info("Assigned {$assignedCount} permission(s) to role '{$name}'.");
+            }
+        }
+
+        return self::SUCCESS;
+    }
 
     protected function getStub(): string
     {
@@ -43,8 +117,10 @@ final class MakeRoleCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['guard', 'g', InputOption::VALUE_OPTIONAL, 'The guard to use for the role class', 'web'],
-            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if the role already exists'],
+            ['guard', 'g', InputOption::VALUE_OPTIONAL, 'The guard to use', 'web'],
+            ['force', 'f', InputOption::VALUE_NONE, 'Create the class even if it already exists'],
+            ['db', null, InputOption::VALUE_NONE, 'Create a database record instead of a class file'],
+            ['permissions', null, InputOption::VALUE_OPTIONAL, 'Comma-separated permissions to assign (with --db)'],
         ];
     }
 

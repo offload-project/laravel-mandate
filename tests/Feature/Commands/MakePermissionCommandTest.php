@@ -27,14 +27,14 @@ describe('MakePermissionCommand', function () {
     });
 
     it('generates a permission class file', function () {
-        $this->artisan('mandate:make:permission', ['name' => 'TestPermissions'])
+        $this->artisan('mandate:permission', ['name' => 'TestPermissions'])
             ->assertSuccessful();
 
         expect(File::exists(app_path('Permissions/TestPermissions.php')))->toBeTrue();
     });
 
     it('includes guard attribute', function () {
-        $this->artisan('mandate:make:permission', [
+        $this->artisan('mandate:permission', [
             'name' => 'TestPermissions',
             '--guard' => 'api',
         ])
@@ -45,7 +45,7 @@ describe('MakePermissionCommand', function () {
     });
 
     it('includes CRUD constants', function () {
-        $this->artisan('mandate:make:permission', ['name' => 'TestPermissions'])
+        $this->artisan('mandate:permission', ['name' => 'TestPermissions'])
             ->assertSuccessful();
 
         $content = File::get(app_path('Permissions/TestPermissions.php'));

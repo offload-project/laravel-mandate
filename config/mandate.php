@@ -120,7 +120,7 @@ return [
     | Feature Generator
     |--------------------------------------------------------------------------
     |
-    | Class that handles generating feature classes for the mandate:make:feature
+    | Class that handles generating feature classes for the mandate:feature
     | command. External packages (e.g., Flagged) can provide their own generator.
     | Must implement OffloadProject\Mandate\Contracts\FeatureGenerator.
     |

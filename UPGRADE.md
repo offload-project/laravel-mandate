@@ -227,14 +227,15 @@ php artisan mandate:role SystemRoles
 **After (2.x):**
 
 ```bash
-# Database-first commands (create directly in database)
-php artisan mandate:permission user:view
-php artisan mandate:role admin
+# Code-first commands (generate PHP classes) - default behavior
+php artisan mandate:permission UserPermissions
+php artisan mandate:role SystemRoles
+php artisan mandate:capability ContentCapabilities
 
-# Code-first commands (generate PHP classes)
-php artisan mandate:make:permission UserPermissions
-php artisan mandate:make:role SystemRoles
-php artisan mandate:make:capability ContentCapabilities
+# Database-first commands (use --db flag)
+php artisan mandate:permission user:view --db
+php artisan mandate:role admin --db
+php artisan mandate:capability manage-posts --db
 
 # Sync code-first definitions to database
 php artisan mandate:sync

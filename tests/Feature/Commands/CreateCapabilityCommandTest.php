@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 use OffloadProject\Mandate\Models\Capability;
 
-beforeEach(function () {
-    $this->enableCapabilities();
-});
+describe('mandate:capability --db', function () {
+    beforeEach(function () {
+        $this->enableCapabilities();
+    });
 
-describe('CreateCapabilityCommand', function () {
-    it('creates a capability', function () {
-        $this->artisan('mandate:capability', ['name' => 'manage-posts'])
+    it('creates a capability in database', function () {
+        $this->artisan('mandate:capability', [
+            'name' => 'manage-posts',
+            '--db' => true,
+        ])
             ->assertSuccessful()
             ->expectsOutputToContain("Capability 'manage-posts' created");
 
@@ -21,6 +24,7 @@ describe('CreateCapabilityCommand', function () {
         $this->artisan('mandate:capability', [
             'name' => 'manage-posts',
             '--guard' => 'api',
+            '--db' => true,
         ])->assertSuccessful();
 
         $capability = Capability::where('name', 'manage-posts')->first();
@@ -32,6 +36,7 @@ describe('CreateCapabilityCommand', function () {
         $this->artisan('mandate:capability', [
             'name' => 'manage-posts',
             '--permissions' => 'post:view,post:edit,post:delete',
+            '--db' => true,
         ])->assertSuccessful()
             ->expectsOutputToContain('Assigned 3 permission(s)');
 
@@ -43,15 +48,23 @@ describe('CreateCapabilityCommand', function () {
     it('warns when capability already exists', function () {
         Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
-        $this->artisan('mandate:capability', ['name' => 'manage-posts'])
+        $this->artisan('mandate:capability', [
+            'name' => 'manage-posts',
+            '--db' => true,
+        ])
             ->assertSuccessful()
             ->expectsOutputToContain('already exists');
     });
+});
 
+describe('mandate:capability --db when capabilities disabled', function () {
     it('fails when capabilities are disabled', function () {
         config(['mandate.capabilities.enabled' => false]);
 
-        $this->artisan('mandate:capability', ['name' => 'manage-posts'])
+        $this->artisan('mandate:capability', [
+            'name' => 'manage-posts',
+            '--db' => true,
+        ])
             ->assertFailed()
             ->expectsOutputToContain('not enabled');
     });

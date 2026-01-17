@@ -14,9 +14,6 @@ use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
 use OffloadProject\Mandate\Commands\AssignCapabilityCommand;
 use OffloadProject\Mandate\Commands\AssignRoleCommand;
 use OffloadProject\Mandate\Commands\ClearCacheCommand;
-use OffloadProject\Mandate\Commands\CreateCapabilityCommand;
-use OffloadProject\Mandate\Commands\CreatePermissionCommand;
-use OffloadProject\Mandate\Commands\CreateRoleCommand;
 use OffloadProject\Mandate\Commands\HealthCheckCommand;
 use OffloadProject\Mandate\Commands\MakeCapabilityCommand;
 use OffloadProject\Mandate\Commands\MakeFeatureCommand;
@@ -140,15 +137,10 @@ final class MandateServiceProvider extends ServiceProvider
     {
         if ($this->app->runningInConsole()) {
             $this->commands([
-                // Database commands
                 AssignCapabilityCommand::class,
                 AssignRoleCommand::class,
                 ClearCacheCommand::class,
-                CreateCapabilityCommand::class,
-                CreatePermissionCommand::class,
-                CreateRoleCommand::class,
                 ShowCommand::class,
-                // Code-first commands
                 MakeCapabilityCommand::class,
                 MakeFeatureCommand::class,
                 MakePermissionCommand::class,
@@ -156,7 +148,6 @@ final class MandateServiceProvider extends ServiceProvider
                 SyncCommand::class,
                 TypeScriptCommand::class,
                 UpgradeFromSpatieCommand::class,
-                // Utility commands
                 HealthCheckCommand::class,
             ]);
         }

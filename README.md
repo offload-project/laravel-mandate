@@ -73,6 +73,12 @@ php artisan migrate
 
 That's it. No configuration required for most applications.
 
+**Publish the config file for customization:**
+
+```bash
+php artisan vendor:publish --tag=mandate-config
+```
+
 **Optional migrations** (publish only what you need):
 
 ```bash
@@ -383,17 +389,20 @@ User::withoutPermission('admin:access')->get();
 ## Artisan Commands
 
 ```bash
-# Create a permission
-php artisan mandate:permission article:edit
-php artisan mandate:permission article:edit --guard=api
+# Generate a permission class (code-first)
+php artisan mandate:permission ArticlePermissions
+php artisan mandate:permission ArticlePermissions --guard=api
 
-# Create a role
-php artisan mandate:role editor
-php artisan mandate:role editor --permissions=article:edit,article:view
+# Generate a role class (code-first)
+php artisan mandate:role SystemRoles
 
-# Create a capability (requires capabilities.enabled = true)
-php artisan mandate:capability manage-posts
-php artisan mandate:capability manage-posts --permissions=post:create,post:edit
+# Generate a capability class (code-first)
+php artisan mandate:capability ContentCapabilities
+
+# Create directly in database (use --db flag)
+php artisan mandate:permission article:edit --db
+php artisan mandate:role editor --db --permissions=article:edit,article:view
+php artisan mandate:capability manage-posts --db --permissions=post:create,post:edit
 
 # Assign a role to a subject (user, team, etc.)
 php artisan mandate:assign-role 1 admin
@@ -661,10 +670,13 @@ $user->getAllCapabilities(); // Includes both direct and via roles
 ### Artisan Commands for Capabilities
 
 ```bash
-# Create a capability
-php artisan mandate:capability manage-posts
-php artisan mandate:capability manage-posts --guard=api
-php artisan mandate:capability manage-posts --permissions=post:create,post:edit,post:delete
+# Generate a capability class (code-first)
+php artisan mandate:capability ContentCapabilities
+
+# Create capability directly in database
+php artisan mandate:capability manage-posts --db
+php artisan mandate:capability manage-posts --db --guard=api
+php artisan mandate:capability manage-posts --db --permissions=post:create,post:edit,post:delete
 
 # Assign capability to a role
 php artisan mandate:assign-capability editor manage-posts
@@ -1106,14 +1118,14 @@ Generate new definition classes with scaffolded constants:
 
 ```bash
 # Generate a permission class with CRUD constants
-php artisan mandate:make:permission ArticlePermissions
-php artisan mandate:make:permission ArticlePermissions --guard=api
+php artisan mandate:permission ArticlePermissions
+php artisan mandate:permission ArticlePermissions --guard=api
 
 # Generate a role class
-php artisan mandate:make:role SystemRoles
+php artisan mandate:role SystemRoles
 
 # Generate a capability class
-php artisan mandate:make:capability ContentCapabilities
+php artisan mandate:capability ContentCapabilities
 ```
 
 Customize the generated stubs:

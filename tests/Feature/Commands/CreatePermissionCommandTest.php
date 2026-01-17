@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 use OffloadProject\Mandate\Models\Permission;
 
-describe('CreatePermissionCommand', function () {
-    it('creates a permission', function () {
+describe('mandate:permission --db', function () {
+    it('creates a permission in database', function () {
         $this->artisan('mandate:permission', [
             'name' => 'article:view',
+            '--db' => true,
         ])
             ->assertSuccessful();
 
@@ -18,6 +19,7 @@ describe('CreatePermissionCommand', function () {
         $this->artisan('mandate:permission', [
             'name' => 'article:view',
             '--guard' => 'api',
+            '--db' => true,
         ])
             ->expectsOutputToContain('api')
             ->assertSuccessful();
@@ -30,6 +32,7 @@ describe('CreatePermissionCommand', function () {
 
         $this->artisan('mandate:permission', [
             'name' => 'article:view',
+            '--db' => true,
         ])
             ->expectsOutputToContain('already exists')
             ->assertSuccessful();

@@ -189,4 +189,79 @@ describe('SyncCommand --seed', function () {
         // Should NOT have the permission since we used wrong config location
         expect($role->hasPermission('test:run'))->toBeFalse();
     });
+
+    it('does not apply assignments during dry-run', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        // Create role and permission
+        $role = Role::create(['name' => 'dry-run-role', 'guard' => 'web']);
+        Permission::create(['name' => 'dry:permission', 'guard' => 'web']);
+
+        config(['mandate.assignments' => [
+            'dry-run-role' => [
+                'permissions' => ['dry:permission'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true, '--dry-run' => true])
+            ->assertSuccessful();
+
+        $role->refresh();
+        // Should NOT have the permission since it was a dry run
+        expect($role->hasPermission('dry:permission'))->toBeFalse();
+    });
+
+    it('seeds assignments when combined with --permissions flag', function () {
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirst']);
+        config(['mandate.code_first.paths.roles' => __DIR__.'/../../Fixtures/CodeFirst']);
+
+        // Create a role for assignment
+        $role = Role::create(['name' => 'combined-role', 'guard' => 'web']);
+
+        config(['mandate.assignments' => [
+            'combined-role' => [
+                'permissions' => ['article:view'],
+            ],
+        ]]);
+
+        // Run with both --permissions and --seed
+        $this->artisan('mandate:sync', ['--permissions' => true, '--seed' => true])
+            ->assertSuccessful();
+
+        // Permissions should be synced from code-first
+        expect(Permission::where('name', 'article:view')->exists())->toBeTrue();
+
+        // Assignments should also be seeded
+        $role->refresh();
+        expect($role->hasPermission('article:view'))->toBeTrue();
+    });
+
+    it('creates and assigns capabilities when capabilities are enabled', function () {
+        $this->enableCapabilities();
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'cap-role' => [
+                'permissions' => ['cap:permission'],
+                'capabilities' => ['test-capability', 'another-capability'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        // Role should be created
+        $role = Role::where('name', 'cap-role')->first();
+        expect($role)->not->toBeNull();
+
+        // Capabilities should be created
+        $capabilityClass = config('mandate.models.capability');
+        expect($capabilityClass::where('name', 'test-capability')->exists())->toBeTrue();
+        expect($capabilityClass::where('name', 'another-capability')->exists())->toBeTrue();
+
+        // Capabilities should be assigned to role
+        expect($role->hasCapability('test-capability'))->toBeTrue();
+        expect($role->hasCapability('another-capability'))->toBeTrue();
+    });
 });

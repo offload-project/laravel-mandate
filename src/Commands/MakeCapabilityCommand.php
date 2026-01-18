@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:capability')]
 final class MakeCapabilityCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:capability';
 
     protected $description = 'Create a new capability class or database record';
@@ -117,6 +120,12 @@ final class MakeCapabilityCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
+        $configuredPath = config('mandate.code_first.paths.capabilities');
+
+        if ($configuredPath) {
+            return $this->pathToNamespace($configuredPath);
+        }
+
         return $rootNamespace.'\\Capabilities';
     }
 

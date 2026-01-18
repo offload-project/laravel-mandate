@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:role')]
 final class MakeRoleCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:role';
 
     protected $description = 'Create a new role class or database record';
@@ -108,6 +111,12 @@ final class MakeRoleCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
+        $configuredPath = config('mandate.code_first.paths.roles');
+
+        if ($configuredPath) {
+            return $this->pathToNamespace($configuredPath);
+        }
+
         return $rootNamespace.'\\Roles';
     }
 

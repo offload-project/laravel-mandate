@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Permission;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -21,6 +22,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:permission')]
 final class MakePermissionCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:permission';
 
     protected $description = 'Create a new permission class or database record';
@@ -83,6 +86,12 @@ final class MakePermissionCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
+        $configuredPath = config('mandate.code_first.paths.permissions');
+
+        if ($configuredPath) {
+            return $this->pathToNamespace($configuredPath);
+        }
+
         return $rootNamespace.'\\Permissions';
     }
 

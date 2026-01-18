@@ -28,10 +28,10 @@ trait ResolvesConfiguredPaths
 
         if (str_starts_with($path, $appPath)) {
             $relativePath = mb_substr($path, mb_strlen($appPath));
-            $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
+            $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
             $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
 
-            return mb_rtrim($this->laravel->getNamespace().$namespace, '\\');
+            return mb_rtrim($this->laravel->getNamespace() . $namespace, '\\');
         }
 
         // For paths outside app directory, try to resolve from composer autoload
@@ -39,7 +39,7 @@ trait ResolvesConfiguredPaths
 
         if (str_starts_with($path, $basePath)) {
             $relativePath = mb_substr($path, mb_strlen($basePath));
-            $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
+            $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
 
             // Check composer.json for PSR-4 mappings
             $namespace = $this->resolveNamespaceFromComposer($relativePath);
@@ -66,7 +66,7 @@ trait ResolvesConfiguredPaths
     {
         $composerPath = $this->laravel->basePath('composer.json');
 
-        if (! file_exists($composerPath)) {
+        if (!file_exists($composerPath)) {
             return null;
         }
 
@@ -80,17 +80,17 @@ trait ResolvesConfiguredPaths
         $autoload = $composer['autoload']['psr-4'] ?? [];
 
         foreach ($autoload as $namespace => $paths) {
-            $paths = (array) $paths;
+            $paths = (array)$paths;
 
             foreach ($paths as $autoloadPath) {
                 $autoloadPath = mb_rtrim($autoloadPath, '/');
 
                 if (str_starts_with($relativePath, $autoloadPath)) {
                     $remainder = mb_substr($relativePath, mb_strlen($autoloadPath));
-                    $remainder = mb_trim($remainder, DIRECTORY_SEPARATOR);
+                    $remainder = trim($remainder, DIRECTORY_SEPARATOR);
                     $namespaceSuffix = str_replace(DIRECTORY_SEPARATOR, '\\', $remainder);
 
-                    return mb_rtrim($namespace.$namespaceSuffix, '\\');
+                    return mb_rtrim($namespace . $namespaceSuffix, '\\');
                 }
             }
         }

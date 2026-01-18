@@ -126,6 +126,25 @@ describe('Mandate::sync()', function () {
 })->skip(fn () => ! class_exists(OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer::class), 'Code-first not implemented');
 
 describe('Mandate::sync() with seed', function () {
+    it('does not dispatch sync events in seed-only mode', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        Event::fake([PermissionsSynced::class, RolesSynced::class, MandateSynced::class]);
+
+        config(['mandate.assignments' => [
+            'seed-role' => [
+                'permissions' => ['seed:permission'],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        // No sync events should be dispatched in seed-only mode
+        Event::assertNotDispatched(PermissionsSynced::class);
+        Event::assertNotDispatched(RolesSynced::class);
+        Event::assertNotDispatched(MandateSynced::class);
+    });
+
     it('works without code-first enabled', function () {
         config(['mandate.code_first.enabled' => false]);
 

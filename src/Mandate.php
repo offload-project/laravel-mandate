@@ -737,26 +737,31 @@ final class Mandate
         // Clear permission cache (always needed after any sync/seed operation)
         $this->registrar->forgetCachedPermissions();
 
-        // Create event objects (always create permissions/roles, MandateSynced requires them)
-        $permissionsEvent = new PermissionsSynced($permissionsCreated, $permissionsUpdated, collect());
-        $rolesEvent = new RolesSynced($rolesCreated, $rolesUpdated, collect());
-        $capabilitiesEvent = $syncCapabilities
-            ? new CapabilitiesSynced($capabilitiesCreated, $capabilitiesUpdated, collect())
-            : null;
+        // Dispatch events only when actual sync operations were performed
+        $anySyncPerformed = $syncPermissions || $syncRoles || $syncCapabilities;
 
-        // Dispatch individual events only for types that were actually synced
-        if ($syncPermissions) {
-            event($permissionsEvent);
-        }
-        if ($syncRoles) {
-            event($rolesEvent);
-        }
-        if ($capabilitiesEvent) {
-            event($capabilitiesEvent);
-        }
+        if ($anySyncPerformed) {
+            // Create event objects
+            $permissionsEvent = new PermissionsSynced($permissionsCreated, $permissionsUpdated, collect());
+            $rolesEvent = new RolesSynced($rolesCreated, $rolesUpdated, collect());
+            $capabilitiesEvent = $syncCapabilities
+                ? new CapabilitiesSynced($capabilitiesCreated, $capabilitiesUpdated, collect())
+                : null;
 
-        // Dispatch combined event
-        event(new MandateSynced($permissionsEvent, $rolesEvent, $capabilitiesEvent));
+            // Dispatch individual events only for types that were actually synced
+            if ($syncPermissions) {
+                event($permissionsEvent);
+            }
+            if ($syncRoles) {
+                event($rolesEvent);
+            }
+            if ($capabilitiesEvent) {
+                event($capabilitiesEvent);
+            }
+
+            // Dispatch combined event
+            event(new MandateSynced($permissionsEvent, $rolesEvent, $capabilitiesEvent));
+        }
 
         return new SyncResult(
             permissionsCreated: $permissionsCreated,

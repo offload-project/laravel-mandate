@@ -99,7 +99,7 @@ final class MakePermissionCommand extends GeneratorCommand
     {
         $appPath = $this->laravel->basePath('app');
         $relativePath = str_replace($appPath, '', $path);
-        $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
 
         $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
 

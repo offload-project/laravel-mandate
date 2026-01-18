@@ -14,6 +14,7 @@ use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Mandate as MandateService;
 use OffloadProject\Mandate\MandateRegistrar;
+use OffloadProject\Mandate\SyncResult;
 
 /**
  * Facade for the Mandate service.
@@ -69,6 +70,9 @@ use OffloadProject\Mandate\MandateRegistrar;
  * @method static CapabilityContract createCapability(string $name, ?string $guard = null)
  * @method static CapabilityContract findOrCreateCapability(string $name, ?string $guard = null)
  * @method static Collection<int, CapabilityContract> getAllCapabilities(?string $guard = null)
+ *
+ * Sync (programmatic equivalent of mandate:sync command):
+ * @method static SyncResult sync(bool $permissions = false, bool $roles = false, bool $capabilities = false, bool $seed = false, ?string $guard = null)
  *
  * Utility:
  * @method static bool clearCache()

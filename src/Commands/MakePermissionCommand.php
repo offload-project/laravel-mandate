@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Permission;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -21,6 +22,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:permission')]
 final class MakePermissionCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:permission';
 
     protected $description = 'Create a new permission class or database record';
@@ -90,20 +93,6 @@ final class MakePermissionCommand extends GeneratorCommand
         }
 
         return $rootNamespace.'\\Permissions';
-    }
-
-    /**
-     * Convert a filesystem path to a PSR-4 namespace.
-     */
-    protected function pathToNamespace(string $path): string
-    {
-        $appPath = $this->laravel->basePath('app');
-        $relativePath = str_replace($appPath, '', $path);
-        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
-
-        $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
-
-        return $this->laravel->getNamespace().$namespace;
     }
 
     /**

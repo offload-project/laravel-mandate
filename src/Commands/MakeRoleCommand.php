@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:role')]
 final class MakeRoleCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:role';
 
     protected $description = 'Create a new role class or database record';
@@ -115,20 +118,6 @@ final class MakeRoleCommand extends GeneratorCommand
         }
 
         return $rootNamespace.'\\Roles';
-    }
-
-    /**
-     * Convert a filesystem path to a PSR-4 namespace.
-     */
-    protected function pathToNamespace(string $path): string
-    {
-        $appPath = $this->laravel->basePath('app');
-        $relativePath = str_replace($appPath, '', $path);
-        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
-
-        $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
-
-        return $this->laravel->getNamespace().$namespace;
     }
 
     /**

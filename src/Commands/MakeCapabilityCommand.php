@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
+use OffloadProject\Mandate\Commands\Concerns\ResolvesConfiguredPaths;
 use OffloadProject\Mandate\Guard;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
@@ -23,6 +24,8 @@ use Symfony\Component\Console\Input\InputOption;
 #[AsCommand(name: 'mandate:capability')]
 final class MakeCapabilityCommand extends GeneratorCommand
 {
+    use ResolvesConfiguredPaths;
+
     protected $name = 'mandate:capability';
 
     protected $description = 'Create a new capability class or database record';
@@ -124,20 +127,6 @@ final class MakeCapabilityCommand extends GeneratorCommand
         }
 
         return $rootNamespace.'\\Capabilities';
-    }
-
-    /**
-     * Convert a filesystem path to a PSR-4 namespace.
-     */
-    protected function pathToNamespace(string $path): string
-    {
-        $appPath = $this->laravel->basePath('app');
-        $relativePath = str_replace($appPath, '', $path);
-        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
-
-        $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
-
-        return $this->laravel->getNamespace().$namespace;
     }
 
     /**

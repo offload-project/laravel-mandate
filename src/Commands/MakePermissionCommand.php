@@ -78,7 +78,7 @@ final class MakePermissionCommand extends GeneratorCommand
             return $customStub;
         }
 
-        return __DIR__ . '/../../stubs/permission.stub';
+        return __DIR__.'/../../stubs/permission.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -89,7 +89,7 @@ final class MakePermissionCommand extends GeneratorCommand
             return $this->pathToNamespace($configuredPath);
         }
 
-        return $rootNamespace . '\\Permissions';
+        return $rootNamespace.'\\Permissions';
     }
 
     /**
@@ -99,11 +99,11 @@ final class MakePermissionCommand extends GeneratorCommand
     {
         $appPath = $this->laravel->basePath('app');
         $relativePath = str_replace($appPath, '', $path);
-        $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
 
         $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
 
-        return $this->laravel->getNamespace() . $namespace;
+        return $this->laravel->getNamespace().$namespace;
     }
 
     /**
@@ -119,8 +119,8 @@ final class MakePermissionCommand extends GeneratorCommand
     }
 
     /**
-     * @param string $stub
-     * @param string $name
+     * @param  string  $stub
+     * @param  string  $name
      */
     protected function replaceClass($stub, $name): string
     {

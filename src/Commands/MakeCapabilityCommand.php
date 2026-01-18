@@ -41,10 +41,10 @@ final class MakeCapabilityCommand extends GeneratorCommand
 
     protected function createInDatabase(): int
     {
-        if (!config('mandate.capabilities.enabled', false)) {
+        if (! config('mandate.capabilities.enabled', false)) {
             $this->components->error(
                 'Capabilities feature is not enabled. '
-                . 'Set mandate.capabilities.enabled to true in your configuration.'
+                .'Set mandate.capabilities.enabled to true in your configuration.'
             );
 
             return self::FAILURE;
@@ -90,7 +90,7 @@ final class MakeCapabilityCommand extends GeneratorCommand
             foreach ($permissions as $permissionName) {
                 $permission = $permissionClass::findOrCreate($permissionName, $guard);
 
-                if (!$capability->hasPermission($permission)) {
+                if (! $capability->hasPermission($permission)) {
                     $capability->grantPermission($permission);
                     $assignedCount++;
                 }
@@ -112,7 +112,7 @@ final class MakeCapabilityCommand extends GeneratorCommand
             return $customStub;
         }
 
-        return __DIR__ . '/../../stubs/capability.stub';
+        return __DIR__.'/../../stubs/capability.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -123,7 +123,7 @@ final class MakeCapabilityCommand extends GeneratorCommand
             return $this->pathToNamespace($configuredPath);
         }
 
-        return $rootNamespace . '\\Capabilities';
+        return $rootNamespace.'\\Capabilities';
     }
 
     /**
@@ -133,11 +133,11 @@ final class MakeCapabilityCommand extends GeneratorCommand
     {
         $appPath = $this->laravel->basePath('app');
         $relativePath = str_replace($appPath, '', $path);
-        $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+        $relativePath = mb_trim($relativePath, DIRECTORY_SEPARATOR);
 
         $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
 
-        return $this->laravel->getNamespace() . $namespace;
+        return $this->laravel->getNamespace().$namespace;
     }
 
     /**
@@ -154,8 +154,8 @@ final class MakeCapabilityCommand extends GeneratorCommand
     }
 
     /**
-     * @param string $stub
-     * @param string $name
+     * @param  string  $stub
+     * @param  string  $name
      */
     protected function replaceClass($stub, $name): string
     {

@@ -7,11 +7,20 @@ namespace OffloadProject\Mandate;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use OffloadProject\Mandate\CodeFirst\CapabilityDefinition;
+use OffloadProject\Mandate\CodeFirst\DefinitionCache;
+use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
+use OffloadProject\Mandate\CodeFirst\PermissionDefinition;
+use OffloadProject\Mandate\CodeFirst\RoleDefinition;
 use OffloadProject\Mandate\Concerns\HasRoles;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
+use OffloadProject\Mandate\Events\CapabilitiesSynced;
+use OffloadProject\Mandate\Events\MandateSynced;
+use OffloadProject\Mandate\Events\PermissionsSynced;
+use OffloadProject\Mandate\Events\RolesSynced;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
@@ -647,6 +656,411 @@ final class Mandate
         }
 
         return $data;
+    }
+
+    /**
+     * Sync code-first definitions to the database and optionally seed assignments.
+     *
+     * This method programmatically performs the same operations as the `mandate:sync` command.
+     *
+     * @param  bool  $permissions  Sync only permissions (if true without roles/capabilities, only permissions are synced)
+     * @param  bool  $roles  Sync only roles (if true without permissions/capabilities, only roles are synced)
+     * @param  bool  $capabilities  Sync only capabilities (if true without permissions/roles, only capabilities are synced)
+     * @param  bool  $seed  Seed role-permission and role-capability assignments from config
+     * @param  string|null  $guard  Sync for a specific guard only
+     *
+     * @throws RuntimeException If code-first mode is not enabled (unless using seed-only mode)
+     */
+    public function sync(
+        bool $permissions = false,
+        bool $roles = false,
+        bool $capabilities = false,
+        bool $seed = false,
+        ?string $guard = null,
+    ): SyncResult {
+        $codeFirstEnabled = (bool) config('mandate.code_first.enabled', false);
+        $seedOnly = $seed && ! $permissions && ! $roles && ! $capabilities;
+
+        // Allow seed to work without code-first enabled
+        if (! $codeFirstEnabled && ! $seedOnly) {
+            throw new RuntimeException('Code-first mode is not enabled. Set mandate.code_first.enabled to true.');
+        }
+
+        $discoverer = app(DefinitionDiscoverer::class);
+        $cache = app(DefinitionCache::class);
+
+        $permissionsCreated = 0;
+        $permissionsUpdated = 0;
+        $rolesCreated = 0;
+        $rolesUpdated = 0;
+        $capabilitiesCreated = 0;
+        $capabilitiesUpdated = 0;
+
+        $syncAll = ! $permissions && ! $roles && ! $capabilities && ! $seedOnly;
+
+        // Determine what to sync (skip if seed-only mode)
+        $syncPermissions = $codeFirstEnabled && ($syncAll || $permissions);
+        $syncRoles = $codeFirstEnabled && ($syncAll || $roles);
+        $syncCapabilities = $codeFirstEnabled && ($syncAll || $capabilities) && $this->capabilitiesEnabled();
+
+        // Sync permissions
+        if ($syncPermissions) {
+            $result = $this->syncPermissionsFromDefinitions($discoverer, $guard);
+            $permissionsCreated = $result['created'];
+            $permissionsUpdated = $result['updated'];
+        }
+
+        // Sync roles
+        if ($syncRoles) {
+            $result = $this->syncRolesFromDefinitions($discoverer, $guard);
+            $rolesCreated = $result['created'];
+            $rolesUpdated = $result['updated'];
+        }
+
+        // Sync capabilities
+        if ($syncCapabilities) {
+            $result = $this->syncCapabilitiesFromDefinitions($discoverer, $guard);
+            $capabilitiesCreated = $result['created'];
+            $capabilitiesUpdated = $result['updated'];
+        }
+
+        // Seed assignments if requested
+        $assignmentsSeeded = false;
+        if ($seed) {
+            $this->seedAssignmentsFromConfig($guard);
+            $assignmentsSeeded = true;
+        }
+
+        // Clear caches
+        $cache->forget();
+        $this->registrar->forgetCachedPermissions();
+
+        // Dispatch events
+        if ($syncPermissions) {
+            PermissionsSynced::dispatch($permissionsCreated, $permissionsUpdated, collect());
+        }
+
+        if ($syncRoles) {
+            RolesSynced::dispatch($rolesCreated, $rolesUpdated, collect());
+        }
+
+        if ($syncCapabilities) {
+            CapabilitiesSynced::dispatch($capabilitiesCreated, $capabilitiesUpdated, collect());
+        }
+
+        $permissionsEvent = new PermissionsSynced($permissionsCreated, $permissionsUpdated, collect());
+        $rolesEvent = new RolesSynced($rolesCreated, $rolesUpdated, collect());
+        $capabilitiesEvent = $syncCapabilities
+            ? new CapabilitiesSynced($capabilitiesCreated, $capabilitiesUpdated, collect())
+            : null;
+
+        MandateSynced::dispatch($permissionsEvent, $rolesEvent, $capabilitiesEvent);
+
+        return new SyncResult(
+            permissionsCreated: $permissionsCreated,
+            permissionsUpdated: $permissionsUpdated,
+            rolesCreated: $rolesCreated,
+            rolesUpdated: $rolesUpdated,
+            capabilitiesCreated: $capabilitiesCreated,
+            capabilitiesUpdated: $capabilitiesUpdated,
+            assignmentsSeeded: $assignmentsSeeded,
+        );
+    }
+
+    /**
+     * Sync permission definitions to the database.
+     *
+     * @return array{created: int, updated: int}
+     */
+    private function syncPermissionsFromDefinitions(DefinitionDiscoverer $discoverer, ?string $guard): array
+    {
+        $paths = config('mandate.code_first.paths.permissions', []);
+        $paths = is_array($paths) ? $paths : [$paths];
+
+        $definitions = $discoverer->discoverPermissions($paths);
+
+        if ($guard !== null) {
+            $definitions = $definitions->filter(fn (PermissionDefinition $d) => $d->guard === $guard);
+        }
+
+        /** @var class-string<Permission> $permissionClass */
+        $permissionClass = config('mandate.models.permission', Permission::class);
+        $hasLabelColumn = $permissionClass::hasLabelColumn();
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($definitions as $definition) {
+            /** @var Permission|null $existing */
+            $existing = $permissionClass::query()
+                ->where('name', $definition->name)
+                ->where('guard', $definition->guard)
+                ->first();
+
+            if ($existing) {
+                $needsUpdate = false;
+                $updates = [];
+
+                if ($hasLabelColumn) {
+                    if ($definition->label !== null && $existing->label !== $definition->label) {
+                        $updates['label'] = $definition->label;
+                        $needsUpdate = true;
+                    }
+                    if ($definition->description !== null && $existing->description !== $definition->description) {
+                        $updates['description'] = $definition->description;
+                        $needsUpdate = true;
+                    }
+                }
+
+                if ($needsUpdate) {
+                    $existing->update($updates);
+                    $updated++;
+                }
+            } else {
+                $attributes = [
+                    'name' => $definition->name,
+                    'guard' => $definition->guard,
+                ];
+
+                if ($hasLabelColumn) {
+                    $attributes['label'] = $definition->label;
+                    $attributes['description'] = $definition->description;
+                }
+
+                $permissionClass::query()->create($attributes);
+                $created++;
+            }
+        }
+
+        return ['created' => $created, 'updated' => $updated];
+    }
+
+    /**
+     * Sync role definitions to the database.
+     *
+     * @return array{created: int, updated: int}
+     */
+    private function syncRolesFromDefinitions(DefinitionDiscoverer $discoverer, ?string $guard): array
+    {
+        $paths = config('mandate.code_first.paths.roles', []);
+        $paths = is_array($paths) ? $paths : [$paths];
+
+        $definitions = $discoverer->discoverRoles($paths);
+
+        if ($guard !== null) {
+            $definitions = $definitions->filter(fn (RoleDefinition $d) => $d->guard === $guard);
+        }
+
+        /** @var class-string<Role> $roleClass */
+        $roleClass = config('mandate.models.role', Role::class);
+        $hasLabelColumn = $roleClass::hasLabelColumn();
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($definitions as $definition) {
+            /** @var Role|null $existing */
+            $existing = $roleClass::query()
+                ->where('name', $definition->name)
+                ->where('guard', $definition->guard)
+                ->first();
+
+            if ($existing) {
+                $needsUpdate = false;
+                $updates = [];
+
+                if ($hasLabelColumn) {
+                    if ($definition->label !== null && $existing->label !== $definition->label) {
+                        $updates['label'] = $definition->label;
+                        $needsUpdate = true;
+                    }
+                    if ($definition->description !== null && $existing->description !== $definition->description) {
+                        $updates['description'] = $definition->description;
+                        $needsUpdate = true;
+                    }
+                }
+
+                if ($needsUpdate) {
+                    $existing->update($updates);
+                    $updated++;
+                }
+            } else {
+                $attributes = [
+                    'name' => $definition->name,
+                    'guard' => $definition->guard,
+                ];
+
+                if ($hasLabelColumn) {
+                    $attributes['label'] = $definition->label;
+                    $attributes['description'] = $definition->description;
+                }
+
+                $roleClass::query()->create($attributes);
+                $created++;
+            }
+        }
+
+        return ['created' => $created, 'updated' => $updated];
+    }
+
+    /**
+     * Sync capability definitions to the database.
+     *
+     * @return array{created: int, updated: int}
+     */
+    private function syncCapabilitiesFromDefinitions(DefinitionDiscoverer $discoverer, ?string $guard): array
+    {
+        $paths = config('mandate.code_first.paths.capabilities', []);
+        $paths = is_array($paths) ? $paths : [$paths];
+
+        $definitions = $discoverer->discoverCapabilities($paths);
+
+        if ($guard !== null) {
+            $definitions = $definitions->filter(fn (CapabilityDefinition $d) => $d->guard === $guard);
+        }
+
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+        $hasLabelColumn = $capabilityClass::hasLabelColumn();
+
+        $created = 0;
+        $updated = 0;
+
+        foreach ($definitions as $definition) {
+            /** @var Capability|null $existing */
+            $existing = $capabilityClass::query()
+                ->where('name', $definition->name)
+                ->where('guard', $definition->guard)
+                ->first();
+
+            if ($existing) {
+                $needsUpdate = false;
+                $updates = [];
+
+                if ($hasLabelColumn) {
+                    if ($definition->label !== null && $existing->label !== $definition->label) {
+                        $updates['label'] = $definition->label;
+                        $needsUpdate = true;
+                    }
+                    if ($definition->description !== null && $existing->description !== $definition->description) {
+                        $updates['description'] = $definition->description;
+                        $needsUpdate = true;
+                    }
+                }
+
+                if ($needsUpdate) {
+                    $existing->update($updates);
+                    $updated++;
+                }
+            } else {
+                $attributes = [
+                    'name' => $definition->name,
+                    'guard' => $definition->guard,
+                ];
+
+                if ($hasLabelColumn) {
+                    $attributes['label'] = $definition->label;
+                    $attributes['description'] = $definition->description;
+                }
+
+                $capabilityClass::query()->create($attributes);
+                $created++;
+            }
+        }
+
+        return ['created' => $created, 'updated' => $updated];
+    }
+
+    /**
+     * Seed role-permission and role-capability assignments from config.
+     */
+    private function seedAssignmentsFromConfig(?string $guard): void
+    {
+        $assignments = config('mandate.assignments', []);
+
+        if (empty($assignments)) {
+            return;
+        }
+
+        /** @var class-string<Role> $roleClass */
+        $roleClass = config('mandate.models.role', Role::class);
+        /** @var class-string<Permission> $permissionClass */
+        $permissionClass = config('mandate.models.permission', Permission::class);
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        foreach ($assignments as $roleName => $assignment) {
+            $roleGuard = $guard ?? config('auth.defaults.guard', 'web');
+
+            /** @var Role|null $role */
+            $role = $roleClass::query()
+                ->where('name', $roleName)
+                ->where('guard', $roleGuard)
+                ->first();
+
+            if ($role === null) {
+                $role = $roleClass::create([
+                    'name' => $roleName,
+                    'guard' => $roleGuard,
+                ]);
+            }
+
+            // Sync permissions
+            if (! empty($assignment['permissions'])) {
+                /** @var array<string> $permissionNames */
+                $permissionNames = $assignment['permissions'];
+                $permissionIds = [];
+
+                foreach ($permissionNames as $permissionName) {
+                    /** @var Permission|null $permission */
+                    $permission = $permissionClass::query()
+                        ->where('name', $permissionName)
+                        ->where('guard', $roleGuard)
+                        ->first();
+
+                    if ($permission === null) {
+                        $permission = $permissionClass::create([
+                            'name' => $permissionName,
+                            'guard' => $roleGuard,
+                        ]);
+                    }
+
+                    $permissionIds[] = $permission->getKey();
+                }
+
+                if (! empty($permissionIds)) {
+                    $role->permissions()->syncWithoutDetaching($permissionIds);
+                }
+            }
+
+            // Sync capabilities
+            if ($this->capabilitiesEnabled() && ! empty($assignment['capabilities'])) {
+                /** @var array<string> $capabilityNames */
+                $capabilityNames = $assignment['capabilities'];
+                $capabilityIds = [];
+
+                foreach ($capabilityNames as $capabilityName) {
+                    /** @var Capability|null $capability */
+                    $capability = $capabilityClass::query()
+                        ->where('name', $capabilityName)
+                        ->where('guard', $roleGuard)
+                        ->first();
+
+                    if ($capability === null) {
+                        $capability = $capabilityClass::create([
+                            'name' => $capabilityName,
+                            'guard' => $roleGuard,
+                        ]);
+                    }
+
+                    $capabilityIds[] = $capability->getKey();
+                }
+
+                if (! empty($capabilityIds)) {
+                    $role->capabilities()->syncWithoutDetaching($capabilityIds);
+                }
+            }
+        }
     }
 
     /**

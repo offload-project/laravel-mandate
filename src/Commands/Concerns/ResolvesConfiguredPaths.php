@@ -21,7 +21,7 @@ trait ResolvesConfiguredPaths
      */
     protected function pathToNamespace(string $path): string
     {
-        $path = trim($path, DIRECTORY_SEPARATOR);
+        $path = rtrim($path, DIRECTORY_SEPARATOR);
 
         // Try app directory first (most common case)
         $appPath = $this->laravel->basePath('app');
@@ -31,7 +31,7 @@ trait ResolvesConfiguredPaths
             $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
             $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
 
-            return trim($this->laravel->getNamespace() . $namespace, '\\');
+            return trim($this->laravel->getNamespace().$namespace, '\\');
         }
 
         // For paths outside app directory, try to resolve from composer autoload
@@ -66,7 +66,7 @@ trait ResolvesConfiguredPaths
     {
         $composerPath = $this->laravel->basePath('composer.json');
 
-        if (!file_exists($composerPath)) {
+        if (! file_exists($composerPath)) {
             return null;
         }
 
@@ -80,7 +80,7 @@ trait ResolvesConfiguredPaths
         $autoload = $composer['autoload']['psr-4'] ?? [];
 
         foreach ($autoload as $namespace => $paths) {
-            $paths = (array)$paths;
+            $paths = (array) $paths;
 
             foreach ($paths as $autoloadPath) {
                 $autoloadPath = trim($autoloadPath, '/');
@@ -90,7 +90,7 @@ trait ResolvesConfiguredPaths
                     $remainder = trim($remainder, DIRECTORY_SEPARATOR);
                     $namespaceSuffix = str_replace(DIRECTORY_SEPARATOR, '\\', $remainder);
 
-                    return trim($namespace . $namespaceSuffix, '\\');
+                    return trim($namespace.$namespaceSuffix, '\\');
                 }
             }
         }

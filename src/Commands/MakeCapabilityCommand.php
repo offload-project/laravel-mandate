@@ -117,7 +117,27 @@ final class MakeCapabilityCommand extends GeneratorCommand
 
     protected function getDefaultNamespace($rootNamespace): string
     {
+        $configuredPath = config('mandate.code_first.paths.capabilities');
+
+        if ($configuredPath) {
+            return $this->pathToNamespace($configuredPath);
+        }
+
         return $rootNamespace.'\\Capabilities';
+    }
+
+    /**
+     * Convert a filesystem path to a PSR-4 namespace.
+     */
+    protected function pathToNamespace(string $path): string
+    {
+        $appPath = $this->laravel->basePath('app');
+        $relativePath = str_replace($appPath, '', $path);
+        $relativePath = trim($relativePath, DIRECTORY_SEPARATOR);
+
+        $namespace = str_replace(DIRECTORY_SEPARATOR, '\\', $relativePath);
+
+        return $this->laravel->getNamespace().$namespace;
     }
 
     /**

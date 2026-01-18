@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/offload-project/laravel-mandate/compare/v3.0.0...v3.1.0) (2026-01-18)
+
+
+### Features
+
+* update class gen to use code-first config paths ([#31](https://github.com/offload-project/laravel-mandate/issues/31)) ([b951179](https://github.com/offload-project/laravel-mandate/commit/b951179170633caa96148b3dbda95bae644be395))
+
 ## [3.0.0](https://github.com/offload-project/laravel-mandate/compare/v2.1.0...v3.0.0) (2026-01-17)
 
 Refactored the role/permission assignments configuration to make it work independently of code-first mode. The assignments configuration is moved from mandate.code_first.assignments to mandate.assignments at the top level, and the --seed flag now works even when code-first is disabled.

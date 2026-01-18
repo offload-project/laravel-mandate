@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/offload-project/laravel-mandate/compare/v3.1.0...v3.2.0) (2026-01-18)
+
+
+### Features
+
+* sync and seed method ([#33](https://github.com/offload-project/laravel-mandate/issues/33)) ([d2ba465](https://github.com/offload-project/laravel-mandate/commit/d2ba46546618b9dc8f5f0dc5ad158c54c55145ba))
+
 ## [3.1.0](https://github.com/offload-project/laravel-mandate/compare/v3.0.0...v3.1.0) (2026-01-18)
 
 

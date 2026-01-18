@@ -70,7 +70,13 @@ trait ResolvesConfiguredPaths
             return null;
         }
 
-        $composer = json_decode(file_get_contents($composerPath), true);
+        $contents = file_get_contents($composerPath);
+
+        if ($contents === false) {
+            return null;
+        }
+
+        $composer = json_decode($contents, true);
         $autoload = $composer['autoload']['psr-4'] ?? [];
 
         foreach ($autoload as $namespace => $paths) {

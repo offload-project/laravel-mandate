@@ -1103,6 +1103,23 @@ The `--seed` flag will **automatically create** any roles, permissions, or capab
 - **Code-first enabled**: Syncs PHP class definitions to database first, then seeds assignments
 - **Code-first disabled**: Only seeds assignments (useful for database-only workflows)
 
+#### Wildcard Assignments (Super Admin)
+
+Use `['*']` to assign **all existing permissions or capabilities** to a role:
+
+```php
+use App\Roles\SystemRoles;
+
+'assignments' => [
+    SystemRoles::SUPER_ADMIN => [
+        'permissions' => ['*'],   // Assigns ALL permissions
+        'capabilities' => ['*'],  // Assigns ALL capabilities
+    ],
+],
+```
+
+This is useful for super admin roles that should have access to everything. The wildcard assigns all permissions/capabilities that exist in the database at sync time, so make sure to sync your definitions first (or run the full `mandate:sync --seed` which syncs definitions before seeding assignments).
+
 ### Label and Description Columns
 
 To store labels and descriptions in the database, publish and run the metadata migration:

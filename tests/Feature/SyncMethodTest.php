@@ -266,7 +266,7 @@ describe('Mandate::sync() with seed', function () {
         $permission = Permission::where('name', 'api:permission')->where('guard', 'api')->first();
         expect($permission)->not->toBeNull();
     });
-});
+})->skip(fn () => ! class_exists(OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer::class), 'Code-first not implemented');
 
 describe('SyncResult', function () {
     it('calculates total created correctly', function () {

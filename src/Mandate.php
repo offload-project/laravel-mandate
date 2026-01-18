@@ -683,9 +683,6 @@ final class Mandate
             throw new RuntimeException('Code-first mode is not enabled. Set mandate.code_first.enabled to true.');
         }
 
-        $discoverer = app(DefinitionDiscoverer::class);
-        $cache = app(DefinitionCache::class);
-
         $permissionsCreated = 0;
         $permissionsUpdated = 0;
         $rolesCreated = 0;
@@ -700,25 +697,34 @@ final class Mandate
         $syncRoles = $codeFirstEnabled && ($syncAll || $roles);
         $syncCapabilities = $codeFirstEnabled && ($syncAll || $capabilities) && $this->capabilitiesEnabled();
 
-        // Sync permissions
-        if ($syncPermissions) {
-            $result = $this->syncDefinitionsToDatabase($discoverer, 'permissions', $guard);
-            $permissionsCreated = $result['created'];
-            $permissionsUpdated = $result['updated'];
-        }
+        // Only instantiate code-first dependencies when actually needed
+        if ($syncPermissions || $syncRoles || $syncCapabilities) {
+            $discoverer = app(DefinitionDiscoverer::class);
+            $cache = app(DefinitionCache::class);
 
-        // Sync roles
-        if ($syncRoles) {
-            $result = $this->syncDefinitionsToDatabase($discoverer, 'roles', $guard);
-            $rolesCreated = $result['created'];
-            $rolesUpdated = $result['updated'];
-        }
+            // Sync permissions
+            if ($syncPermissions) {
+                $result = $this->syncDefinitionsToDatabase($discoverer, 'permissions', $guard);
+                $permissionsCreated = $result['created'];
+                $permissionsUpdated = $result['updated'];
+            }
 
-        // Sync capabilities
-        if ($syncCapabilities) {
-            $result = $this->syncDefinitionsToDatabase($discoverer, 'capabilities', $guard);
-            $capabilitiesCreated = $result['created'];
-            $capabilitiesUpdated = $result['updated'];
+            // Sync roles
+            if ($syncRoles) {
+                $result = $this->syncDefinitionsToDatabase($discoverer, 'roles', $guard);
+                $rolesCreated = $result['created'];
+                $rolesUpdated = $result['updated'];
+            }
+
+            // Sync capabilities
+            if ($syncCapabilities) {
+                $result = $this->syncDefinitionsToDatabase($discoverer, 'capabilities', $guard);
+                $capabilitiesCreated = $result['created'];
+                $capabilitiesUpdated = $result['updated'];
+            }
+
+            // Clear definition cache
+            $cache->forget();
         }
 
         // Seed assignments if requested
@@ -728,8 +734,7 @@ final class Mandate
             $assignmentsSeeded = true;
         }
 
-        // Clear caches
-        $cache->forget();
+        // Clear permission cache (always needed after any sync/seed operation)
         $this->registrar->forgetCachedPermissions();
 
         // Create event objects (always create permissions/roles, MandateSynced requires them)
@@ -912,24 +917,26 @@ final class Mandate
             }
         }
 
-        // Batch fetch existing permissions
-        /** @var Collection<int, Permission> $existingPermissions */
-        $existingPermissions = $permissionClass::query()
-            ->whereIn('name', $allPermissionNames)
-            ->where('guard', $roleGuard)
-            ->get()
-            ->keyBy('name');
-
-        // Create missing permissions
+        // Batch fetch existing permissions (skip if none needed)
         $permissionsMap = [];
-        foreach ($allPermissionNames as $permissionName) {
-            if ($existingPermissions->has($permissionName)) {
-                $permissionsMap[$permissionName] = $existingPermissions->get($permissionName);
-            } else {
-                $permissionsMap[$permissionName] = $permissionClass::create([
-                    'name' => $permissionName,
-                    'guard' => $roleGuard,
-                ]);
+        if (! empty($allPermissionNames)) {
+            /** @var Collection<int, Permission> $existingPermissions */
+            $existingPermissions = $permissionClass::query()
+                ->whereIn('name', $allPermissionNames)
+                ->where('guard', $roleGuard)
+                ->get()
+                ->keyBy('name');
+
+            // Create missing permissions
+            foreach ($allPermissionNames as $permissionName) {
+                if ($existingPermissions->has($permissionName)) {
+                    $permissionsMap[$permissionName] = $existingPermissions->get($permissionName);
+                } else {
+                    $permissionsMap[$permissionName] = $permissionClass::create([
+                        'name' => $permissionName,
+                        'guard' => $roleGuard,
+                    ]);
+                }
             }
         }
 

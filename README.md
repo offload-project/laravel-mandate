@@ -50,6 +50,7 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - [Context Model (Multi-Tenancy)](#context-model-multi-tenancy)
 - [Feature Integration](#feature-integration)
 - [Code-First Definitions](#code-first-definitions)
+    - [Programmatic Sync](#programmatic-sync)
 - [Multiple Guards](#multiple-guards)
 - [Events](#events)
 - [Exceptions](#exceptions)
@@ -1073,6 +1074,74 @@ php artisan mandate:sync --force
 ```
 
 The sync is **additive only** — it never deletes database records to prevent data loss.
+
+### Programmatic Sync
+
+Use the `Mandate::sync()` method to sync definitions programmatically (equivalent to the `mandate:sync` command):
+
+```php
+use OffloadProject\Mandate\Facades\Mandate;
+
+// Sync all definitions (permissions, roles, capabilities)
+$result = Mandate::sync();
+
+// Sync only specific types
+$result = Mandate::sync(permissions: true);
+$result = Mandate::sync(roles: true);
+$result = Mandate::sync(capabilities: true);
+
+// Sync with seeding (applies role-permission assignments from config)
+$result = Mandate::sync(seed: true);
+
+// Seed-only mode (works without code-first enabled)
+
+// Combine options
+$result = Mandate::sync(permissions: true, roles: true, seed: true);
+
+// Filter by guard
+$result = Mandate::sync(guard: 'api');
+```
+
+The method returns a `SyncResult` object with details about what was synced:
+
+```php
+$result = Mandate::sync();
+
+$result->permissionsCreated;  // Number of permissions created
+$result->permissionsUpdated;  // Number of permissions updated
+$result->rolesCreated;        // Number of roles created
+$result->rolesUpdated;        // Number of roles updated
+$result->capabilitiesCreated; // Number of capabilities created
+$result->capabilitiesUpdated; // Number of capabilities updated
+$result->assignmentsSeeded;   // Whether assignments were seeded
+
+// Helper methods
+$result->totalCreated();      // Total items created
+$result->totalUpdated();      // Total items updated
+$result->total();             // Total items synced (created + updated)
+$result->hasChanges();        // Whether any changes were made
+```
+
+**Use cases for programmatic sync:**
+
+- **Database seeders** — Sync permissions/roles as part of your seeding process
+- **Deployment scripts** — Automate sync after deployments
+- **Testing** — Set up permissions in test fixtures
+- **Admin panels** — Trigger sync from a UI
+
+```php
+// Example: Database seeder
+class RolesAndPermissionsSeeder extends Seeder
+{
+    public function run(): void
+    {
+        // Sync code-first definitions and seed assignments
+        $result = Mandate::sync(seed: true);
+
+        $this->command->info("Created {$result->totalCreated()} items");
+    }
+}
+```
 
 ### Seeding Role Assignments
 

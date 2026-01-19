@@ -1094,7 +1094,6 @@ $result = Mandate::sync(capabilities: true);
 $result = Mandate::sync(seed: true);
 
 // Seed-only mode (works without code-first enabled)
-$result = Mandate::sync(seed: true);
 
 // Combine options
 $result = Mandate::sync(permissions: true, roles: true, seed: true);

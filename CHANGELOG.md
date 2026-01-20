@@ -1,6 +1,17 @@
 # Changelog
 
+## [3.3.0](https://github.com/offload-project/laravel-mandate/compare/v3.2.0...v3.3.0) (2026-01-20)
+
+
+### Features
+
+* Allow #[Capability] to be applied to classes, and have DefinitionDiscoverer merge class-level and constant-level capabilities when building PermissionDefinitions.
+* Add fixtures and unit tests to validate class-level capabilities and capability merging behavior.
+* Update permission and capability stubs to use colon-delimited permission names, introduce a VIEW_ANY permission, and adjust default capability naming/labels. ([#36](https://github.com/offload-project/laravel-mandate/issues/36)) ([7b90225](https://github.com/offload-project/laravel-mandate/commit/7b9022526d03893c0120c2edad1e9b20eef7309f))
+
+
 ## [3.2.0](https://github.com/offload-project/laravel-mandate/compare/v3.1.0...v3.2.0) (2026-01-18)
+
 
 
 ### Features

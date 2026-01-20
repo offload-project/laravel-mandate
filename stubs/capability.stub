@@ -11,7 +11,7 @@ use OffloadProject\Mandate\Attributes\Label;
 #[Guard('{{ guard }}')]
 final class {{ class }}
 {
-    #[Label('{{ capability }} Management')]
+    #[Label('Manage {{ capability }}')]
     #[Description('Manage {{ capability }} resources')]
-    public const MANAGE = '{{ capability }}-management';
+    public const MANAGE = 'manage-{{ capability }}';
 }

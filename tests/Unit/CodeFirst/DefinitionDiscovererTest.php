@@ -64,6 +64,25 @@ describe('DefinitionDiscoverer', function () {
 
             expect($permissions)->toBeEmpty();
         });
+
+        it('extracts capabilities from class-level attribute', function () {
+            $permissions = $this->discoverer->discoverPermissions($this->fixturesPath);
+
+            $viewPermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:view');
+            $editPermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:edit');
+
+            expect($viewPermission->capabilities)->toBe(['user-management']);
+            expect($editPermission->capabilities)->toBe(['user-management']);
+        });
+
+        it('merges class-level and constant-level capabilities', function () {
+            $permissions = $this->discoverer->discoverPermissions($this->fixturesPath);
+
+            $deletePermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:delete');
+
+            expect($deletePermission->capabilities)->toContain('user-management', 'admin-only');
+            expect(count($deletePermission->capabilities))->toBe(2);
+        });
     });
 
     describe('discoverRoles', function () {

@@ -155,6 +155,7 @@ final class DefinitionDiscoverer
         $classGuard = $this->getClassGuard($class);
         $classLabel = $this->getClassAttribute($class, Label::class)?->value;
         $classDescription = $this->getClassAttribute($class, Description::class)?->value;
+        $classCapabilities = $this->getClassCapabilityNames($class);
 
         foreach ($class->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC) as $constant) {
             $value = $constant->getValue();
@@ -166,6 +167,7 @@ final class DefinitionDiscoverer
             $labelAttr = $this->getConstantAttribute($constant, Label::class);
             $descAttr = $this->getConstantAttribute($constant, Description::class);
             $contextAttr = $this->getConstantAttribute($constant, Context::class);
+            $constantCapabilities = $this->getCapabilityNames($constant);
 
             $definitions[] = PermissionDefinition::fromAttributes([
                 'name' => $value,
@@ -173,7 +175,7 @@ final class DefinitionDiscoverer
                 'label' => $labelAttr !== null ? $labelAttr->value : $classLabel,
                 'description' => $descAttr !== null ? $descAttr->value : $classDescription,
                 'context' => $contextAttr?->modelClass,
-                'capabilities' => $this->getCapabilityNames($constant),
+                'capabilities' => array_unique(array_merge($classCapabilities, $constantCapabilities)),
                 'source_class' => $class->getName(),
                 'source_constant' => $constant->getName(),
             ]);
@@ -315,6 +317,22 @@ final class DefinitionDiscoverer
     private function getCapabilityNames(ReflectionClassConstant $constant): array
     {
         $attributes = $constant->getAttributes(CapabilityAttribute::class);
+
+        return array_map(
+            fn ($attr) => $attr->newInstance()->name,
+            $attributes
+        );
+    }
+
+    /**
+     * Get all capability names from a class's Capability attributes.
+     *
+     * @param  ReflectionClass<object>  $class
+     * @return array<string>
+     */
+    private function getClassCapabilityNames(ReflectionClass $class): array
+    {
+        $attributes = $class->getAttributes(CapabilityAttribute::class);
 
         return array_map(
             fn ($attr) => $attr->newInstance()->name,

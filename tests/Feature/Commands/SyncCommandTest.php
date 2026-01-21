@@ -264,4 +264,31 @@ describe('SyncCommand --seed', function () {
         expect($role->hasCapability('test-capability'))->toBeTrue();
         expect($role->hasCapability('another-capability'))->toBeTrue();
     });
+
+    it('syncs all discovered permissions when using --seed with code-first enabled', function () {
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirst']);
+        config(['mandate.code_first.paths.roles' => __DIR__.'/../../Fixtures/CodeFirst']);
+
+        // Only assign one permission, but all should be synced
+        config(['mandate.assignments' => [
+            'partial-role' => [
+                'permissions' => ['article:view'],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        // All permissions from code-first should be synced, not just those in assignments
+        expect(Permission::where('name', 'article:view')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:create')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:edit')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:delete')->exists())->toBeTrue();
+
+        // But only article:view should be assigned to the role
+        $role = Role::where('name', 'partial-role')->first();
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:create'))->toBeFalse();
+    });
 });

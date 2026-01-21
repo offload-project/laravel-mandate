@@ -78,7 +78,10 @@ final class SyncCommand extends Command
         $isDryRun = (bool) $this->option('dry-run');
         /** @var string|null $guard */
         $guard = $this->option('guard') ?: null;
-        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities') && ! $seedOnly;
+        // Sync all if no specific flags passed, or if --seed is used with code-first enabled
+        // This ensures discovered permissions are synced before seeding assignments
+        $syncAll = ! $this->option('permissions') && ! $this->option('roles') && ! $this->option('capabilities')
+            && (! $seedOnly || $codeFirstEnabled);
 
         if ($isDryRun) {
             $this->components->info('Dry run mode - no changes will be made.');

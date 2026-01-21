@@ -266,6 +266,60 @@ describe('Mandate::sync() with seed', function () {
         expect($role->hasCapability('another-capability'))->toBeTrue();
     });
 
+    it('syncs capability-permission relationships from Capability attributes', function () {
+        $this->enableCapabilities();
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../Fixtures/CodeFirst']);
+
+        Mandate::sync(permissions: true);
+
+        $capabilityClass = config('mandate.models.capability');
+
+        // UserPermissions has class-level #[Capability('user-management')]
+        // So user:view, user:edit, user:delete should have user-management capability
+        $userManagement = $capabilityClass::where('name', 'user-management')->first();
+        expect($userManagement)->not->toBeNull();
+        expect($userManagement->hasPermission('user:view'))->toBeTrue();
+        expect($userManagement->hasPermission('user:edit'))->toBeTrue();
+        expect($userManagement->hasPermission('user:delete'))->toBeTrue();
+
+        // user:delete also has constant-level #[Capability('admin-only')]
+        $adminOnly = $capabilityClass::where('name', 'admin-only')->first();
+        expect($adminOnly)->not->toBeNull();
+        expect($adminOnly->hasPermission('user:delete'))->toBeTrue();
+
+        // Verify pivot table records
+        $pivotTable = config('mandate.tables.capability_permission', 'capability_permission');
+        $pivotCount = Illuminate\Support\Facades\DB::table($pivotTable)->count();
+        expect($pivotCount)->toBe(4); // 3 for user-management + 1 for admin-only
+    });
+
+    it('syncs all discovered permissions when using seed with code-first enabled', function () {
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../Fixtures/CodeFirst']);
+        config(['mandate.code_first.paths.roles' => __DIR__.'/../Fixtures/CodeFirst']);
+
+        // Only assign one permission, but all should be synced
+        config(['mandate.assignments' => [
+            'partial-role' => [
+                'permissions' => ['article:view'],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        // All permissions from code-first should be synced, not just those in assignments
+        expect(Permission::where('name', 'article:view')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:create')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:edit')->exists())->toBeTrue();
+        expect(Permission::where('name', 'article:delete')->exists())->toBeTrue();
+
+        // But only article:view should be assigned to the role
+        $role = Role::where('name', 'partial-role')->first();
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:create'))->toBeFalse();
+    });
+
     it('respects guard filter when seeding', function () {
         config(['mandate.code_first.enabled' => false]);
 

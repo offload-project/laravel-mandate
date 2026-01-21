@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\CodeFirst\DefinitionCache;
 use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
+use OffloadProject\Mandate\CodeFirst\PermissionDefinition;
 use OffloadProject\Mandate\Concerns\HasRoles;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
@@ -690,7 +691,10 @@ final class Mandate
         $capabilitiesCreated = 0;
         $capabilitiesUpdated = 0;
 
-        $syncAll = ! $permissions && ! $roles && ! $capabilities && ! $seedOnly;
+        // Sync all if no specific flags passed, or if seed is used with code-first enabled
+        // This ensures discovered permissions are synced before seeding assignments
+        $syncAll = ! $permissions && ! $roles && ! $capabilities
+            && (! $seedOnly || $codeFirstEnabled);
 
         // Determine what to sync (skip if seed-only mode)
         $syncPermissions = $codeFirstEnabled && ($syncAll || $permissions);
@@ -825,6 +829,9 @@ final class Mandate
                 ->where('guard', $definition->guard)
                 ->first();
 
+            /** @var Permission|Role|Capability|null $model */
+            $model = $existing;
+
             if ($existing) {
                 $needsUpdate = false;
                 $updates = [];
@@ -855,12 +862,44 @@ final class Mandate
                     $attributes['description'] = $definition->description;
                 }
 
-                $modelClass::query()->create($attributes);
+                $model = $modelClass::query()->create($attributes);
                 $created++;
+            }
+
+            // Sync capability-permission relationships for permissions
+            if ($entityType === 'permissions' && $model instanceof Permission && $definition instanceof PermissionDefinition) {
+                $this->syncPermissionCapabilities($model, $definition->capabilities);
             }
         }
 
         return ['created' => $created, 'updated' => $updated];
+    }
+
+    /**
+     * Sync a permission's capability relationships.
+     *
+     * @param  array<string>  $capabilityNames
+     */
+    private function syncPermissionCapabilities(Permission $permission, array $capabilityNames): void
+    {
+        if (empty($capabilityNames) || ! $this->capabilitiesEnabled()) {
+            return;
+        }
+
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        foreach ($capabilityNames as $capabilityName) {
+            /** @var Capability $capability */
+            $capability = $capabilityClass::query()
+                ->firstOrCreate(
+                    ['name' => $capabilityName, 'guard' => $permission->guard],
+                    ['name' => $capabilityName, 'guard' => $permission->guard]
+                );
+
+            // Grant the permission to the capability (uses syncWithoutDetaching internally)
+            $capability->grantPermission($permission);
+        }
     }
 
     /**

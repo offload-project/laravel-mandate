@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.3.2](https://github.com/offload-project/laravel-mandate/compare/v3.3.1...v3.3.2) (2026-01-21)
+
+
+### Bug Fixes
+
+* The #[Capability('...')] attribute on permission classes/constants was being discovered but never used to create the actual capability-permission relationships. Now when syncing permissions, the command also:
+  1. Finds or creates each capability referenced by #[Capability] attributes                                                                       
+  2. Grants the permission to those capabilities via $capability->grantPermission($permission) ([#40](https://github.com/offload-project/laravel-mandate/issues/40)) ([a246685](https://github.com/offload-project/laravel-mandate/commit/a24668576c19f0f681a13e15ee40249b55e4ae1b))
+
 ## [3.3.1](https://github.com/offload-project/laravel-mandate/compare/v3.3.0...v3.3.1) (2026-01-21)
 
 

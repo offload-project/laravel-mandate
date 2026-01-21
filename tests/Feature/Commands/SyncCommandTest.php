@@ -316,5 +316,15 @@ describe('SyncCommand --seed', function () {
 
         // user:delete should also have user-management (from class-level)
         expect($userManagement->hasPermission('user:delete'))->toBeTrue();
+
+        // Verify the pivot table actually has records
+        $pivotTable = config('mandate.tables.capability_permission', 'capability_permission');
+        $pivotCount = Illuminate\Support\Facades\DB::table($pivotTable)->count();
+        expect($pivotCount)->toBe(4); // user:view, user:edit, user:delete -> user-management (3) + user:delete -> admin-only (1)
+
+        // Also verify by loading permissions relationship
+        $userManagement->load('permissions');
+        expect($userManagement->permissions)->toHaveCount(3);
+        expect($userManagement->permissions->pluck('name')->toArray())->toContain('user:view', 'user:edit', 'user:delete');
     });
 });

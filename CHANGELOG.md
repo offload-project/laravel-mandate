@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.1](https://github.com/offload-project/laravel-mandate/compare/v3.3.0...v3.3.1) (2026-01-21)
+
+
+### Bug Fixes
+
+* mandate:sync --seed with code-first enabled: Syncs ALL discovered permissions to DB, then seeds assignments               
+* mandate:sync --seed without code-first: Only seeds assignments from config ([#38](https://github.com/offload-project/laravel-mandate/issues/38)) ([516e57d](https://github.com/offload-project/laravel-mandate/commit/516e57d9c00af08b5e8bad0f85f8550a56a1740c))
+
 ## [3.3.0](https://github.com/offload-project/laravel-mandate/compare/v3.2.0...v3.3.0) (2026-01-20)
 
 

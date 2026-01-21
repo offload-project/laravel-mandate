@@ -175,6 +175,9 @@ final class SyncCommand extends Command
             ->where('guard', $definition->guard)
             ->first();
 
+        /** @var Permission|null $permission */
+        $permission = $existing;
+
         if ($existing) {
             // Check if update needed
             $needsUpdate = false;
@@ -219,9 +222,47 @@ final class SyncCommand extends Command
                     $attributes['description'] = $definition->description;
                 }
 
-                $permissionClass::query()->create($attributes);
+                $permission = $permissionClass::query()->create($attributes);
             }
             $this->permissionsCreated++;
+        }
+
+        // Sync capability-permission relationships
+        if (! $isDryRun && $permission !== null && ! empty($definition->capabilities) && config('mandate.capabilities.enabled', false)) {
+            $this->syncPermissionCapabilities($permission, $definition->capabilities);
+        }
+    }
+
+    /**
+     * Sync a permission's capability relationships.
+     *
+     * @param  array<string>  $capabilityNames
+     */
+    private function syncPermissionCapabilities(Permission $permission, array $capabilityNames): void
+    {
+        /** @var class-string<Capability> $capabilityClass */
+        $capabilityClass = config('mandate.models.capability', Capability::class);
+
+        foreach ($capabilityNames as $capabilityName) {
+            /** @var Capability|null $capability */
+            $capability = $capabilityClass::query()
+                ->where('name', $capabilityName)
+                ->where('guard', $permission->guard)
+                ->first();
+
+            if ($capability === null) {
+                $capability = $capabilityClass::create([
+                    'name' => $capabilityName,
+                    'guard' => $permission->guard,
+                ]);
+                $this->components->twoColumnDetail(
+                    '  <fg=green>Created capability</>',
+                    $capabilityName
+                );
+            }
+
+            // Grant the permission to the capability (uses syncWithoutDetaching internally)
+            $capability->grantPermission($permission);
         }
     }
 

@@ -48,9 +48,7 @@ final class Mandate
 {
     public function __construct(
         private readonly MandateRegistrar $registrar
-    )
-    {
-    }
+    ) {}
 
     /**
      * Create a fluent authorization builder for a subject.
@@ -71,7 +69,7 @@ final class Mandate
      */
     public function contextEnabled(): bool
     {
-        return (bool)config('mandate.context.enabled', false);
+        return (bool) config('mandate.context.enabled', false);
     }
 
     /**
@@ -79,7 +77,7 @@ final class Mandate
      */
     public function featureIntegrationEnabled(): bool
     {
-        return (bool)config('mandate.features.enabled', false)
+        return (bool) config('mandate.features.enabled', false)
             && $this->contextEnabled();
     }
 
@@ -112,7 +110,7 @@ final class Mandate
      */
     public function getFeatureAccessHandler(): ?FeatureAccessHandler
     {
-        if (!app()->bound(FeatureAccessHandler::class)) {
+        if (! app()->bound(FeatureAccessHandler::class)) {
             return null;
         }
 
@@ -124,11 +122,11 @@ final class Mandate
      */
     public function isFeatureActive(Model $feature): bool
     {
-        if (!$this->featureIntegrationEnabled()) {
+        if (! $this->featureIntegrationEnabled()) {
             return true;
         }
 
-        if (!$this->isFeatureContext($feature)) {
+        if (! $this->isFeatureContext($feature)) {
             return true;
         }
 
@@ -146,11 +144,11 @@ final class Mandate
      */
     public function hasFeatureAccess(Model $feature, Model $subject): bool
     {
-        if (!$this->featureIntegrationEnabled()) {
+        if (! $this->featureIntegrationEnabled()) {
             return true;
         }
 
-        if (!$this->isFeatureContext($feature)) {
+        if (! $this->isFeatureContext($feature)) {
             return true;
         }
 
@@ -172,11 +170,11 @@ final class Mandate
      */
     public function canAccessFeature(Model $feature, Model $subject): bool
     {
-        if (!$this->featureIntegrationEnabled()) {
+        if (! $this->featureIntegrationEnabled()) {
             return true;
         }
 
-        if (!$this->isFeatureContext($feature)) {
+        if (! $this->isFeatureContext($feature)) {
             return true;
         }
 
@@ -192,11 +190,11 @@ final class Mandate
     /**
      * Check if a model has a specific permission.
      *
-     * @param Model|null $context Optional context model for scoped permission check
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
     public function hasPermission(Model $subject, string $permission, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasPermission')) {
+        if (! method_exists($subject, 'hasPermission')) {
             return false;
         }
 
@@ -206,12 +204,12 @@ final class Mandate
     /**
      * Check if a model has any of the given permissions.
      *
-     * @param array<string> $permissions
-     * @param Model|null $context Optional context model for scoped permission check
+     * @param  array<string>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
     public function hasAnyPermission(Model $subject, array $permissions, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasAnyPermission')) {
+        if (! method_exists($subject, 'hasAnyPermission')) {
             return false;
         }
 
@@ -221,12 +219,12 @@ final class Mandate
     /**
      * Check if a model has all of the given permissions.
      *
-     * @param array<string> $permissions
-     * @param Model|null $context Optional context model for scoped permission check
+     * @param  array<string>  $permissions
+     * @param  Model|null  $context  Optional context model for scoped permission check
      */
     public function hasAllPermissions(Model $subject, array $permissions, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasAllPermissions')) {
+        if (! method_exists($subject, 'hasAllPermissions')) {
             return false;
         }
 
@@ -236,11 +234,11 @@ final class Mandate
     /**
      * Check if a model has a specific role.
      *
-     * @param Model|null $context Optional context model for scoped role check
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
     public function hasRole(Model $subject, string $role, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasRole')) {
+        if (! method_exists($subject, 'hasRole')) {
             return false;
         }
 
@@ -250,12 +248,12 @@ final class Mandate
     /**
      * Check if a model has any of the given roles.
      *
-     * @param array<string> $roles
-     * @param Model|null $context Optional context model for scoped role check
+     * @param  array<string>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
     public function hasAnyRole(Model $subject, array $roles, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasAnyRole')) {
+        if (! method_exists($subject, 'hasAnyRole')) {
             return false;
         }
 
@@ -265,12 +263,12 @@ final class Mandate
     /**
      * Check if a model has all of the given roles.
      *
-     * @param array<string> $roles
-     * @param Model|null $context Optional context model for scoped role check
+     * @param  array<string>  $roles
+     * @param  Model|null  $context  Optional context model for scoped role check
      */
     public function hasAllRoles(Model $subject, array $roles, ?Model $context = null): bool
     {
-        if (!method_exists($subject, 'hasAllRoles')) {
+        if (! method_exists($subject, 'hasAllRoles')) {
             return false;
         }
 
@@ -280,12 +278,12 @@ final class Mandate
     /**
      * Get all permissions for a model.
      *
-     * @param Model|null $context Optional context model to filter permissions
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, PermissionContract>
      */
     public function getPermissions(Model $subject, ?Model $context = null): Collection
     {
-        if (!method_exists($subject, 'getAllPermissions')) {
+        if (! method_exists($subject, 'getAllPermissions')) {
             return collect();
         }
 
@@ -295,12 +293,12 @@ final class Mandate
     /**
      * Get permission names for a model.
      *
-     * @param Model|null $context Optional context model to filter permissions
+     * @param  Model|null  $context  Optional context model to filter permissions
      * @return Collection<int, string>
      */
     public function getPermissionNames(Model $subject, ?Model $context = null): Collection
     {
-        if (!method_exists($subject, 'getPermissionNames')) {
+        if (! method_exists($subject, 'getPermissionNames')) {
             return collect();
         }
 
@@ -310,13 +308,13 @@ final class Mandate
     /**
      * Get all roles for a model.
      *
-     * @param Model|null $context Optional context model to filter roles
+     * @param  Model|null  $context  Optional context model to filter roles
      * @return Collection<int, RoleContract>
      */
     public function getRoles(Model $subject, ?Model $context = null): Collection
     {
-        if (!method_exists($subject, 'getRolesForContext')) {
-            if (!property_exists($subject, 'roles') && !method_exists($subject, 'roles')) {
+        if (! method_exists($subject, 'getRolesForContext')) {
+            if (! property_exists($subject, 'roles') && ! method_exists($subject, 'roles')) {
                 return collect();
             }
 
@@ -330,12 +328,12 @@ final class Mandate
     /**
      * Get role names for a model.
      *
-     * @param Model|null $context Optional context model to filter roles
+     * @param  Model|null  $context  Optional context model to filter roles
      * @return Collection<int, string>
      */
     public function getRoleNames(Model $subject, ?Model $context = null): Collection
     {
-        if (!method_exists($subject, 'getRoleNames')) {
+        if (! method_exists($subject, 'getRoleNames')) {
             return collect();
         }
 
@@ -349,7 +347,7 @@ final class Mandate
      */
     public function getRoleContexts(Model $subject, string $role): Collection
     {
-        if (!method_exists($subject, 'getRoleContexts')) {
+        if (! method_exists($subject, 'getRoleContexts')) {
             return collect();
         }
 
@@ -363,7 +361,7 @@ final class Mandate
      */
     public function getPermissionContexts(Model $subject, string $permission): Collection
     {
-        if (!method_exists($subject, 'getPermissionContexts')) {
+        if (! method_exists($subject, 'getPermissionContexts')) {
             return collect();
         }
 
@@ -461,7 +459,7 @@ final class Mandate
      */
     public function capabilitiesEnabled(): bool
     {
-        return (bool)config('mandate.capabilities.enabled', false);
+        return (bool) config('mandate.capabilities.enabled', false);
     }
 
     /**
@@ -469,11 +467,11 @@ final class Mandate
      */
     public function hasCapability(Model $subject, string $capability): bool
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return false;
         }
 
-        if (!method_exists($subject, 'hasCapability')) {
+        if (! method_exists($subject, 'hasCapability')) {
             return false;
         }
 
@@ -483,15 +481,15 @@ final class Mandate
     /**
      * Check if a model has any of the given capabilities.
      *
-     * @param array<string> $capabilities
+     * @param  array<string>  $capabilities
      */
     public function hasAnyCapability(Model $subject, array $capabilities): bool
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return false;
         }
 
-        if (!method_exists($subject, 'hasAnyCapability')) {
+        if (! method_exists($subject, 'hasAnyCapability')) {
             return false;
         }
 
@@ -501,15 +499,15 @@ final class Mandate
     /**
      * Check if a model has all of the given capabilities.
      *
-     * @param array<string> $capabilities
+     * @param  array<string>  $capabilities
      */
     public function hasAllCapabilities(Model $subject, array $capabilities): bool
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return false;
         }
 
-        if (!method_exists($subject, 'hasAllCapabilities')) {
+        if (! method_exists($subject, 'hasAllCapabilities')) {
             return false;
         }
 
@@ -523,11 +521,11 @@ final class Mandate
      */
     public function getCapabilities(Model $subject): Collection
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return collect();
         }
 
-        if (!method_exists($subject, 'getAllCapabilities')) {
+        if (! method_exists($subject, 'getAllCapabilities')) {
             return collect();
         }
 
@@ -541,11 +539,11 @@ final class Mandate
      */
     public function getCapabilityNames(Model $subject): Collection
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return collect();
         }
 
-        if (!method_exists($subject, 'getAllCapabilities')) {
+        if (! method_exists($subject, 'getAllCapabilities')) {
             return collect();
         }
 
@@ -557,7 +555,7 @@ final class Mandate
      */
     public function createCapability(string $name, ?string $guard = null): CapabilityContract
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             throw new RuntimeException('Capabilities feature is not enabled. Set mandate.capabilities.enabled to true in your configuration.');
         }
 
@@ -577,7 +575,7 @@ final class Mandate
      */
     public function findOrCreateCapability(string $name, ?string $guard = null): CapabilityContract
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             throw new RuntimeException('Capabilities feature is not enabled. Set mandate.capabilities.enabled to true in your configuration.');
         }
 
@@ -596,7 +594,7 @@ final class Mandate
      */
     public function getAllCapabilities(?string $guard = null): Collection
     {
-        if (!$this->capabilitiesEnabled()) {
+        if (! $this->capabilitiesEnabled()) {
             return collect();
         }
 
@@ -626,14 +624,14 @@ final class Mandate
     /**
      * Get authorization data for sharing with frontend.
      *
-     * @param Model|null $context Optional context model to filter authorization data
+     * @param  Model|null  $context  Optional context model to filter authorization data
      * @return array{permissions: array<string>, roles: array<string>, capabilities?: array<string>}
      */
     public function getAuthorizationData(?Authenticatable $subject = null, ?Model $context = null): array
     {
         $subject ??= auth()->user();
 
-        if ($subject === null || !$subject instanceof Model) {
+        if ($subject === null || ! $subject instanceof Model) {
             $data = [
                 'permissions' => [],
                 'roles' => [],
@@ -663,27 +661,26 @@ final class Mandate
      *
      * This method programmatically performs the same operations as the `mandate:sync` command.
      *
-     * @param bool $permissions Sync only permissions (if true without roles/capabilities, only permissions are synced)
-     * @param bool $roles Sync only roles (if true without permissions/capabilities, only roles are synced)
-     * @param bool $capabilities Sync only capabilities (if true without permissions/roles, only capabilities are synced)
-     * @param bool $seed Seed role-permission and role-capability assignments from config
-     * @param string|null $guard Sync for a specific guard only
+     * @param  bool  $permissions  Sync only permissions (if true without roles/capabilities, only permissions are synced)
+     * @param  bool  $roles  Sync only roles (if true without permissions/capabilities, only roles are synced)
+     * @param  bool  $capabilities  Sync only capabilities (if true without permissions/roles, only capabilities are synced)
+     * @param  bool  $seed  Seed role-permission and role-capability assignments from config
+     * @param  string|null  $guard  Sync for a specific guard only
      *
      * @throws RuntimeException If code-first mode is not enabled (unless using seed-only mode)
      */
     public function sync(
-        bool    $permissions = false,
-        bool    $roles = false,
-        bool    $capabilities = false,
-        bool    $seed = false,
+        bool $permissions = false,
+        bool $roles = false,
+        bool $capabilities = false,
+        bool $seed = false,
         ?string $guard = null,
-    ): SyncResult
-    {
-        $codeFirstEnabled = (bool)config('mandate.code_first.enabled', false);
-        $seedOnly = $seed && !$permissions && !$roles && !$capabilities;
+    ): SyncResult {
+        $codeFirstEnabled = (bool) config('mandate.code_first.enabled', false);
+        $seedOnly = $seed && ! $permissions && ! $roles && ! $capabilities;
 
         // Allow seed to work without code-first enabled
-        if (!$codeFirstEnabled && !$seedOnly) {
+        if (! $codeFirstEnabled && ! $seedOnly) {
             throw new RuntimeException('Code-first mode is not enabled. Set mandate.code_first.enabled to true.');
         }
 
@@ -696,8 +693,8 @@ final class Mandate
 
         // Sync all if no specific flags passed, or if seed is used with code-first enabled
         // This ensures discovered permissions are synced before seeding assignments
-        $syncAll = !$permissions && !$roles && !$capabilities
-            && (!$seedOnly || $codeFirstEnabled);
+        $syncAll = ! $permissions && ! $roles && ! $capabilities
+            && (! $seedOnly || $codeFirstEnabled);
 
         // Determine what to sync (skip if seed-only mode)
         $syncPermissions = $codeFirstEnabled && ($syncAll || $permissions);
@@ -784,15 +781,14 @@ final class Mandate
     /**
      * Sync definitions to the database for a given entity type.
      *
-     * @param 'permissions'|'roles'|'capabilities' $entityType
+     * @param  'permissions'|'roles'|'capabilities'  $entityType
      * @return array{created: int, updated: int}
      */
     private function syncDefinitionsToDatabase(
         DefinitionDiscoverer $discoverer,
-        string               $entityType,
-        ?string              $guard
-    ): array
-    {
+        string $entityType,
+        ?string $guard
+    ): array {
         $paths = config("mandate.code_first.paths.{$entityType}", []);
         $paths = is_array($paths) ? $paths : [$paths];
 
@@ -805,7 +801,7 @@ final class Mandate
 
         // Filter by guard if specified
         if ($guard !== null) {
-            $definitions = $definitions->filter(fn($d) => $d->guard === $guard);
+            $definitions = $definitions->filter(fn ($d) => $d->guard === $guard);
         }
 
         // Get the model class and check for label column
@@ -882,11 +878,11 @@ final class Mandate
     /**
      * Sync a permission's capability relationships.
      *
-     * @param array<string> $capabilityNames
+     * @param  array<string>  $capabilityNames
      */
     private function syncPermissionCapabilities(Permission $permission, array $capabilityNames): void
     {
-        if (empty($capabilityNames) || !$this->capabilitiesEnabled()) {
+        if (empty($capabilityNames) || ! $this->capabilitiesEnabled()) {
             return;
         }
 
@@ -932,10 +928,10 @@ final class Mandate
         $allCapabilityNames = [];
 
         foreach ($assignments as $assignment) {
-            if (!empty($assignment['permissions'])) {
+            if (! empty($assignment['permissions'])) {
                 $allPermissionNames = array_merge($allPermissionNames, $assignment['permissions']);
             }
-            if (!empty($assignment['capabilities'])) {
+            if (! empty($assignment['capabilities'])) {
                 $allCapabilityNames = array_merge($allCapabilityNames, $assignment['capabilities']);
             }
         }
@@ -966,7 +962,7 @@ final class Mandate
 
         // Batch fetch existing permissions (skip if none needed)
         $permissionsMap = [];
-        if (!empty($allPermissionNames)) {
+        if (! empty($allPermissionNames)) {
             /** @var Collection<int, Permission> $existingPermissions */
             $existingPermissions = $permissionClass::query()
                 ->whereIn('name', $allPermissionNames)
@@ -989,7 +985,7 @@ final class Mandate
 
         // Batch fetch existing capabilities (if enabled)
         $capabilitiesMap = [];
-        if ($this->capabilitiesEnabled() && !empty($allCapabilityNames)) {
+        if ($this->capabilitiesEnabled() && ! empty($allCapabilityNames)) {
             /** @var Collection<int, Capability> $existingCapabilities */
             $existingCapabilities = $capabilityClass::query()
                 ->whereIn('name', $allCapabilityNames)
@@ -1015,18 +1011,18 @@ final class Mandate
             $role = $rolesMap[$roleName];
 
             // Sync permissions
-            if (!empty($assignment['permissions'])) {
+            if (! empty($assignment['permissions'])) {
                 $permissionIds = array_map(
-                    fn(string $name) => $permissionsMap[$name]->getKey(),
+                    fn (string $name) => $permissionsMap[$name]->getKey(),
                     $assignment['permissions']
                 );
                 $role->permissions()->syncWithoutDetaching($permissionIds);
             }
 
             // Sync capabilities
-            if ($this->capabilitiesEnabled() && !empty($assignment['capabilities'])) {
+            if ($this->capabilitiesEnabled() && ! empty($assignment['capabilities'])) {
                 $capabilityIds = array_map(
-                    fn(string $name) => $capabilitiesMap[$name]->getKey(),
+                    fn (string $name) => $capabilitiesMap[$name]->getKey(),
                     $assignment['capabilities']
                 );
                 $role->capabilities()->syncWithoutDetaching($capabilityIds);

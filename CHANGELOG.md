@@ -5,7 +5,9 @@
 
 ### Bug Fixes
 
-* capability-permission relationships not being synced in sync method ([#42](https://github.com/offload-project/laravel-mandate/issues/42)) ([5e0f842](https://github.com/offload-project/laravel-mandate/commit/5e0f8425001b16c2af3e6c50e4eb0dbf4d778da6))
+* Added syncPermissionCapabilities() method to create and link capabilities to permissions during sync
+* Modified the syncAll condition to ensure discovered permissions are synced when using seed with code-first enabled
+* Added comprehensive test coverage for capability-permission relationship syncing ([#42](https://github.com/offload-project/laravel-mandate/issues/42)) ([5e0f842](https://github.com/offload-project/laravel-mandate/commit/5e0f8425001b16c2af3e6c50e4eb0dbf4d778da6))
 
 ## [3.3.2](https://github.com/offload-project/laravel-mandate/compare/v3.3.1...v3.3.2) (2026-01-21)
 

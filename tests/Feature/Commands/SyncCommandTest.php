@@ -291,4 +291,30 @@ describe('SyncCommand --seed', function () {
         expect($role->hasPermission('article:view'))->toBeTrue();
         expect($role->hasPermission('article:create'))->toBeFalse();
     });
+
+    it('syncs capability-permission relationships from Capability attributes', function () {
+        $this->enableCapabilities();
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirst']);
+
+        $this->artisan('mandate:sync', ['--permissions' => true])
+            ->assertSuccessful();
+
+        $capabilityClass = config('mandate.models.capability');
+
+        // UserPermissions has class-level #[Capability('user-management')]
+        // So user:view, user:edit should have user-management capability
+        $userManagement = $capabilityClass::where('name', 'user-management')->first();
+        expect($userManagement)->not->toBeNull();
+        expect($userManagement->hasPermission('user:view'))->toBeTrue();
+        expect($userManagement->hasPermission('user:edit'))->toBeTrue();
+
+        // user:delete has both class-level and constant-level #[Capability('admin-only')]
+        $adminOnly = $capabilityClass::where('name', 'admin-only')->first();
+        expect($adminOnly)->not->toBeNull();
+        expect($adminOnly->hasPermission('user:delete'))->toBeTrue();
+
+        // user:delete should also have user-management (from class-level)
+        expect($userManagement->hasPermission('user:delete'))->toBeTrue();
+    });
 });

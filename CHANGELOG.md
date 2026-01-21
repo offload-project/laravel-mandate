@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.2](https://github.com/offload-project/laravel-mandate/compare/v3.3.1...v3.3.2) (2026-01-21)
+
+
+### Bug Fixes
+
+* capability-permission relationships not being synced ([#40](https://github.com/offload-project/laravel-mandate/issues/40)) ([a246685](https://github.com/offload-project/laravel-mandate/commit/a24668576c19f0f681a13e15ee40249b55e4ae1b))
+
 ## [3.3.1](https://github.com/offload-project/laravel-mandate/compare/v3.3.0...v3.3.1) (2026-01-21)
 
 

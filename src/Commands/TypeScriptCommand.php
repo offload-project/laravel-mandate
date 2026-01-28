@@ -303,6 +303,8 @@ final class TypeScriptCommand extends Command
      * - "article:view" → ["ArticlePermissions", "VIEW"]
      * - "user.create" → ["UserPermissions", "CREATE"]
      * - "admin" → ["Roles", "ADMIN"]
+     * - "article:*" → ["ArticlePermissions", "WILDCARD"]
+     * - "*" → ["Permissions", "WILDCARD"]
      *
      * @return array{0: string, 1: string}
      */
@@ -317,15 +319,36 @@ final class TypeScriptCommand extends Command
             $groupName = Str::studly($prefix).$defaultGroup;
 
             // Convert action to UPPER_SNAKE_CASE
-            $constName = Str::upper(Str::snake($action));
+            $constName = $this->sanitizeConstName(Str::upper(Str::snake($action)));
 
             return [$groupName, $constName];
         }
 
         // No prefix - use default group
-        $constName = Str::upper(Str::snake($name));
+        $constName = $this->sanitizeConstName(Str::upper(Str::snake($name)));
 
         return [$defaultGroup, $constName];
+    }
+
+    /**
+     * Sanitize a constant name to be a valid TypeScript identifier.
+     *
+     * Replaces wildcards and other invalid characters with valid alternatives.
+     */
+    private function sanitizeConstName(string $name): string
+    {
+        // Replace standalone wildcard or wildcard portions
+        $name = str_replace('*', 'WILDCARD', $name);
+
+        // Replace any remaining characters that aren't valid in identifiers
+        $name = (string) preg_replace('/[^A-Z0-9_]/', '_', $name);
+
+        // Ensure it doesn't start with a digit
+        if ($name !== '' && ctype_digit($name[0])) {
+            $name = '_'.$name;
+        }
+
+        return $name === '' ? 'UNKNOWN' : $name;
     }
 
     /**

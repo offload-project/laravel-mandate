@@ -375,8 +375,10 @@ final class TypeScriptCommand extends Command
 
         foreach ($items as $constName => $value) {
             // Quote keys that aren't valid identifiers (e.g., wildcards like "*")
-            $key = $this->isValidIdentifier($constName) ? $constName : "\"{$constName}\"";
-            $lines[] = "  {$key}: \"{$value}\",";
+            // Use json_encode for proper escaping of special characters
+            $key = $this->isValidIdentifier($constName) ? $constName : json_encode($constName);
+            $escapedValue = json_encode($value);
+            $lines[] = "  {$key}: {$escapedValue},";
         }
 
         $lines[] = '} as const;';

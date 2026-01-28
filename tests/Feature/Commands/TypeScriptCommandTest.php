@@ -83,7 +83,7 @@ describe('TypeScriptCommand', function () {
         expect($content)->toContain('export type Role');
     });
 
-    it('sanitizes wildcard permissions to valid TypeScript identifiers', function () {
+    it('quotes wildcard permissions as valid TypeScript property keys', function () {
         config(['mandate.code_first.enabled' => false]);
 
         // Create wildcard permissions in the database
@@ -97,11 +97,11 @@ describe('TypeScriptCommand', function () {
 
         $content = file_get_contents($outputFile);
 
-        // Wildcard should be sanitized to WILDCARD
-        expect($content)->toContain('WILDCARD: "*"');
-        expect($content)->toContain('WILDCARD: "article:*"');
+        // Wildcard keys should be quoted
+        expect($content)->toContain('"*": "*"');
+        expect($content)->toContain('"*": "article:*"');
 
-        // Should NOT contain bare * as a key
+        // Should NOT contain unquoted * as a key
         expect($content)->not->toMatch('/^\s+\*:/m');
     });
 

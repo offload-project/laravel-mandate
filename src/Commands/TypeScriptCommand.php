@@ -303,8 +303,8 @@ final class TypeScriptCommand extends Command
      * - "article:view" → ["ArticlePermissions", "VIEW"]
      * - "user.create" → ["UserPermissions", "CREATE"]
      * - "admin" → ["Roles", "ADMIN"]
-     * - "article:*" → ["ArticlePermissions", "WILDCARD"]
-     * - "*" → ["Permissions", "WILDCARD"]
+     * - "article:*" → ["ArticlePermissions", "*"]
+     * - "*" → ["Permissions", "*"]
      *
      * @return array{0: string, 1: string}
      */
@@ -319,36 +319,23 @@ final class TypeScriptCommand extends Command
             $groupName = Str::studly($prefix).$defaultGroup;
 
             // Convert action to UPPER_SNAKE_CASE
-            $constName = $this->sanitizeConstName(Str::upper(Str::snake($action)));
+            $constName = Str::upper(Str::snake($action));
 
             return [$groupName, $constName];
         }
 
         // No prefix - use default group
-        $constName = $this->sanitizeConstName(Str::upper(Str::snake($name)));
+        $constName = Str::upper(Str::snake($name));
 
         return [$defaultGroup, $constName];
     }
 
     /**
-     * Sanitize a constant name to be a valid TypeScript identifier.
-     *
-     * Replaces wildcards and other invalid characters with valid alternatives.
+     * Check if a string is a valid JavaScript/TypeScript identifier.
      */
-    private function sanitizeConstName(string $name): string
+    private function isValidIdentifier(string $name): bool
     {
-        // Replace standalone wildcard or wildcard portions
-        $name = str_replace('*', 'WILDCARD', $name);
-
-        // Replace any remaining characters that aren't valid in identifiers
-        $name = (string) preg_replace('/[^A-Z0-9_]/', '_', $name);
-
-        // Ensure it doesn't start with a digit
-        if ($name !== '' && ctype_digit($name[0])) {
-            $name = '_'.$name;
-        }
-
-        return $name === '' ? 'UNKNOWN' : $name;
+        return (bool) preg_match('/^[a-zA-Z_$][a-zA-Z0-9_$]*$/', $name);
     }
 
     /**
@@ -387,7 +374,9 @@ final class TypeScriptCommand extends Command
         $lines = ["export const {$groupName} = {"];
 
         foreach ($items as $constName => $value) {
-            $lines[] = "  {$constName}: \"{$value}\",";
+            // Quote keys that aren't valid identifiers (e.g., wildcards like "*")
+            $key = $this->isValidIdentifier($constName) ? $constName : "\"{$constName}\"";
+            $lines[] = "  {$key}: \"{$value}\",";
         }
 
         $lines[] = '} as const;';

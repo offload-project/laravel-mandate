@@ -83,6 +83,28 @@ describe('TypeScriptCommand', function () {
         expect($content)->toContain('export type Role');
     });
 
+    it('quotes wildcard permissions as valid TypeScript property keys', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        // Create wildcard permissions in the database
+        OffloadProject\Mandate\Models\Permission::create(['name' => '*']);
+        OffloadProject\Mandate\Models\Permission::create(['name' => 'article:*']);
+
+        $outputFile = $this->outputPath.'/mandate.ts';
+
+        $this->artisan('mandate:typescript', ['--output' => $outputFile])
+            ->assertSuccessful();
+
+        $content = file_get_contents($outputFile);
+
+        // Wildcard keys should be quoted
+        expect($content)->toContain('"*": "*"');
+        expect($content)->toContain('"*": "article:*"');
+
+        // Should NOT contain unquoted * as a key
+        expect($content)->not->toMatch('/^\s+\*:/m');
+    });
+
     it('uses as const for objects', function () {
         $outputFile = $this->outputPath.'/mandate.ts';
 

@@ -303,6 +303,8 @@ final class TypeScriptCommand extends Command
      * - "article:view" → ["ArticlePermissions", "VIEW"]
      * - "user.create" → ["UserPermissions", "CREATE"]
      * - "admin" → ["Roles", "ADMIN"]
+     * - "article:*" → ["ArticlePermissions", "*"]
+     * - "*" → ["Permissions", "*"]
      *
      * @return array{0: string, 1: string}
      */
@@ -326,6 +328,14 @@ final class TypeScriptCommand extends Command
         $constName = Str::upper(Str::snake($name));
 
         return [$defaultGroup, $constName];
+    }
+
+    /**
+     * Check if a string is a valid JavaScript/TypeScript identifier.
+     */
+    private function isValidIdentifier(string $name): bool
+    {
+        return (bool) preg_match('/^[a-zA-Z_$][a-zA-Z0-9_$]*$/', $name);
     }
 
     /**
@@ -364,7 +374,11 @@ final class TypeScriptCommand extends Command
         $lines = ["export const {$groupName} = {"];
 
         foreach ($items as $constName => $value) {
-            $lines[] = "  {$constName}: \"{$value}\",";
+            // Quote keys that aren't valid identifiers (e.g., wildcards like "*")
+            // Use json_encode for proper escaping of special characters
+            $key = $this->isValidIdentifier($constName) ? $constName : json_encode($constName);
+            $escapedValue = json_encode($value);
+            $lines[] = "  {$key}: {$escapedValue},";
         }
 
         $lines[] = '} as const;';

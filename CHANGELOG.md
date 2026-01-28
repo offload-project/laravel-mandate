@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.4](https://github.com/offload-project/laravel-mandate/compare/v3.3.3...v3.3.4) (2026-01-28)
+
+
+### Bug Fixes
+
+* asterisk wildcard generates as invalid key without quotes ([#44](https://github.com/offload-project/laravel-mandate/issues/44)) ([2d2104f](https://github.com/offload-project/laravel-mandate/commit/2d2104fa5f66d81f97163f812bf24934dd5e2c3e))
+
 ## [3.3.3](https://github.com/offload-project/laravel-mandate/compare/v3.3.2...v3.3.3) (2026-01-21)
 
 

@@ -267,9 +267,9 @@ class Role extends Model implements RoleContract
     /**
      * Assign capability(s) to this role.
      *
-     * @param  string|array<string>|CapabilityContract  $capabilities
+     * @param  string|int|array<string|int>|CapabilityContract  $capabilities
      */
-    public function assignCapability(string|array|CapabilityContract $capabilities): RoleContract
+    public function assignCapability(string|int|array|CapabilityContract $capabilities): RoleContract
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return $this;
@@ -292,9 +292,9 @@ class Role extends Model implements RoleContract
     /**
      * Remove capability(s) from this role.
      *
-     * @param  string|array<string>|CapabilityContract  $capabilities
+     * @param  string|int|array<string|int>|CapabilityContract  $capabilities
      */
-    public function removeCapability(string|array|CapabilityContract $capabilities): RoleContract
+    public function removeCapability(string|int|array|CapabilityContract $capabilities): RoleContract
     {
         if (! config('mandate.capabilities.enabled', false)) {
             return $this;
@@ -317,7 +317,7 @@ class Role extends Model implements RoleContract
     /**
      * Sync capabilities on this role (replace all existing).
      *
-     * @param  array<string|CapabilityContract>  $capabilities
+     * @param  array<string|int|CapabilityContract>  $capabilities
      */
     public function syncCapabilities(array $capabilities): RoleContract
     {
@@ -327,16 +327,7 @@ class Role extends Model implements RoleContract
             return $this;
         }
 
-        $normalized = [];
-
-        foreach ($capabilities as $capability) {
-            if ($capability instanceof CapabilityContract) {
-                $normalized[] = $capability->getKey();
-            } else {
-                $capabilityModel = $this->getCapabilityModel()::findByName($capability, $this->guard);
-                $normalized[] = $capabilityModel->getKey();
-            }
-        }
+        $normalized = $this->normalizeCapabilities($capabilities);
 
         $this->capabilities()->sync($normalized);
 
@@ -420,7 +411,7 @@ class Role extends Model implements RoleContract
     /**
      * {@inheritdoc}
      */
-    public function grantPermission(string|array|PermissionContract $permissions): RoleContract
+    public function grantPermission(string|int|array|PermissionContract $permissions): RoleContract
     {
         $permissions = $this->normalizePermissions($permissions);
 
@@ -434,7 +425,7 @@ class Role extends Model implements RoleContract
     /**
      * {@inheritdoc}
      */
-    public function revokePermission(string|array|PermissionContract $permissions): RoleContract
+    public function revokePermission(string|int|array|PermissionContract $permissions): RoleContract
     {
         $permissions = $this->normalizePermissions($permissions);
 
@@ -450,16 +441,7 @@ class Role extends Model implements RoleContract
      */
     public function syncPermissions(array $permissions): RoleContract
     {
-        $normalized = [];
-
-        foreach ($permissions as $permission) {
-            if ($permission instanceof PermissionContract) {
-                $normalized[] = $permission->getKey();
-            } else {
-                $permissionModel = $this->getPermissionModel()::findByName($permission, $this->guard);
-                $normalized[] = $permissionModel->getKey();
-            }
-        }
+        $normalized = $this->normalizePermissions($permissions);
 
         $this->permissions()->sync($normalized);
 
@@ -551,10 +533,10 @@ class Role extends Model implements RoleContract
     /**
      * Normalize permissions to an array of IDs.
      *
-     * @param  string|array<string|PermissionContract>|PermissionContract  $permissions
+     * @param  string|int|array<string|int|PermissionContract>|PermissionContract  $permissions
      * @return array<int|string>
      */
-    protected function normalizePermissions(string|array|PermissionContract $permissions): array
+    protected function normalizePermissions(string|int|array|PermissionContract $permissions): array
     {
         if (! is_array($permissions)) {
             $permissions = [$permissions];
@@ -567,6 +549,9 @@ class Role extends Model implements RoleContract
                 /** @var Permission $permission */
                 Guard::assertMatch($this->guard, $permission->guard, 'permission');
                 $normalized[] = $permission->getKey();
+            } elseif (is_int($permission) || $this->isStringId($permission)) {
+                $permissionModel = $this->getPermissionModel()::findById($permission, $this->guard);
+                $normalized[] = $permissionModel->getKey();
             } else {
                 $permissionModel = $this->getPermissionModel()::findByName($permission, $this->guard);
                 $normalized[] = $permissionModel->getKey();
@@ -574,6 +559,14 @@ class Role extends Model implements RoleContract
         }
 
         return $normalized;
+    }
+
+    /**
+     * Determine if a value is a string-based ID (UUID or ULID).
+     */
+    protected function isStringId(mixed $value): bool
+    {
+        return is_string($value) && (Str::isUuid($value) || Str::isUlid($value));
     }
 
     /**
@@ -589,10 +582,10 @@ class Role extends Model implements RoleContract
     /**
      * Normalize capabilities to an array of IDs.
      *
-     * @param  string|array<string|CapabilityContract>|CapabilityContract  $capabilities
+     * @param  string|int|array<string|int|CapabilityContract>|CapabilityContract  $capabilities
      * @return array<int|string>
      */
-    protected function normalizeCapabilities(string|array|CapabilityContract $capabilities): array
+    protected function normalizeCapabilities(string|int|array|CapabilityContract $capabilities): array
     {
         if (! is_array($capabilities)) {
             $capabilities = [$capabilities];
@@ -605,6 +598,9 @@ class Role extends Model implements RoleContract
                 /** @var Capability $capability */
                 Guard::assertMatch($this->guard, $capability->guard, 'capability');
                 $normalized[] = $capability->getKey();
+            } elseif (is_int($capability) || $this->isStringId($capability)) {
+                $capabilityModel = $this->getCapabilityModel()::findById($capability, $this->guard);
+                $normalized[] = $capabilityModel->getKey();
             } else {
                 $capabilityModel = $this->getCapabilityModel()::findByName($capability, $this->guard);
                 $normalized[] = $capabilityModel->getKey();
@@ -617,10 +613,10 @@ class Role extends Model implements RoleContract
     /**
      * Collect capability names from various input types.
      *
-     * @param  string|array<string|CapabilityContract>|CapabilityContract  $capabilities
+     * @param  string|int|array<string|int|CapabilityContract>|CapabilityContract  $capabilities
      * @return array<string>
      */
-    protected function collectCapabilityNames(string|array|CapabilityContract $capabilities): array
+    protected function collectCapabilityNames(string|int|array|CapabilityContract $capabilities): array
     {
         if (! is_array($capabilities)) {
             $capabilities = [$capabilities];
@@ -629,6 +625,10 @@ class Role extends Model implements RoleContract
         return array_map(function ($capability) {
             if ($capability instanceof CapabilityContract) {
                 return $capability->name; // @phpstan-ignore property.notFound
+            }
+
+            if (is_int($capability) || $this->isStringId($capability)) {
+                return $this->getCapabilityModel()::findById($capability, $this->guard)->name; // @phpstan-ignore property.notFound
             }
 
             return $capability;

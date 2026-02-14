@@ -238,7 +238,7 @@ class Capability extends Model implements CapabilityContract
     /**
      * {@inheritdoc}
      */
-    public function grantPermission(string|array|PermissionContract $permissions): CapabilityContract
+    public function grantPermission(string|int|array|PermissionContract $permissions): CapabilityContract
     {
         $permissions = $this->normalizePermissions($permissions);
 
@@ -252,7 +252,7 @@ class Capability extends Model implements CapabilityContract
     /**
      * {@inheritdoc}
      */
-    public function revokePermission(string|array|PermissionContract $permissions): CapabilityContract
+    public function revokePermission(string|int|array|PermissionContract $permissions): CapabilityContract
     {
         $permissions = $this->normalizePermissions($permissions);
 
@@ -268,16 +268,7 @@ class Capability extends Model implements CapabilityContract
      */
     public function syncPermissions(array $permissions): CapabilityContract
     {
-        $normalized = [];
-
-        foreach ($permissions as $permission) {
-            if ($permission instanceof PermissionContract) {
-                $normalized[] = $permission->getKey();
-            } else {
-                $permissionModel = $this->getPermissionModel()::findByName($permission, $this->guard);
-                $normalized[] = $permissionModel->getKey();
-            }
-        }
+        $normalized = $this->normalizePermissions($permissions);
 
         $this->permissions()->sync($normalized);
 
@@ -350,10 +341,10 @@ class Capability extends Model implements CapabilityContract
     /**
      * Normalize permissions to an array of IDs.
      *
-     * @param  string|array<string|PermissionContract>|PermissionContract  $permissions
+     * @param  string|int|array<string|int|PermissionContract>|PermissionContract  $permissions
      * @return array<int|string>
      */
-    protected function normalizePermissions(string|array|PermissionContract $permissions): array
+    protected function normalizePermissions(string|int|array|PermissionContract $permissions): array
     {
         if (! is_array($permissions)) {
             $permissions = [$permissions];
@@ -366,6 +357,9 @@ class Capability extends Model implements CapabilityContract
                 /** @var Permission $permission */
                 Guard::assertMatch($this->guard, $permission->guard, 'permission');
                 $normalized[] = $permission->getKey();
+            } elseif (is_int($permission) || $this->isStringId($permission)) {
+                $permissionModel = $this->getPermissionModel()::findById($permission, $this->guard);
+                $normalized[] = $permissionModel->getKey();
             } else {
                 $permissionModel = $this->getPermissionModel()::findByName($permission, $this->guard);
                 $normalized[] = $permissionModel->getKey();
@@ -373,6 +367,14 @@ class Capability extends Model implements CapabilityContract
         }
 
         return $normalized;
+    }
+
+    /**
+     * Determine if a value is a string-based ID (UUID or ULID).
+     */
+    protected function isStringId(mixed $value): bool
+    {
+        return is_string($value) && (Str::isUuid($value) || Str::isUlid($value));
     }
 
     /**

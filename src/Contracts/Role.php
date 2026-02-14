@@ -7,6 +7,7 @@ namespace OffloadProject\Mandate\Contracts;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
+use OffloadProject\Mandate\Exceptions\RoleNotFoundException;
 
 /**
  * Contract for Role models.
@@ -21,14 +22,14 @@ interface Role
     /**
      * Find a role by name and guard.
      *
-     * @throws \OffloadProject\Mandate\Exceptions\RoleNotFoundException
+     * @throws RoleNotFoundException
      */
     public static function findByName(string $name, ?string $guard = null): self;
 
     /**
      * Find a role by ID and guard.
      *
-     * @throws \OffloadProject\Mandate\Exceptions\RoleNotFoundException
+     * @throws RoleNotFoundException
      */
     public static function findById(int|string $id, ?string $guard = null): self;
 
@@ -50,21 +51,21 @@ interface Role
     /**
      * Grant permission(s) to this role.
      *
-     * @param  string|array<string>|Permission  $permissions
+     * @param  string|int|array<string|int>|Permission  $permissions
      */
-    public function grantPermission(string|array|Permission $permissions): self;
+    public function grantPermission(string|int|array|Permission $permissions): self;
 
     /**
      * Revoke permission(s) from this role.
      *
-     * @param  string|array<string>|Permission  $permissions
+     * @param  string|int|array<string|int>|Permission  $permissions
      */
-    public function revokePermission(string|array|Permission $permissions): self;
+    public function revokePermission(string|int|array|Permission $permissions): self;
 
     /**
      * Sync permissions on this role (replace all existing).
      *
-     * @param  array<string|Permission>  $permissions
+     * @param  array<string|int|Permission>  $permissions
      */
     public function syncPermissions(array $permissions): self;
 
@@ -81,21 +82,21 @@ interface Role
     /**
      * Assign capability(s) to this role.
      *
-     * @param  string|array<string>|Capability  $capabilities
+     * @param  string|int|array<string|int>|Capability  $capabilities
      */
-    public function assignCapability(string|array|Capability $capabilities): self;
+    public function assignCapability(string|int|array|Capability $capabilities): self;
 
     /**
      * Remove capability(s) from this role.
      *
-     * @param  string|array<string>|Capability  $capabilities
+     * @param  string|int|array<string|int>|Capability  $capabilities
      */
-    public function removeCapability(string|array|Capability $capabilities): self;
+    public function removeCapability(string|int|array|Capability $capabilities): self;
 
     /**
      * Sync capabilities on this role.
      *
-     * @param  array<string|Capability>  $capabilities
+     * @param  array<string|int|Capability>  $capabilities
      */
     public function syncCapabilities(array $capabilities): self;
 

@@ -207,6 +207,28 @@ $user->grantPermission(Permission::EditArticles);
 $user->hasPermission(Permission::EditArticles); // true
 ```
 
+### Using IDs
+
+All methods that accept names also accept IDs directly — integer, UUID, or ULID:
+
+```php
+// Pass integer IDs
+$user->grantPermission(1);
+$user->syncPermissions([1, 2, 3]);
+$user->assignRole(1);
+$user->syncRoles([1, 2]);
+
+// UUID and ULID string IDs are also detected automatically
+$user->grantPermission('550e8400-e29b-41d4-a716-446655440000');
+$user->assignRole('01ARZ3NDEKTSV4RRFFQ69G5FAV');
+
+// Works on roles and capabilities too
+$role->grantPermission($permission->id);
+$role->syncPermissions([$id1, $id2]);
+$role->assignCapability($capability->id);
+$capability->grantPermission($permission->id);
+```
+
 ---
 
 ## Protecting Routes

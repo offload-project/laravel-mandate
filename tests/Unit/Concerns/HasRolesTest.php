@@ -38,6 +38,15 @@ describe('HasRoles Trait', function () {
             expect($this->user->roles)->toHaveCount(2);
         });
 
+        it('can assign a role by id', function () {
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+
+            $this->user->assignRole($role->id);
+
+            expect($this->user->roles)->toHaveCount(1)
+                ->and($this->user->roles->first()->name)->toBe('admin');
+        });
+
         it('does not duplicate roles when assigning same role twice', function () {
             Role::create(['name' => 'admin', 'guard' => 'web']);
 
@@ -69,6 +78,16 @@ describe('HasRoles Trait', function () {
 
             expect($this->user->roles)->toHaveCount(0);
         });
+
+        it('can remove a role by id', function () {
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $this->user->assignRole('admin');
+
+            $this->user->removeRole($role->id);
+            $this->user->refresh();
+
+            expect($this->user->roles)->toHaveCount(0);
+        });
     });
 
     describe('syncing roles', function () {
@@ -85,6 +104,22 @@ describe('HasRoles Trait', function () {
 
             expect($this->user->roles)->toHaveCount(1)
                 ->and($this->user->roles->first()->name)->toBe('moderator');
+        });
+
+        it('can sync roles by id', function () {
+            Role::create(['name' => 'admin', 'guard' => 'web']);
+            $editor = Role::create(['name' => 'editor', 'guard' => 'web']);
+            $moderator = Role::create(['name' => 'moderator', 'guard' => 'web']);
+
+            $this->user->assignRole('admin');
+            expect($this->user->roles)->toHaveCount(1);
+
+            $this->user->syncRoles([$editor->id, $moderator->id]);
+            $this->user->refresh();
+
+            expect($this->user->roles)->toHaveCount(2)
+                ->and($this->user->roles->pluck('name')->sort()->values()->toArray())
+                ->toBe(['editor', 'moderator']);
         });
 
         it('removes all roles when syncing empty array', function () {

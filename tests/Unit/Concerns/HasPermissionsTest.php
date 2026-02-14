@@ -38,6 +38,15 @@ describe('HasPermissions Trait', function () {
             expect($this->user->permissions)->toHaveCount(2);
         });
 
+        it('can grant a permission by id', function () {
+            $permission = Permission::create(['name' => 'article:view', 'guard' => 'web']);
+
+            $this->user->grantPermission($permission->id);
+
+            expect($this->user->permissions)->toHaveCount(1)
+                ->and($this->user->permissions->first()->name)->toBe('article:view');
+        });
+
         it('does not duplicate permissions when granting same permission twice', function () {
             Permission::create(['name' => 'article:view', 'guard' => 'web']);
 
@@ -69,6 +78,16 @@ describe('HasPermissions Trait', function () {
 
             expect($this->user->permissions)->toHaveCount(0);
         });
+
+        it('can revoke a permission by id', function () {
+            $permission = Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            $this->user->grantPermission('article:view');
+
+            $this->user->revokePermission($permission->id);
+            $this->user->refresh();
+
+            expect($this->user->permissions)->toHaveCount(0);
+        });
     });
 
     describe('syncing permissions', function () {
@@ -85,6 +104,22 @@ describe('HasPermissions Trait', function () {
 
             expect($this->user->permissions)->toHaveCount(1)
                 ->and($this->user->permissions->first()->name)->toBe('article:delete');
+        });
+
+        it('can sync permissions by id', function () {
+            Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            $edit = Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+            $delete = Permission::create(['name' => 'article:delete', 'guard' => 'web']);
+
+            $this->user->grantPermission('article:view');
+            expect($this->user->permissions)->toHaveCount(1);
+
+            $this->user->syncPermissions([$edit->id, $delete->id]);
+            $this->user->refresh();
+
+            expect($this->user->permissions)->toHaveCount(2)
+                ->and($this->user->permissions->pluck('name')->sort()->values()->toArray())
+                ->toBe(['article:delete', 'article:edit']);
         });
 
         it('removes all permissions when syncing empty array', function () {

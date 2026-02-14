@@ -193,6 +193,15 @@ describe('Direct Capability Assignment', function () {
             expect($this->user->capabilities)->toHaveCount(2);
         });
 
+        it('can assign capability directly to user by id', function () {
+            $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+            $this->user->assignCapability($capability->id);
+
+            expect($this->user->capabilities)->toHaveCount(1)
+                ->and($this->user->capabilities->first()->name)->toBe('manage-posts');
+        });
+
         it('does not duplicate capabilities', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
@@ -212,6 +221,16 @@ describe('Direct Capability Assignment', function () {
             $this->user->assignCapability($capability);
 
             $this->user->removeCapability($capability);
+            $this->user->refresh();
+
+            expect($this->user->capabilities)->toHaveCount(0);
+        });
+
+        it('can remove capability from user by id', function () {
+            $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+            $this->user->assignCapability($capability);
+
+            $this->user->removeCapability($capability->id);
             $this->user->refresh();
 
             expect($this->user->capabilities)->toHaveCount(0);
@@ -236,6 +255,22 @@ describe('Direct Capability Assignment', function () {
 
             expect($this->user->capabilities)->toHaveCount(1)
                 ->and($this->user->capabilities->first()->name)->toBe('manage-settings');
+        });
+
+        it('can sync capabilities by id', function () {
+            Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+            $manageUsers = Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+            $manageSettings = Capability::create(['name' => 'manage-settings', 'guard' => 'web']);
+
+            $this->user->assignCapability('manage-posts');
+            expect($this->user->capabilities)->toHaveCount(1);
+
+            $this->user->syncCapabilities([$manageUsers->id, $manageSettings->id]);
+            $this->user->refresh();
+
+            expect($this->user->capabilities)->toHaveCount(2)
+                ->and($this->user->capabilities->pluck('name')->sort()->values()->toArray())
+                ->toBe(['manage-settings', 'manage-users']);
         });
     });
 
@@ -327,6 +362,15 @@ describe('Role Capability Methods', function () {
             ->and($this->role->capabilities->first()->name)->toBe('manage-posts');
     });
 
+    it('can assign capability to role by id', function () {
+        $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+        $this->role->assignCapability($capability->id);
+
+        expect($this->role->capabilities)->toHaveCount(1)
+            ->and($this->role->capabilities->first()->name)->toBe('manage-posts');
+    });
+
     it('can assign capability by name to role', function () {
         Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
 
@@ -352,6 +396,32 @@ describe('Role Capability Methods', function () {
         $this->role->refresh();
 
         expect($this->role->capabilities)->toHaveCount(0);
+    });
+
+    it('can remove capability from role by id', function () {
+        $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $this->role->assignCapability($capability);
+
+        $this->role->removeCapability($capability->id);
+        $this->role->refresh();
+
+        expect($this->role->capabilities)->toHaveCount(0);
+    });
+
+    it('can sync capabilities on role by id', function () {
+        Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+        $manageUsers = Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+        $manageSettings = Capability::create(['name' => 'manage-settings', 'guard' => 'web']);
+
+        $this->role->assignCapability('manage-posts');
+        expect($this->role->capabilities)->toHaveCount(1);
+
+        $this->role->syncCapabilities([$manageUsers->id, $manageSettings->id]);
+        $this->role->refresh();
+
+        expect($this->role->capabilities)->toHaveCount(2)
+            ->and($this->role->capabilities->pluck('name')->sort()->values()->toArray())
+            ->toBe(['manage-settings', 'manage-users']);
     });
 
     it('can sync capabilities on role', function () {

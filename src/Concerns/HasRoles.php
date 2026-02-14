@@ -76,11 +76,11 @@ trait HasRoles
     /**
      * Assign one or more roles to this model.
      *
-     * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  string|int|BackedEnum|RoleContract|array<string|int|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role assignment
      * @return $this
      */
-    public function assignRole(string|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
+    public function assignRole(string|int|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
@@ -101,7 +101,7 @@ trait HasRoles
     /**
      * Alias for assignRole() - assign multiple roles.
      *
-     * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  array<string|int|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role assignment
      * @return $this
      */
@@ -113,11 +113,11 @@ trait HasRoles
     /**
      * Remove one or more roles from this model.
      *
-     * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  string|int|BackedEnum|RoleContract|array<string|int|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role removal
      * @return $this
      */
-    public function removeRole(string|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
+    public function removeRole(string|int|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
@@ -138,7 +138,7 @@ trait HasRoles
     /**
      * Alias for removeRole() - remove multiple roles.
      *
-     * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  array<string|int|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role removal
      * @return $this
      */
@@ -150,7 +150,7 @@ trait HasRoles
     /**
      * Sync roles on this model (replace all existing).
      *
-     * @param  array<string|BackedEnum|RoleContract>  $roles
+     * @param  array<string|int|BackedEnum|RoleContract>  $roles
      * @param  Model|null  $context  Optional context model for scoped role sync
      * @return $this
      */
@@ -397,10 +397,10 @@ trait HasRoles
      *
      * Only works when direct_assignment is enabled in config.
      *
-     * @param  string|BackedEnum|CapabilityContract|array<string|BackedEnum|CapabilityContract>  $capabilities
+     * @param  string|int|BackedEnum|CapabilityContract|array<string|int|BackedEnum|CapabilityContract>  $capabilities
      * @return $this
      */
-    public function assignCapability(string|BackedEnum|CapabilityContract|array $capabilities): static
+    public function assignCapability(string|int|BackedEnum|CapabilityContract|array $capabilities): static
     {
         if (! config('mandate.capabilities.enabled', false) || ! config('mandate.capabilities.direct_assignment', false)) {
             return $this;
@@ -425,10 +425,10 @@ trait HasRoles
      *
      * Only works when direct_assignment is enabled in config.
      *
-     * @param  string|BackedEnum|CapabilityContract|array<string|BackedEnum|CapabilityContract>  $capabilities
+     * @param  string|int|BackedEnum|CapabilityContract|array<string|int|BackedEnum|CapabilityContract>  $capabilities
      * @return $this
      */
-    public function removeCapability(string|BackedEnum|CapabilityContract|array $capabilities): static
+    public function removeCapability(string|int|BackedEnum|CapabilityContract|array $capabilities): static
     {
         if (! config('mandate.capabilities.enabled', false) || ! config('mandate.capabilities.direct_assignment', false)) {
             return $this;
@@ -453,7 +453,7 @@ trait HasRoles
      *
      * Only works when direct_assignment is enabled in config.
      *
-     * @param  array<string|BackedEnum|CapabilityContract>  $capabilities
+     * @param  array<string|int|BackedEnum|CapabilityContract>  $capabilities
      * @return $this
      */
     public function syncCapabilities(array $capabilities): static
@@ -760,25 +760,33 @@ trait HasRoles
     /**
      * Collect capability names from various input types.
      *
-     * @param  string|BackedEnum|CapabilityContract|array<string|BackedEnum|CapabilityContract>  $capabilities
+     * @param  string|int|BackedEnum|CapabilityContract|array<string|int|BackedEnum|CapabilityContract>  $capabilities
      * @return array<string>
      */
-    protected function collectCapabilityNames(string|BackedEnum|CapabilityContract|array $capabilities): array
+    protected function collectCapabilityNames(string|int|BackedEnum|CapabilityContract|array $capabilities): array
     {
         if (! is_array($capabilities)) {
             $capabilities = [$capabilities];
         }
 
-        return array_map(fn ($c) => $this->getCapabilityName($c), $capabilities);
+        $guard = $this->getGuardName();
+
+        return array_map(function ($c) use ($guard) {
+            if (is_int($c) || $this->isStringId($c)) {
+                return $this->getCapabilityClass()::findById($c, $guard)->name;
+            }
+
+            return $this->getCapabilityName($c);
+        }, $capabilities);
     }
 
     /**
      * Normalize capabilities to an array of IDs.
      *
-     * @param  string|BackedEnum|CapabilityContract|array<string|BackedEnum|CapabilityContract>  $capabilities
+     * @param  string|int|BackedEnum|CapabilityContract|array<string|int|BackedEnum|CapabilityContract>  $capabilities
      * @return array<int|string>
      */
-    protected function normalizeCapabilities(string|BackedEnum|CapabilityContract|array $capabilities): array
+    protected function normalizeCapabilities(string|int|BackedEnum|CapabilityContract|array $capabilities): array
     {
         if (! is_array($capabilities)) {
             $capabilities = [$capabilities];
@@ -791,6 +799,9 @@ trait HasRoles
             if ($capability instanceof CapabilityContract) {
                 Guard::assertMatch($guard, $capability->guard, 'capability');
                 $normalized[] = $capability->getKey();
+            } elseif (is_int($capability) || $this->isStringId($capability)) {
+                $capabilityModel = $this->getCapabilityClass()::findById($capability, $guard);
+                $normalized[] = $capabilityModel->getKey();
             } else {
                 $capabilityName = $this->getCapabilityName($capability);
                 $capabilityModel = $this->getCapabilityClass()::findByName($capabilityName, $guard);
@@ -804,10 +815,10 @@ trait HasRoles
     /**
      * Normalize roles to an array of IDs.
      *
-     * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  string|int|BackedEnum|RoleContract|array<string|int|BackedEnum|RoleContract>  $roles
      * @return array<int|string>
      */
-    protected function normalizeRoles(string|BackedEnum|RoleContract|array $roles): array
+    protected function normalizeRoles(string|int|BackedEnum|RoleContract|array $roles): array
     {
         if (! is_array($roles)) {
             $roles = [$roles];
@@ -820,6 +831,9 @@ trait HasRoles
             if ($role instanceof RoleContract) {
                 Guard::assertMatch($guard, $role->guard, 'role');
                 $normalized[] = $role->getKey();
+            } elseif (is_int($role) || $this->isStringId($role)) {
+                $roleModel = $this->getRoleClass()::findById($role, $guard);
+                $normalized[] = $roleModel->getKey();
             } else {
                 $roleName = $this->getRoleName($role);
                 $roleModel = $this->getRoleClass()::findByName($roleName, $guard);
@@ -849,16 +863,24 @@ trait HasRoles
     /**
      * Collect role names from various input types.
      *
-     * @param  string|BackedEnum|RoleContract|array<string|BackedEnum|RoleContract>  $roles
+     * @param  string|int|BackedEnum|RoleContract|array<string|int|BackedEnum|RoleContract>  $roles
      * @return array<string>
      */
-    protected function collectRoleNames(string|BackedEnum|RoleContract|array $roles): array
+    protected function collectRoleNames(string|int|BackedEnum|RoleContract|array $roles): array
     {
         if (! is_array($roles)) {
             $roles = [$roles];
         }
 
-        return array_map(fn ($r) => $this->getRoleName($r), $roles);
+        $guard = $this->getGuardName();
+
+        return array_map(function ($r) use ($guard) {
+            if (is_int($r) || $this->isStringId($r)) {
+                return $this->getRoleClass()::findById($r, $guard)->name;
+            }
+
+            return $this->getRoleName($r);
+        }, $roles);
     }
 
     /**

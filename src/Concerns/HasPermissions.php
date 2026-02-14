@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\WildcardHandler;
 use OffloadProject\Mandate\Events\PermissionGranted;
@@ -73,11 +74,11 @@ trait HasPermissions
     /**
      * Grant one or more permissions to this model.
      *
-     * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  string|int|BackedEnum|PermissionContract|array<string|int|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function grantPermission(string|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
+    public function grantPermission(string|int|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
@@ -98,7 +99,7 @@ trait HasPermissions
     /**
      * Alias for grantPermission() - grant multiple permissions.
      *
-     * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  array<string|int|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
@@ -110,11 +111,11 @@ trait HasPermissions
     /**
      * Revoke one or more permissions from this model.
      *
-     * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  string|int|BackedEnum|PermissionContract|array<string|int|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
-    public function revokePermission(string|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
+    public function revokePermission(string|int|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
@@ -135,7 +136,7 @@ trait HasPermissions
     /**
      * Alias for revokePermission() - revoke multiple permissions.
      *
-     * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  array<string|int|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
@@ -147,7 +148,7 @@ trait HasPermissions
     /**
      * Sync permissions on this model (replace all existing).
      *
-     * @param  array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  array<string|int|BackedEnum|PermissionContract>  $permissions
      * @param  Model|null  $context  Optional context model for scoped permissions
      * @return $this
      */
@@ -417,10 +418,10 @@ trait HasPermissions
     /**
      * Normalize permissions to an array of IDs.
      *
-     * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  string|int|BackedEnum|PermissionContract|array<string|int|BackedEnum|PermissionContract>  $permissions
      * @return array<int|string>
      */
-    protected function normalizePermissions(string|BackedEnum|PermissionContract|array $permissions): array
+    protected function normalizePermissions(string|int|BackedEnum|PermissionContract|array $permissions): array
     {
         if (! is_array($permissions)) {
             $permissions = [$permissions];
@@ -433,6 +434,9 @@ trait HasPermissions
             if ($permission instanceof PermissionContract) {
                 Guard::assertMatch($guard, $permission->guard, 'permission');
                 $normalized[] = $permission->getKey();
+            } elseif (is_int($permission) || $this->isStringId($permission)) {
+                $permissionModel = $this->getPermissionClass()::findById($permission, $guard);
+                $normalized[] = $permissionModel->getKey();
             } else {
                 $permissionName = $this->getPermissionName($permission);
                 $permissionModel = $this->getPermissionClass()::findByName($permissionName, $guard);
@@ -462,16 +466,24 @@ trait HasPermissions
     /**
      * Collect permission names from various input types.
      *
-     * @param  string|BackedEnum|PermissionContract|array<string|BackedEnum|PermissionContract>  $permissions
+     * @param  string|int|BackedEnum|PermissionContract|array<string|int|BackedEnum|PermissionContract>  $permissions
      * @return array<string>
      */
-    protected function collectPermissionNames(string|BackedEnum|PermissionContract|array $permissions): array
+    protected function collectPermissionNames(string|int|BackedEnum|PermissionContract|array $permissions): array
     {
         if (! is_array($permissions)) {
             $permissions = [$permissions];
         }
 
-        return array_map(fn ($p) => $this->getPermissionName($p), $permissions);
+        $guard = $this->getGuardName();
+
+        return array_map(function ($p) use ($guard) {
+            if (is_int($p) || $this->isStringId($p)) {
+                return $this->getPermissionClass()::findById($p, $guard)->name;
+            }
+
+            return $this->getPermissionName($p);
+        }, $permissions);
     }
 
     /**
@@ -482,6 +494,14 @@ trait HasPermissions
     protected function getPermissionClass(): string
     {
         return config('mandate.models.permission', Permission::class);
+    }
+
+    /**
+     * Determine if a value is a string-based ID (UUID or ULID).
+     */
+    protected function isStringId(mixed $value): bool
+    {
+        return is_string($value) && (Str::isUuid($value) || Str::isUlid($value));
     }
 
     /**

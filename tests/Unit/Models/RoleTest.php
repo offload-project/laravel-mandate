@@ -126,6 +126,46 @@ describe('Role Model', function () {
             ->and($role->permissions->first()->name)->toBe('article:delete');
     });
 
+    it('can sync permissions on role by id', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        Permission::create(['name' => 'article:view', 'guard' => 'web']);
+        $edit = Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+        $delete = Permission::create(['name' => 'article:delete', 'guard' => 'web']);
+
+        $role->grantPermission(['article:view']);
+        expect($role->permissions)->toHaveCount(1);
+
+        $role->syncPermissions([$edit->id, $delete->id]);
+        $role->refresh();
+
+        expect($role->permissions)->toHaveCount(2)
+            ->and($role->permissions->pluck('name')->sort()->values()->toArray())
+            ->toBe(['article:delete', 'article:edit']);
+    });
+
+    it('can grant permission to role by id', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        $permission = Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+
+        $role->grantPermission($permission->id);
+
+        expect($role->permissions)->toHaveCount(1)
+            ->and($role->permissions->first()->name)->toBe('article:edit');
+    });
+
+    it('can revoke permission from role by id', function () {
+        $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+        $permission = Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+
+        $role->grantPermission($permission);
+        expect($role->permissions)->toHaveCount(1);
+
+        $role->revokePermission($permission->id);
+        $role->refresh();
+
+        expect($role->permissions)->toHaveCount(0);
+    });
+
     it('can check if role has permission', function () {
         $role = Role::create(['name' => 'editor', 'guard' => 'web']);
         $permission = Permission::create(['name' => 'article:edit', 'guard' => 'web']);

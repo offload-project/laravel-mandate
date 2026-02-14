@@ -54,21 +54,21 @@ interface Capability
     /**
      * Grant permission(s) to this capability.
      *
-     * @param  string|array<string>|Permission  $permissions
+     * @param  string|int|array<string|int>|Permission  $permissions
      */
-    public function grantPermission(string|array|Permission $permissions): self;
+    public function grantPermission(string|int|array|Permission $permissions): self;
 
     /**
      * Revoke permission(s) from this capability.
      *
-     * @param  string|array<string>|Permission  $permissions
+     * @param  string|int|array<string|int>|Permission  $permissions
      */
-    public function revokePermission(string|array|Permission $permissions): self;
+    public function revokePermission(string|int|array|Permission $permissions): self;
 
     /**
      * Sync permissions on this capability (replace all existing).
      *
-     * @param  array<string|Permission>  $permissions
+     * @param  array<string|int|Permission>  $permissions
      */
     public function syncPermissions(array $permissions): self;
 

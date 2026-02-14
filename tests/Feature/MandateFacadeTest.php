@@ -88,6 +88,15 @@ describe('Mandate Facade', function () {
             expect($names->toArray())->toContain('article:view');
         });
 
+        it('can get permission ids for subject', function () {
+            $permission = Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            $this->user->grantPermission('article:view');
+
+            $ids = Mandate::getPermissionIds($this->user);
+
+            expect($ids->toArray())->toContain($permission->id);
+        });
+
         it('can get roles for subject', function () {
             Role::create(['name' => 'admin', 'guard' => 'web']);
             Role::create(['name' => 'editor', 'guard' => 'web']);
@@ -105,6 +114,15 @@ describe('Mandate Facade', function () {
             $names = Mandate::getRoleNames($this->user);
 
             expect($names->toArray())->toContain('admin');
+        });
+
+        it('can get role ids for subject', function () {
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $this->user->assignRole('admin');
+
+            $ids = Mandate::getRoleIds($this->user);
+
+            expect($ids->toArray())->toContain($role->id);
         });
     });
 

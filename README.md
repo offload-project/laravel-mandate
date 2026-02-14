@@ -144,8 +144,9 @@ $user->hasAnyRole(['admin', 'editor']);        // Has any of these?
 $user->hasAllRoles(['admin', 'editor']);       // Has all of these?
 $user->hasExactRoles(['editor', 'moderator']); // Has exactly these (no more, no less)?
 
-// Get role names
+// Get role info
 $user->getRoleNames(); // Collection: ['editor', 'moderator']
+$user->getRoleIds();   // Collection: [1, 2]
 ```
 
 ### Permissions
@@ -170,9 +171,13 @@ $user->hasAllPermissions(['article:edit', 'article:delete']);
 $user->hasDirectPermission('article:edit');
 
 // Get all permissions
-$user->getAllPermissions();    // Direct + via roles
+$user->getAllPermissions();     // Direct + via roles
 $user->getDirectPermissions(); // Direct only
 $user->getPermissionsViaRoles(); // Via roles only
+
+// Get permission info
+$user->getPermissionNames(); // Collection: ['article:view', 'article:edit']
+$user->getPermissionIds();   // Collection: [1, 2]
 ```
 
 ### Assigning Permissions to Roles
@@ -629,6 +634,10 @@ $user->hasAllCapabilities(['manage-posts', 'manage-comments']);
 // Get all capabilities
 $user->getAllCapabilities();        // Direct + via roles
 $user->getCapabilitiesViaRoles();   // Via roles only
+
+// Get capability info
+$user->getCapabilityNames(); // Collection: ['manage-posts', 'manage-users']
+$user->getCapabilityIds();   // Collection: [1, 2]
 ```
 
 ### Permission Resolution Through Capabilities
@@ -811,6 +820,8 @@ Mandate::hasPermission($user, 'task:edit', $project);
 // Get data with context
 Mandate::getRoles($user, $team);
 Mandate::getPermissions($user, $project);
+Mandate::getRoleIds($user, $team);
+Mandate::getPermissionIds($user, $project);
 
 // Check if context is enabled
 Mandate::contextEnabled(); // true/false

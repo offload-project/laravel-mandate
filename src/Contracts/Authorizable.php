@@ -98,6 +98,22 @@ interface Authorizable
     public function getRoleNames(?Model $context = null): Collection;
 
     /**
+     * Get all permission IDs for this model.
+     *
+     * @param  Model|null  $context  Optional context model to filter permissions
+     * @return Collection<int, int|string>
+     */
+    public function getPermissionIds(?Model $context = null): Collection;
+
+    /**
+     * Get all role IDs for this model.
+     *
+     * @param  Model|null  $context  Optional context model to filter roles
+     * @return Collection<int, int|string>
+     */
+    public function getRoleIds(?Model $context = null): Collection;
+
+    /**
      * Get the guard name for this model.
      */
     public function getGuardName(): string;

@@ -306,6 +306,21 @@ final class Mandate
     }
 
     /**
+     * Get permission IDs for a model.
+     *
+     * @param  Model|null  $context  Optional context model to filter permissions
+     * @return Collection<int, int|string>
+     */
+    public function getPermissionIds(Model $subject, ?Model $context = null): Collection
+    {
+        if (! method_exists($subject, 'getPermissionIds')) {
+            return collect();
+        }
+
+        return $subject->getPermissionIds($context);
+    }
+
+    /**
      * Get all roles for a model.
      *
      * @param  Model|null  $context  Optional context model to filter roles
@@ -338,6 +353,21 @@ final class Mandate
         }
 
         return $subject->getRoleNames($context);
+    }
+
+    /**
+     * Get role IDs for a model.
+     *
+     * @param  Model|null  $context  Optional context model to filter roles
+     * @return Collection<int, int|string>
+     */
+    public function getRoleIds(Model $subject, ?Model $context = null): Collection
+    {
+        if (! method_exists($subject, 'getRoleIds')) {
+            return collect();
+        }
+
+        return $subject->getRoleIds($context);
     }
 
     /**
@@ -548,6 +578,24 @@ final class Mandate
         }
 
         return $subject->getAllCapabilities()->pluck('name');
+    }
+
+    /**
+     * Get capability IDs for a model.
+     *
+     * @return Collection<int, int|string>
+     */
+    public function getCapabilityIds(Model $subject): Collection
+    {
+        if (! $this->capabilitiesEnabled()) {
+            return collect();
+        }
+
+        if (! method_exists($subject, 'getCapabilityIds')) {
+            return collect();
+        }
+
+        return $subject->getCapabilityIds();
     }
 
     /**

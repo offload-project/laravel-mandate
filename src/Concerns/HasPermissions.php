@@ -267,6 +267,17 @@ trait HasPermissions
     }
 
     /**
+     * Get all permission IDs for this model.
+     *
+     * @param  Model|null  $context  Optional context model to filter permissions
+     * @return Collection<int, int|string>
+     */
+    public function getPermissionIds(?Model $context = null): Collection
+    {
+        return $this->getAllPermissions($context)->pluck('id');
+    }
+
+    /**
      * Get all permissions for this model (direct + via roles + via capabilities).
      *
      * @param  Model|null  $context  Optional context model to filter permissions

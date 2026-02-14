@@ -273,6 +273,17 @@ trait HasRoles
     }
 
     /**
+     * Get all role IDs for this model.
+     *
+     * @param  Model|null  $context  Optional context model to filter roles
+     * @return Collection<int, int|string>
+     */
+    public function getRoleIds(?Model $context = null): Collection
+    {
+        return $this->getRolesForContext($context)->pluck('id');
+    }
+
+    /**
      * Get roles for a specific context.
      *
      * @param  Model|null  $context  Optional context model to filter roles
@@ -610,6 +621,17 @@ trait HasRoles
         $capabilities = $capabilities->merge($roleCapabilities->keyBy('id'));
 
         return $capabilities->values();
+    }
+
+    /**
+     * Get all capability IDs for this model.
+     *
+     * @param  Model|null  $context  Optional context model to filter capabilities
+     * @return Collection<int, int|string>
+     */
+    public function getCapabilityIds(?Model $context = null): Collection
+    {
+        return $this->getAllCapabilities($context)->pluck('id');
     }
 
     /**

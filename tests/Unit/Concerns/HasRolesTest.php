@@ -187,6 +187,17 @@ describe('HasRoles Trait', function () {
             expect($names)->toHaveCount(2)
                 ->and($names->toArray())->toContain('admin', 'editor');
         });
+
+        it('can get all role ids', function () {
+            $admin = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $editor = Role::create(['name' => 'editor', 'guard' => 'web']);
+            $this->user->assignRoles(['admin', 'editor']);
+
+            $ids = $this->user->getRoleIds();
+
+            expect($ids)->toHaveCount(2)
+                ->and($ids->toArray())->toContain($admin->id, $editor->id);
+        });
     });
 
     describe('permissions via roles', function () {

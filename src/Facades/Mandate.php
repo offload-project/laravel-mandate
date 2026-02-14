@@ -36,8 +36,10 @@ use OffloadProject\Mandate\SyncResult;
  * Getting permissions and roles (with optional context filtering):
  * @method static Collection<int, PermissionContract> getPermissions(Model $subject, ?Model $context = null)
  * @method static Collection<int, string> getPermissionNames(Model $subject, ?Model $context = null)
+ * @method static Collection<int, int|string> getPermissionIds(Model $subject, ?Model $context = null)
  * @method static Collection<int, RoleContract> getRoles(Model $subject, ?Model $context = null)
  * @method static Collection<int, string> getRoleNames(Model $subject, ?Model $context = null)
+ * @method static Collection<int, int|string> getRoleIds(Model $subject, ?Model $context = null)
  *
  * Context queries:
  * @method static Collection<int, Model> getRoleContexts(Model $subject, string $role)
@@ -67,6 +69,7 @@ use OffloadProject\Mandate\SyncResult;
  * @method static bool hasAllCapabilities(Model $subject, array $capabilities)
  * @method static Collection<int, CapabilityContract> getCapabilities(Model $subject)
  * @method static Collection<int, string> getCapabilityNames(Model $subject)
+ * @method static Collection<int, int|string> getCapabilityIds(Model $subject)
  * @method static CapabilityContract createCapability(string $name, ?string $guard = null)
  * @method static CapabilityContract findOrCreateCapability(string $name, ?string $guard = null)
  * @method static Collection<int, CapabilityContract> getAllCapabilities(?string $guard = null)

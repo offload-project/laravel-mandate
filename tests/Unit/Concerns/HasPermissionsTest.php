@@ -200,6 +200,17 @@ describe('HasPermissions Trait', function () {
                 ->and($names->toArray())->toContain('article:view', 'article:edit');
         });
 
+        it('can get all permission ids', function () {
+            $view = Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            $edit = Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+            $this->user->grantPermissions(['article:view', 'article:edit']);
+
+            $ids = $this->user->getPermissionIds();
+
+            expect($ids)->toHaveCount(2)
+                ->and($ids->toArray())->toContain($view->id, $edit->id);
+        });
+
         it('can get all permissions including from roles', function () {
             $role = Role::create(['name' => 'editor', 'guard' => 'web']);
             Permission::create(['name' => 'article:view', 'guard' => 'web']);

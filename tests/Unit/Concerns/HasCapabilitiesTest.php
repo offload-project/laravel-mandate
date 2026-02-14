@@ -84,6 +84,19 @@ describe('HasCapabilities via Roles', function () {
                 ->and($capabilities->first()->name)->toBe('manage-posts');
         });
 
+        it('can get all capability ids', function () {
+            $cap1 = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+            $cap2 = Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $role->assignCapability([$cap1, $cap2]);
+            $this->user->assignRole($role);
+
+            $ids = $this->user->getCapabilityIds();
+
+            expect($ids)->toHaveCount(2)
+                ->and($ids->toArray())->toContain($cap1->id, $cap2->id);
+        });
+
         it('deduplicates capabilities from multiple roles', function () {
             $capability = Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
             $role1 = Role::create(['name' => 'editor', 'guard' => 'web']);

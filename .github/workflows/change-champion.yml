@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    types: [ closed ]
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: offload-project/change-champion@v1.3.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

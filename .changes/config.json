@@ -1,0 +1,13 @@
+{
+  "baseBranch": "main",
+  "changelog": true,
+  "repository": "https://github.com/offload-project/laravel-mandate",
+  "sections": {
+    "major": "Breaking Changes",
+    "minor": "Features",
+    "patch": "Fixes"
+  },
+  "releaseBranchPrefix": "release/",
+  "versionPrefix": "v",
+  "draftRelease": false
+}

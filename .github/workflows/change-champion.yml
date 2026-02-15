@@ -27,6 +27,6 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      - uses: offload-project/change-champion@v1.9.0
+      - uses: offload-project/change-champion@v1.9.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

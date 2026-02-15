@@ -1,0 +1,32 @@
+name: Change Champion
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, closed ]
+  push:
+    branches: [ main ]
+    paths:
+      - '.changes/*.md'
+      - '!.changes/README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  change-champion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - uses: offload-project/change-champion@v1.9.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

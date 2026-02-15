@@ -1,25 +1,69 @@
-name: Release
+name: Change Champion
 
 on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, closed ]
   push:
     branches: [ main ]
-  pull_request:
-    types: [ closed ]
-    branches: [ main ]
+    paths:
+      - '.changes/*.md'
+      - '!.changes/README.md'
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
-  checks: read
 
 jobs:
+  check:
+    name: Check for changeset
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Update @v1 to match your installed change-champion version
+      - uses: offload-project/change-champion/actions/check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   release:
+    name: Create release PR
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: offload-project/change-champion@v1.3.1
+      - uses: offload-project/change-champion/actions/version@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: Publish release
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - uses: offload-project/change-champion/actions/publish@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -213,6 +213,17 @@ See [UPGRADE.md](UPGRADE.md) for detailed migration instructions including:
 * update permissions stub to follow spatie permissions name
   patte… ([#4](https://github.com/offload-project/laravel-mandate/issues/4)) ([8013d6c](https://github.com/offload-project/laravel-mandate/commit/8013d6cb17d4c3541f5d5b1b32718c7e554836d4))
 
+## v3.4.0 - 2026-02-15
+
+### Features
+
+- accept IDs (int, UUID, ULID) in permission, role, and capability sync/grant/revoke methods
+- add getPermissionIds, getRoleIds, and getCapabilityIds methods for retrieving entity IDs
+
+### Fixes
+
+- document ID support (int, UUID, ULID) in README
+
 ## 1.0.0 (2025-12-16)
 
 ### Miscellaneous Chores

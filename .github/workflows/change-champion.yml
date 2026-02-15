@@ -27,6 +27,15 @@ jobs:
           fetch-tags: true
           persist-credentials: false
 
-      - uses: offload-project/change-champion@v1.9.2
+      - uses: lewagon/wait-on-check-action@v1.5.0
+        with:
+          ref: ${{ github.sha }}
+          running-workflow-name: 'Change Champion'
+          check-regexp: 'PHP.*'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+          allowed-conclusions: success
+
+      - uses: offload-project/change-champion@v1.9.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\CodeFirst\DefinitionCache;
@@ -15,6 +16,7 @@ use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
+use OffloadProject\Mandate\Contracts\WildcardHandler;
 use OffloadProject\Mandate\Events\CapabilitiesSynced;
 use OffloadProject\Mandate\Events\MandateSynced;
 use OffloadProject\Mandate\Events\PermissionsSynced;
@@ -692,13 +694,37 @@ final class Mandate
             return $data;
         }
 
+        $permissionNames = $this->getPermissionNames($subject, $context);
+        $capabilityNames = $this->capabilitiesEnabled()
+            ? $this->getCapabilityNames($subject)
+            : null;
+
+        if (config('mandate.wildcards.enabled', false)) {
+            $wildcardHandler = app(WildcardHandler::class);
+            $guard = Guard::getNameForModel($subject);
+
+            $permissionNames = $this->expandWildcardNames(
+                $permissionNames,
+                $this->registrar->getPermissionsForGuard($guard),
+                $wildcardHandler,
+            );
+
+            if ($capabilityNames !== null) {
+                $capabilityNames = $this->expandWildcardNames(
+                    $capabilityNames,
+                    $this->registrar->getCapabilitiesForGuard($guard),
+                    $wildcardHandler,
+                );
+            }
+        }
+
         $data = [
-            'permissions' => $this->getPermissionNames($subject, $context)->toArray(),
+            'permissions' => $permissionNames->toArray(),
             'roles' => $this->getRoleNames($subject, $context)->toArray(),
         ];
 
-        if ($this->capabilitiesEnabled()) {
-            $data['capabilities'] = $this->getCapabilityNames($subject)->toArray();
+        if ($capabilityNames !== null) {
+            $data['capabilities'] = $capabilityNames->toArray();
         }
 
         return $data;
@@ -824,6 +850,38 @@ final class Mandate
             capabilitiesUpdated: $capabilitiesUpdated,
             assignmentsSeeded: $assignmentsSeeded,
         );
+    }
+
+    /**
+     * Expand wildcard names against all registered items.
+     *
+     * Replaces wildcard patterns (e.g., "*", "article:*") with the actual
+     * matching names from the registrar so consumers receive the full list.
+     *
+     * @param  Collection<int, string>  $names  The subject's assigned names (may contain wildcards)
+     * @param  EloquentCollection<int, Permission>|EloquentCollection<int, Capability>  $allRegistered  All registered items from the registrar
+     * @return Collection<int, string>
+     */
+    private function expandWildcardNames(Collection $names, EloquentCollection $allRegistered, WildcardHandler $wildcardHandler): Collection
+    {
+        $concreteRegistered = $allRegistered->reject(
+            fn ($item) => $wildcardHandler->containsWildcard($item->name)
+        );
+
+        $expanded = collect();
+
+        foreach ($names as $name) {
+            if ($wildcardHandler->containsWildcard($name)) {
+                $matched = $concreteRegistered
+                    ->filter(fn ($item) => $wildcardHandler->matches($name, $item->name))
+                    ->pluck('name');
+                $expanded = $expanded->merge($matched);
+            } else {
+                $expanded->push($name);
+            }
+        }
+
+        return $expanded->unique()->values();
     }
 
     /**

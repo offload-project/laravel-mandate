@@ -217,5 +217,51 @@ describe('Mandate Facade', function () {
             expect($data['permissions'])->toBeEmpty()
                 ->and($data['roles'])->toBeEmpty();
         });
+
+        it('expands wildcard permissions when wildcards are enabled', function () {
+            config()->set('mandate.wildcards.enabled', true);
+
+            Permission::create(['name' => '*', 'guard' => 'web']);
+            Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+            Permission::create(['name' => 'user:view', 'guard' => 'web']);
+            $this->user->grantPermission('*');
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['permissions'])->toContain('article:view')
+                ->and($data['permissions'])->toContain('article:edit')
+                ->and($data['permissions'])->toContain('user:view')
+                ->and($data['permissions'])->not->toContain('*');
+        });
+
+        it('expands scoped wildcard permissions when wildcards are enabled', function () {
+            config()->set('mandate.wildcards.enabled', true);
+
+            Permission::create(['name' => 'article:*', 'guard' => 'web']);
+            Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            Permission::create(['name' => 'article:edit', 'guard' => 'web']);
+            Permission::create(['name' => 'user:view', 'guard' => 'web']);
+            $this->user->grantPermission('article:*');
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['permissions'])->toContain('article:view')
+                ->and($data['permissions'])->toContain('article:edit')
+                ->and($data['permissions'])->not->toContain('user:view')
+                ->and($data['permissions'])->not->toContain('article:*');
+        });
+
+        it('does not expand wildcards when wildcards are disabled', function () {
+            config()->set('mandate.wildcards.enabled', false);
+
+            Permission::create(['name' => '*', 'guard' => 'web']);
+            Permission::create(['name' => 'article:view', 'guard' => 'web']);
+            $this->user->grantPermission('*');
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['permissions'])->toBe(['*']);
+        });
     });
 });

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OffloadProject\Mandate\Facades\Mandate;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Tests\Fixtures\User;
@@ -262,6 +263,62 @@ describe('Mandate Facade', function () {
             $data = Mandate::getAuthorizationData($this->user);
 
             expect($data['permissions'])->toBe(['*']);
+        });
+
+        it('expands wildcard capabilities when wildcards are enabled', function () {
+            $this->enableCapabilities();
+            config()->set('mandate.wildcards.enabled', true);
+
+            Capability::create(['name' => '*', 'guard' => 'web']);
+            Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+            Capability::create(['name' => 'manage-users', 'guard' => 'web']);
+
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $role->assignCapability('*');
+            $this->user->assignRole($role);
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['capabilities'])->toContain('manage-posts')
+                ->and($data['capabilities'])->toContain('manage-users')
+                ->and($data['capabilities'])->not->toContain('*');
+        });
+
+        it('expands scoped wildcard capabilities when wildcards are enabled', function () {
+            $this->enableCapabilities();
+            config()->set('mandate.wildcards.enabled', true);
+
+            Capability::create(['name' => 'posts:*', 'guard' => 'web']);
+            Capability::create(['name' => 'posts:manage', 'guard' => 'web']);
+            Capability::create(['name' => 'posts:view', 'guard' => 'web']);
+            Capability::create(['name' => 'users:manage', 'guard' => 'web']);
+
+            $role = Role::create(['name' => 'editor', 'guard' => 'web']);
+            $role->assignCapability('posts:*');
+            $this->user->assignRole($role);
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['capabilities'])->toContain('posts:manage')
+                ->and($data['capabilities'])->toContain('posts:view')
+                ->and($data['capabilities'])->not->toContain('users:manage')
+                ->and($data['capabilities'])->not->toContain('posts:*');
+        });
+
+        it('does not expand wildcard capabilities when wildcards are disabled', function () {
+            $this->enableCapabilities();
+            config()->set('mandate.wildcards.enabled', false);
+
+            Capability::create(['name' => '*', 'guard' => 'web']);
+            Capability::create(['name' => 'manage-posts', 'guard' => 'web']);
+
+            $role = Role::create(['name' => 'admin', 'guard' => 'web']);
+            $role->assignCapability('*');
+            $this->user->assignRole($role);
+
+            $data = Mandate::getAuthorizationData($this->user);
+
+            expect($data['capabilities'])->toBe(['*']);
         });
     });
 });

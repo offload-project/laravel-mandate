@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OffloadProject\Mandate;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use OffloadProject\Mandate\CodeFirst\DefinitionCache;
@@ -858,10 +859,10 @@ final class Mandate
      * matching names from the registrar so consumers receive the full list.
      *
      * @param  Collection<int, string>  $names  The subject's assigned names (may contain wildcards)
-     * @param  Collection<int, Permission|Capability>  $allRegistered  All registered items from the registrar
+     * @param  EloquentCollection<int, Permission>|EloquentCollection<int, Capability>  $allRegistered  All registered items from the registrar
      * @return Collection<int, string>
      */
-    private function expandWildcardNames(Collection $names, Collection $allRegistered, WildcardHandler $wildcardHandler): Collection
+    private function expandWildcardNames(Collection $names, EloquentCollection $allRegistered, WildcardHandler $wildcardHandler): Collection
     {
         $concreteRegistered = $allRegistered->reject(
             fn ($item) => $wildcardHandler->containsWildcard($item->name)

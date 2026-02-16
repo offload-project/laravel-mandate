@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.4.1 - 2026-02-16
+
+### Fixes
+
+- Expand wildcard permissions and capabilities in `getAuthorizationData` instead of returning raw wildcard patterns
+
 ## v3.4.0 - 2026-02-15
 
 ### Features

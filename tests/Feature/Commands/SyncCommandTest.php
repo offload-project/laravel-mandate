@@ -7,6 +7,9 @@ use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\ArticlePermissions;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\ContentCapabilities;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\UserPermissions;
 
 describe('SyncCommand', function () {
     beforeEach(function () {
@@ -290,6 +293,78 @@ describe('SyncCommand --seed', function () {
         $role = Role::where('name', 'partial-role')->first();
         expect($role->hasPermission('article:view'))->toBeTrue();
         expect($role->hasPermission('article:create'))->toBeFalse();
+    });
+
+    it('resolves class references in permission assignments', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => [
+                    ArticlePermissions::class,
+                    UserPermissions::class,
+                ],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role = Role::where('name', 'admin')->first();
+        expect($role)->not->toBeNull();
+
+        // All constants from both classes should be resolved
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:create'))->toBeTrue();
+        expect($role->hasPermission('article:edit'))->toBeTrue();
+        expect($role->hasPermission('article:delete'))->toBeTrue();
+        expect($role->hasPermission('user:view'))->toBeTrue();
+        expect($role->hasPermission('user:edit'))->toBeTrue();
+        expect($role->hasPermission('user:delete'))->toBeTrue();
+    });
+
+    it('resolves class references in capability assignments', function () {
+        $this->enableCapabilities();
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => ['admin:access'],
+                'capabilities' => [
+                    ContentCapabilities::class,
+                ],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role = Role::where('name', 'admin')->first();
+        expect($role)->not->toBeNull();
+        expect($role->hasCapability('content-management'))->toBeTrue();
+        expect($role->hasCapability('user-management'))->toBeTrue();
+    });
+
+    it('mixes class references and string values in assignments', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'editor' => [
+                'permissions' => [
+                    ArticlePermissions::class,
+                    'custom:permission',
+                ],
+            ],
+        ]]);
+
+        $this->artisan('mandate:sync', ['--seed' => true])
+            ->assertSuccessful();
+
+        $role = Role::where('name', 'editor')->first();
+        expect($role)->not->toBeNull();
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:edit'))->toBeTrue();
+        expect($role->hasPermission('custom:permission'))->toBeTrue();
     });
 
     it('syncs capability-permission relationships from Capability attributes', function () {

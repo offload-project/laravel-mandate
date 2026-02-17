@@ -18,6 +18,8 @@ use OffloadProject\Mandate\MandateRegistrar;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
+use ReflectionClass;
+use ReflectionClassConstant;
 
 use function Laravel\Prompts\confirm;
 
@@ -471,6 +473,16 @@ final class SyncCommand extends Command
             return;
         }
 
+        // Resolve class references to constant values
+        foreach ($assignments as $roleName => $assignment) {
+            if (! empty($assignment['permissions'])) {
+                $assignments[$roleName]['permissions'] = $this->resolveAssignmentValues($assignment['permissions']);
+            }
+            if (! empty($assignment['capabilities'])) {
+                $assignments[$roleName]['capabilities'] = $this->resolveAssignmentValues($assignment['capabilities']);
+            }
+        }
+
         $this->components->info('Seeding role assignments...');
 
         /** @var class-string<Role> $roleClass */
@@ -572,6 +584,35 @@ final class SyncCommand extends Command
                 }
             }
         }
+    }
+
+    /**
+     * Resolve class references in assignment values to their constant string values.
+     *
+     * @param  array<string|class-string>  $items
+     * @return array<string>
+     */
+    private function resolveAssignmentValues(array $items): array
+    {
+        $resolved = [];
+
+        foreach ($items as $item) {
+            if (class_exists($item)) {
+                $reflection = new ReflectionClass($item);
+
+                foreach ($reflection->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC) as $constant) {
+                    $value = $constant->getValue();
+
+                    if (is_string($value)) {
+                        $resolved[] = $value;
+                    }
+                }
+            } else {
+                $resolved[] = $item;
+            }
+        }
+
+        return $resolved;
     }
 
     /**

@@ -1205,6 +1205,39 @@ The `--seed` flag will **automatically create** any roles, permissions, or capab
 - **Code-first enabled**: Syncs PHP class definitions to database first, then seeds assignments
 - **Code-first disabled**: Only seeds assignments (useful for database-only workflows)
 
+#### Class References in Assignments
+
+Instead of listing individual permission or capability strings, you can reference an entire class. All public string constants from that class will be resolved as values:
+
+```php
+use App\Permissions\ArticlePermissions;
+use App\Permissions\UserPermissions;
+use App\Capabilities\AdminCapabilities;
+use App\Capabilities\IAMCapabilities;
+use App\Roles\SystemRoles;
+
+'assignments' => [
+    SystemRoles::ADMIN => [
+        'permissions' => [
+            ArticlePermissions::class,
+            UserPermissions::class,
+        ],
+        'capabilities' => [
+            AdminCapabilities::class,
+            IAMCapabilities::class,
+        ],
+    ],
+    SystemRoles::EDITOR => [
+        'permissions' => [
+            ArticlePermissions::class,  // All article permissions
+            'comment:create',           // Mix with individual strings
+        ],
+    ],
+],
+```
+
+This keeps your assignments DRY and in sync with your permission/capability definitions — when you add a new constant to a class, it's automatically included in the assignment.
+
 #### Wildcard Assignments (Super Admin)
 
 Use `['*']` to assign **all existing permissions or capabilities** to a role:

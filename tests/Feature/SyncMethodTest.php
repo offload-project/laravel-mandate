@@ -10,6 +10,9 @@ use OffloadProject\Mandate\Facades\Mandate;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\SyncResult;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\ArticlePermissions;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\ContentCapabilities;
+use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\UserPermissions;
 
 describe('Mandate::sync()', function () {
     beforeEach(function () {
@@ -318,6 +321,103 @@ describe('Mandate::sync() with seed', function () {
         $role = Role::where('name', 'partial-role')->first();
         expect($role->hasPermission('article:view'))->toBeTrue();
         expect($role->hasPermission('article:create'))->toBeFalse();
+    });
+
+    it('resolves class references in permissions to constant values', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => [
+                    ArticlePermissions::class,
+                ],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        $role = Role::where('name', 'admin')->first();
+        expect($role)->not->toBeNull();
+
+        // All public string constants from ArticlePermissions should be assigned
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:create'))->toBeTrue();
+        expect($role->hasPermission('article:edit'))->toBeTrue();
+        expect($role->hasPermission('article:delete'))->toBeTrue();
+    });
+
+    it('resolves class references in capabilities to constant values', function () {
+        $this->enableCapabilities();
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => ['admin:access'],
+                'capabilities' => [
+                    ContentCapabilities::class,
+                ],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        $role = Role::where('name', 'admin')->first();
+        expect($role)->not->toBeNull();
+
+        // All public string constants from ContentCapabilities should be assigned
+        expect($role->hasCapability('content-management'))->toBeTrue();
+        expect($role->hasCapability('user-management'))->toBeTrue();
+    });
+
+    it('mixes class references and string values in assignments', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'admin' => [
+                'permissions' => [
+                    UserPermissions::class,
+                    'custom:permission',
+                ],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        $role = Role::where('name', 'admin')->first();
+        expect($role)->not->toBeNull();
+
+        // Class constants should be resolved
+        expect($role->hasPermission('user:view'))->toBeTrue();
+        expect($role->hasPermission('user:edit'))->toBeTrue();
+        expect($role->hasPermission('user:delete'))->toBeTrue();
+
+        // String values should still work
+        expect($role->hasPermission('custom:permission'))->toBeTrue();
+    });
+
+    it('resolves multiple class references in permissions', function () {
+        config(['mandate.code_first.enabled' => false]);
+
+        config(['mandate.assignments' => [
+            'superadmin' => [
+                'permissions' => [
+                    ArticlePermissions::class,
+                    UserPermissions::class,
+                ],
+            ],
+        ]]);
+
+        Mandate::sync(seed: true);
+
+        $role = Role::where('name', 'superadmin')->first();
+        expect($role)->not->toBeNull();
+
+        // All constants from both classes
+        expect($role->hasPermission('article:view'))->toBeTrue();
+        expect($role->hasPermission('article:create'))->toBeTrue();
+        expect($role->hasPermission('user:view'))->toBeTrue();
+        expect($role->hasPermission('user:edit'))->toBeTrue();
+        expect($role->hasPermission('user:delete'))->toBeTrue();
     });
 
     it('respects guard filter when seeding', function () {

@@ -87,6 +87,19 @@ return [
     | Use `php artisan mandate:sync --seed` to apply these assignments.
     | This works with both code-first and database-only workflows.
     |
+    | Values can be string names or class references. When a class is
+    | provided, all public string constants will be extracted as values:
+    |
+    |   'admin' => [
+    |       'permissions' => [
+    |           UserPermissions::class,    // All constants from UserPermissions
+    |           'article:*',               // Individual string values still work
+    |       ],
+    |       'capabilities' => [
+    |           AdminCapabilities::class,
+    |       ],
+    |   ],
+    |
     */
 
     'assignments' => [

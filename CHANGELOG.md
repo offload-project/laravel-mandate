@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.5.0 - 2026-02-17
+
+### Features
+
+- Add class reference support in assignment config for permissions and capabilities ([#60](https://github.com/offload-project/laravel-mandate/pull/60)) ([5083eba](https://github.com/offload-project/laravel-mandate/commit/5083ebade672104ddca1e6ee00ba371594abc733))
+
 ## v3.4.1 - 2026-02-16
 
 ### Fixes

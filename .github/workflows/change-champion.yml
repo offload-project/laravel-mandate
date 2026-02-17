@@ -20,16 +20,6 @@ jobs:
   change-champion:
     runs-on: ubuntu-latest
     steps:
-      - uses: lewagon/wait-on-check-action@v1.5.0
-        if: github.event_name == 'pull_request'
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          running-workflow-name: 'Change Champion'
-          check-regexp: 'PHP.*'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-          allowed-conclusions: success
-
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}

@@ -48,7 +48,8 @@
     "test-coverage": "@php -d error_reporting='E_ALL & ~E_DEPRECATED' vendor/bin/pest --coverage",
     "analyse": "phpstan analyse --memory-limit=-1",
     "analyse-baseline": "phpstan analyse --memory-limit=-1 --generate-baseline",
-    "pint": "vendor/bin/pint"
+    "pint": "vendor/bin/pint",
+    "install-hooks": "vendor/bin/captainhook install --only-enabled"
   },
   "extra": {
     "laravel": {

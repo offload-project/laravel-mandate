@@ -14,11 +14,12 @@ return new class extends Migration
     public function up(): void
     {
         $idType = config('mandate.model_id_type', 'int');
+        $morphIdType = config('mandate.morph_id_type') ?? $idType;
 
         $this->createCapabilitiesTable($idType);
         $this->createCapabilityPermissionTable($idType);
         $this->createCapabilityRoleTable($idType);
-        $this->createCapabilitySubjectTable($idType);
+        $this->createCapabilitySubjectTable($idType, $morphIdType);
     }
 
     /**
@@ -102,7 +103,7 @@ return new class extends Migration
         });
     }
 
-    protected function createCapabilitySubjectTable(string $idType): void
+    protected function createCapabilitySubjectTable(string $idType, string $morphIdType): void
     {
         $tableName = config('mandate.tables.capability_subject', 'capability_subject');
         $capabilitiesTable = config('mandate.tables.capabilities', 'capabilities');
@@ -111,15 +112,14 @@ return new class extends Migration
         $subjectIdColumn = $subjectMorphName.'_id';
         $subjectTypeColumn = $subjectMorphName.'_type';
 
-        Schema::create($tableName, function (Blueprint $table) use ($capabilitiesTable, $capabilityIdColumn, $subjectIdColumn, $subjectTypeColumn, $idType) {
+        Schema::create($tableName, function (Blueprint $table) use ($capabilitiesTable, $capabilityIdColumn, $subjectIdColumn, $subjectTypeColumn, $idType, $morphIdType) {
             match ($idType) {
                 'uuid' => $table->foreignUuid($capabilityIdColumn)->constrained($capabilitiesTable)->cascadeOnDelete(),
                 'ulid' => $table->foreignUlid($capabilityIdColumn)->constrained($capabilitiesTable)->cascadeOnDelete(),
                 default => $table->foreignId($capabilityIdColumn)->constrained($capabilitiesTable)->cascadeOnDelete(),
             };
 
-            // Subject morph columns - type depends on user's model ID type, not Mandate's
-            $table->string($subjectIdColumn);
+            $this->createMorphIdColumn($table, $subjectIdColumn, $morphIdType);
             $table->string($subjectTypeColumn);
 
             $table->timestamps();
@@ -127,5 +127,14 @@ return new class extends Migration
             $table->primary([$capabilityIdColumn, $subjectIdColumn, $subjectTypeColumn], 'capability_subject_primary');
             $table->index([$subjectIdColumn, $subjectTypeColumn], 'capability_subject_subject_index');
         });
+    }
+
+    protected function createMorphIdColumn(Blueprint $table, string $column, string $idType): Illuminate\Database\Schema\ColumnDefinition
+    {
+        return match ($idType) {
+            'uuid' => $table->uuid($column),
+            'ulid' => $table->ulid($column),
+            default => $table->unsignedBigInteger($column),
+        };
     }
 };

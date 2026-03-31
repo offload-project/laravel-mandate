@@ -246,6 +246,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Morph ID Type
+    |--------------------------------------------------------------------------
+    |
+    | The data type for morph `_id` columns (subject and context) that
+    | reference external models (User, Team, etc.). This is separate from
+    | model_id_type which controls Mandate's own model primary keys.
+    |
+    | When not set, defaults to the value of model_id_type.
+    |
+    | Supported: 'int' (unsignedBigInteger), 'uuid', 'ulid'
+    |
+    */
+
+    'morph_id_type' => 'int',
+
+    /*
+    |--------------------------------------------------------------------------
     | Model Classes
     |--------------------------------------------------------------------------
     |

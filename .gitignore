@@ -10,4 +10,4 @@ composer.lock
 *.log
 .DS_Store
 coverage-report
-.claude/skills
+.claude=

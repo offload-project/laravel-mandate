@@ -472,7 +472,7 @@ php artisan vendor:publish --tag=mandate-config
 | Option                            | Default             | Description                                      |
 |-----------------------------------|---------------------|--------------------------------------------------|
 | `model_id_type`                   | `'int'`             | Primary key type: `'int'`, `'uuid'`, or `'ulid'` |
-| `morph_id_type`                   | `'int'`             | Morph column ID type (subject/context morphs)     |
+| `morph_id_type`                   | `null`              | Morph column ID type (defaults to `model_id_type`) |
 | `models.permission`               | `Permission::class` | Custom permission model                          |
 | `models.role`                     | `Role::class`       | Custom role model                                |
 | `models.capability`               | `Capability::class` | Custom capability model                          |

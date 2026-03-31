@@ -28,7 +28,6 @@
     "larastan/larastan": "^3.9.2",
     "laravel/pint": "^1.26.1",
     "mockery/mockery": "1.7.x-dev",
-    "offload-project/change-champion": "^1",
     "orchestra/testbench": "^9.0|^10.8|^11.0",
     "pestphp/pest": "^3.0|^4.0",
     "pestphp/pest-plugin-laravel": "^3.0|^4.0",

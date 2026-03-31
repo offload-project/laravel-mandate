@@ -27,7 +27,7 @@
     "captainhook/captainhook-phar": "^5.28",
     "larastan/larastan": "^3.9.2",
     "laravel/pint": "^1.26.1",
-    "mockery/mockery": "1.7.x-dev",
+    "mockery/mockery": "^1.6.12",
     "orchestra/testbench": "^9.0|^10.8|^11.0",
     "pestphp/pest": "^3.0|^4.0",
     "pestphp/pest-plugin-laravel": "^3.0|^4.0",
@@ -44,8 +44,8 @@
     }
   },
   "scripts": {
-    "test": "@php -d error_reporting='E_ALL & ~E_DEPRECATED' vendor/bin/pest",
-    "test-coverage": "@php -d error_reporting='E_ALL & ~E_DEPRECATED' vendor/bin/pest --coverage",
+    "test": "@php vendor/bin/pest",
+    "test-coverage": "@php vendor/bin/pest --coverage",
     "analyse": "phpstan analyse --memory-limit=-1",
     "analyse-baseline": "phpstan analyse --memory-limit=-1 --generate-baseline",
     "pint": "vendor/bin/pint",

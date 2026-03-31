@@ -56,7 +56,7 @@ final class RoleMiddleware
             throw UnauthorizedException::notLoggedIn();
         }
 
-        if (! $subject instanceof Model) {
+        if (! $subject instanceof Model) { // @phpstan-ignore instanceof.alwaysTrue
             throw UnauthorizedException::notEloquentModel();
         }
 

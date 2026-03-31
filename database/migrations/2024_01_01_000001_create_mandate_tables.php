@@ -14,13 +14,14 @@ return new class extends Migration
     public function up(): void
     {
         $idType = config('mandate.model_id_type', 'int');
+        $morphIdType = config('mandate.morph_id_type') ?? $idType;
         $contextEnabled = config('mandate.context.enabled', false);
 
-        $this->createPermissionsTable($idType, $contextEnabled);
-        $this->createRolesTable($idType, $contextEnabled);
+        $this->createPermissionsTable($idType, $morphIdType, $contextEnabled);
+        $this->createRolesTable($idType, $morphIdType, $contextEnabled);
         $this->createPermissionRoleTable($idType);
-        $this->createPermissionSubjectTable($idType, $contextEnabled);
-        $this->createRoleSubjectTable($idType, $contextEnabled);
+        $this->createPermissionSubjectTable($idType, $morphIdType, $contextEnabled);
+        $this->createRoleSubjectTable($idType, $morphIdType, $contextEnabled);
     }
 
     /**
@@ -35,11 +36,11 @@ return new class extends Migration
         Schema::dropIfExists(config('mandate.tables.permissions', 'permissions'));
     }
 
-    protected function createPermissionsTable(string $idType, bool $contextEnabled): void
+    protected function createPermissionsTable(string $idType, string $morphIdType, bool $contextEnabled): void
     {
         $tableName = config('mandate.tables.permissions', 'permissions');
 
-        Schema::create($tableName, function (Blueprint $table) use ($idType, $contextEnabled) {
+        Schema::create($tableName, function (Blueprint $table) use ($idType, $morphIdType, $contextEnabled) {
             match ($idType) {
                 'uuid' => $table->uuid('id')->primary(),
                 'ulid' => $table->ulid('id')->primary(),
@@ -55,7 +56,7 @@ return new class extends Migration
                 $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
-                $table->unsignedBigInteger($contextIdColumn)->nullable();
+                $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
                 $table->unique(['name', 'guard', $contextTypeColumn, $contextIdColumn], 'permissions_unique');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'permissions_context_index');
@@ -68,11 +69,11 @@ return new class extends Migration
         });
     }
 
-    protected function createRolesTable(string $idType, bool $contextEnabled): void
+    protected function createRolesTable(string $idType, string $morphIdType, bool $contextEnabled): void
     {
         $tableName = config('mandate.tables.roles', 'roles');
 
-        Schema::create($tableName, function (Blueprint $table) use ($idType, $contextEnabled) {
+        Schema::create($tableName, function (Blueprint $table) use ($idType, $morphIdType, $contextEnabled) {
             match ($idType) {
                 'uuid' => $table->uuid('id')->primary(),
                 'ulid' => $table->ulid('id')->primary(),
@@ -88,7 +89,7 @@ return new class extends Migration
                 $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
-                $table->unsignedBigInteger($contextIdColumn)->nullable();
+                $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
                 $table->unique(['name', 'guard', $contextTypeColumn, $contextIdColumn], 'roles_unique');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'roles_context_index');
@@ -126,7 +127,7 @@ return new class extends Migration
         });
     }
 
-    protected function createPermissionSubjectTable(string $idType, bool $contextEnabled): void
+    protected function createPermissionSubjectTable(string $idType, string $morphIdType, bool $contextEnabled): void
     {
         $tableName = config('mandate.tables.permission_subject', 'permission_subject');
         $permissionsTable = config('mandate.tables.permissions', 'permissions');
@@ -135,15 +136,14 @@ return new class extends Migration
         $subjectIdColumn = $subjectMorphName.'_id';
         $subjectTypeColumn = $subjectMorphName.'_type';
 
-        Schema::create($tableName, function (Blueprint $table) use ($permissionsTable, $permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType) {
+        Schema::create($tableName, function (Blueprint $table) use ($permissionsTable, $permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType, $morphIdType) {
             match ($idType) {
                 'uuid' => $table->foreignUuid($permissionIdColumn)->constrained($permissionsTable)->cascadeOnDelete(),
                 'ulid' => $table->foreignUlid($permissionIdColumn)->constrained($permissionsTable)->cascadeOnDelete(),
                 default => $table->foreignId($permissionIdColumn)->constrained($permissionsTable)->cascadeOnDelete(),
             };
 
-            // Subject morph columns - type depends on user's model ID type, not Mandate's
-            $table->string($subjectIdColumn);
+            $this->createMorphIdColumn($table, $subjectIdColumn, $morphIdType);
             $table->string($subjectTypeColumn);
 
             if ($contextEnabled) {
@@ -152,7 +152,7 @@ return new class extends Migration
                 $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
-                $table->string($contextIdColumn)->nullable();
+                $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
                 $table->primary([$permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'permission_subject_primary');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'permission_subject_context_index');
@@ -165,7 +165,7 @@ return new class extends Migration
         });
     }
 
-    protected function createRoleSubjectTable(string $idType, bool $contextEnabled): void
+    protected function createRoleSubjectTable(string $idType, string $morphIdType, bool $contextEnabled): void
     {
         $tableName = config('mandate.tables.role_subject', 'role_subject');
         $rolesTable = config('mandate.tables.roles', 'roles');
@@ -174,15 +174,14 @@ return new class extends Migration
         $subjectIdColumn = $subjectMorphName.'_id';
         $subjectTypeColumn = $subjectMorphName.'_type';
 
-        Schema::create($tableName, function (Blueprint $table) use ($rolesTable, $roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType) {
+        Schema::create($tableName, function (Blueprint $table) use ($rolesTable, $roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextEnabled, $idType, $morphIdType) {
             match ($idType) {
                 'uuid' => $table->foreignUuid($roleIdColumn)->constrained($rolesTable)->cascadeOnDelete(),
                 'ulid' => $table->foreignUlid($roleIdColumn)->constrained($rolesTable)->cascadeOnDelete(),
                 default => $table->foreignId($roleIdColumn)->constrained($rolesTable)->cascadeOnDelete(),
             };
 
-            // Subject morph columns - type depends on user's model ID type, not Mandate's
-            $table->string($subjectIdColumn);
+            $this->createMorphIdColumn($table, $subjectIdColumn, $morphIdType);
             $table->string($subjectTypeColumn);
 
             if ($contextEnabled) {
@@ -191,7 +190,7 @@ return new class extends Migration
                 $contextIdColumn = $contextMorphName.'_id';
 
                 $table->string($contextTypeColumn)->nullable();
-                $table->string($contextIdColumn)->nullable();
+                $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
                 $table->primary([$roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'role_subject_primary');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'role_subject_context_index');
@@ -202,5 +201,14 @@ return new class extends Migration
             $table->timestamps();
             $table->index([$subjectIdColumn, $subjectTypeColumn], 'role_subject_subject_index');
         });
+    }
+
+    protected function createMorphIdColumn(Blueprint $table, string $column, string $idType): Illuminate\Database\Schema\ColumnDefinition
+    {
+        return match ($idType) {
+            'uuid' => $table->uuid($column),
+            'ulid' => $table->ulid($column),
+            default => $table->unsignedBigInteger($column),
+        };
     }
 };

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
@@ -115,6 +116,83 @@ describe('Model ID Type', function () {
             expect($role->id)->toBeInt();
             expect($role->getKeyType())->toBe('int');
             expect($role->getIncrementing())->toBeTrue();
+        });
+    });
+
+    describe('morph ID type', function () {
+        it('defaults morph_id_type to model_id_type when not set', function () {
+            config(['mandate.model_id_type' => 'uuid']);
+            config(['mandate.morph_id_type' => null]);
+            $this->recreateTables();
+
+            $columns = collect(Schema::getColumns('role_subject'));
+            $subjectIdCol = $columns->firstWhere('name', 'subject_id');
+
+            // Should fall back to model_id_type (uuid → varchar in SQLite)
+            expect($subjectIdCol['type_name'])->toBe('varchar');
+        });
+
+        it('creates uuid morph columns when morph_id_type is uuid', function () {
+            config(['mandate.morph_id_type' => 'uuid']);
+            $this->recreateTables();
+
+            $columns = collect(Schema::getColumns('role_subject'));
+            $subjectIdCol = $columns->firstWhere('name', 'subject_id');
+
+            expect($subjectIdCol['type_name'])->toBe('varchar');
+        });
+
+        it('creates integer morph columns by default', function () {
+            $columns = collect(Schema::getColumns('role_subject'));
+            $subjectIdCol = $columns->firstWhere('name', 'subject_id');
+
+            expect($subjectIdCol['type_name'])->toBe('integer');
+        });
+
+        it('creates uuid context morph columns when morph_id_type is uuid', function () {
+            config(['mandate.morph_id_type' => 'uuid']);
+            $this->enableContext();
+
+            $columns = collect(Schema::getColumns('permissions'));
+            $contextIdCol = $columns->firstWhere('name', 'context_id');
+
+            expect($contextIdCol['type_name'])->toBe('varchar');
+        });
+
+        it('creates integer context morph columns by default', function () {
+            $this->enableContext();
+
+            $columns = collect(Schema::getColumns('permissions'));
+            $contextIdCol = $columns->firstWhere('name', 'context_id');
+
+            expect($contextIdCol['type_name'])->toBe('integer');
+        });
+
+        it('creates uuid morph columns on capability_subject when morph_id_type is uuid', function () {
+            config(['mandate.morph_id_type' => 'uuid']);
+            $this->enableUuids();
+            $this->enableCapabilities();
+
+            $columns = collect(Schema::getColumns('capability_subject'));
+            $subjectIdCol = $columns->firstWhere('name', 'subject_id');
+
+            expect($subjectIdCol['type_name'])->toBe('varchar');
+        });
+
+        it('allows morph_id_type to differ from model_id_type', function () {
+            config(['mandate.model_id_type' => 'int']);
+            config(['mandate.morph_id_type' => 'uuid']);
+            $this->recreateTables();
+
+            // Mandate model PKs should be integer
+            $permCols = collect(Schema::getColumns('permissions'));
+            $idCol = $permCols->firstWhere('name', 'id');
+            expect($idCol['type_name'])->toBe('integer');
+
+            // Subject morph should be uuid (varchar in SQLite)
+            $pivotCols = collect(Schema::getColumns('role_subject'));
+            $subjectIdCol = $pivotCols->firstWhere('name', 'subject_id');
+            expect($subjectIdCol['type_name'])->toBe('varchar');
         });
     });
 

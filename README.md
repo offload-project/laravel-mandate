@@ -29,6 +29,7 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 
 ## Table of Contents
 
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
@@ -57,8 +58,12 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - [Extending Models](#extending-models)
 - [Testing](#testing)
 - [Upgrading from 1.x](#upgrading-from-1x)
-- [Requirements](#requirements)
 - [License](#license)
+
+## Requirements
+
+- PHP 8.2+
+- Laravel 11.x or 12.x or 13.x
 
 ## Installation
 
@@ -1178,7 +1183,8 @@ class RolesAndPermissionsSeeder extends Seeder
 
 ### Seeding Role Assignments
 
-Configure role-permission assignments in the config file. This works with **both code-first and database-only workflows**:
+Configure role-permission assignments in the config file. This works with **both code-first and database-only workflows
+**:
 
 ```php
 // config/mandate.php
@@ -1199,15 +1205,19 @@ Then seed with the `--seed` flag:
 php artisan mandate:sync --seed
 ```
 
-The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the database, then assign permissions to roles as configured. This makes it easy to define your entire RBAC structure in config.
+The `--seed` flag will **automatically create** any roles, permissions, or capabilities that don't exist in the
+database, then assign permissions to roles as configured. This makes it easy to define your entire RBAC structure in
+config.
 
 **Behavior based on code-first setting:**
+
 - **Code-first enabled**: Syncs PHP class definitions to database first, then seeds assignments
 - **Code-first disabled**: Only seeds assignments (useful for database-only workflows)
 
 #### Class References in Assignments
 
-Instead of listing individual permission or capability strings, you can reference an entire class. All public string constants from that class will be resolved as values:
+Instead of listing individual permission or capability strings, you can reference an entire class. All public string
+constants from that class will be resolved as values:
 
 ```php
 use App\Permissions\ArticlePermissions;
@@ -1236,7 +1246,8 @@ use App\Roles\SystemRoles;
 ],
 ```
 
-This keeps your assignments DRY and in sync with your permission/capability definitions — when you add a new constant to a class, it's automatically included in the assignment.
+This keeps your assignments DRY and in sync with your permission/capability definitions — when you add a new constant to
+a class, it's automatically included in the assignment.
 
 #### Wildcard Assignments (Super Admin)
 
@@ -1253,7 +1264,9 @@ use App\Roles\SystemRoles;
 ],
 ```
 
-This is useful for super admin roles that should have access to everything. The wildcard assigns all permissions/capabilities that exist in the database at sync time, so make sure to sync your definitions first (or run the full `mandate:sync --seed` which syncs definitions before seeding assignments).
+This is useful for super admin roles that should have access to everything. The wildcard assigns all
+permissions/capabilities that exist in the database at sync time, so make sure to sync your definitions first (or run
+the full `mandate:sync --seed` which syncs definitions before seeding assignments).
 
 ### Label and Description Columns
 
@@ -1404,9 +1417,9 @@ Event::listen(MandateSynced::class, function ($event) {
 
 ### Assignments Configuration
 
-| Option        | Default | Description                                                                |
-|---------------|---------|----------------------------------------------------------------------------|
-| `assignments` | `[]`    | Role-permission/capability assignments (works with or without code-first)  |
+| Option        | Default | Description                                                               |
+|---------------|---------|---------------------------------------------------------------------------|
+| `assignments` | `[]`    | Role-permission/capability assignments (works with or without code-first) |
 
 ### Code-First Configuration Options
 
@@ -1626,11 +1639,6 @@ Laravel Permission.
 See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ---
-
-## Requirements
-
-- PHP 8.2+
-- Laravel 11.x or 12.x
 
 ## License
 

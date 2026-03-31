@@ -19,17 +19,16 @@
   ],
   "require": {
     "php": "^8.2",
-    "illuminate/contracts": "^11.0|^12.0",
-    "illuminate/console": "^11.0|^12.0",
-    "illuminate/support": "^11.0|^12.0"
+    "illuminate/contracts": "^11.0|^12.0|^13.0",
+    "illuminate/console": "^11.0|^12.0|^13.0",
+    "illuminate/support": "^11.0|^12.0|^13.0"
   },
   "require-dev": {
     "captainhook/captainhook-phar": "^5.28",
     "larastan/larastan": "^3.9.2",
     "laravel/pint": "^1.26.1",
     "mockery/mockery": "1.7.x-dev",
-    "offload-project/change-champion": "^1",
-    "orchestra/testbench": "^9.0|^10.8.0",
+    "orchestra/testbench": "^9.0|^10.8|^11.0",
     "pestphp/pest": "^3.0|^4.0",
     "pestphp/pest-plugin-laravel": "^3.0|^4.0",
     "ramsey/conventional-commits": "^1.6"

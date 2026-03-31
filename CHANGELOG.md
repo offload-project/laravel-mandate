@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.6.0 - 2026-03-31
+
+### Added
+- Add Laravel 13 support [#64](https://github.com/offload-project/laravel-mandate/pull/64)
+
+### Fixed
+- Id type for morphs [#66](https://github.com/offload-project/laravel-mandate/pull/66)
+
+### Changed
+- Repo updates [#65](https://github.com/offload-project/laravel-mandate/pull/65)
+
 ## v3.5.0 - 2026-02-17
 
 ### Features

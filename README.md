@@ -1183,8 +1183,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
 ### Seeding Role Assignments
 
-Configure role-permission assignments in the config file. This works with **both code-first and database-only workflows
-**:
+Configure role-permission assignments in the config file. This works with **both code-first and database-only workflows**:
 
 ```php
 // config/mandate.php

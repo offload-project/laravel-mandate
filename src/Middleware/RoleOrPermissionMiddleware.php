@@ -55,7 +55,7 @@ final class RoleOrPermissionMiddleware
             throw UnauthorizedException::notLoggedIn();
         }
 
-        if (! $subject instanceof Model) {
+        if (! $subject instanceof Model) { // @phpstan-ignore instanceof.alwaysTrue
             throw UnauthorizedException::notEloquentModel();
         }
 
@@ -74,7 +74,7 @@ final class RoleOrPermissionMiddleware
         // Check each item
         foreach ($items as $item) {
             // Try as role first (if subject has HasRoles trait)
-            if ($hasRolesMethod && $subject->hasRole($item)) {
+            if ($hasRolesMethod && $subject->hasRole($item)) { // @phpstan-ignore method.notFound
                 return $next($request);
             }
 

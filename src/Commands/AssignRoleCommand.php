@@ -109,7 +109,7 @@ final class AssignRoleCommand extends Command
         }
 
         // Check if subject already has the role
-        if ($subject->hasRole($roleName)) {
+        if ($subject->hasRole($roleName)) { // @phpstan-ignore method.notFound
             $this->components->warn(
                 "Subject #{$subjectId} already has role '{$roleName}'."
             );

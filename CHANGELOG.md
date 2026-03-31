@@ -191,7 +191,6 @@ This release is a major rewrite of Laravel Mandate with significant new features
 
 ### Breaking Changes
 
-* PHP 8.4+ required
 * Laravel 11+ required
 * Spatie Laravel Permission dependency removed - now fully standalone
 * Migration structure has changed - see UPGRADE.md for migration instructions

@@ -11,7 +11,6 @@ use Illuminate\Support\Collection;
 use OffloadProject\Mandate\CodeFirst\DefinitionCache;
 use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
 use OffloadProject\Mandate\CodeFirst\PermissionDefinition;
-use OffloadProject\Mandate\Concerns\HasRoles;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
@@ -337,8 +336,7 @@ final class Mandate
                 return collect();
             }
 
-            /* @var $subject HasRoles */
-            return $subject->roles;
+            return $subject->roles; // @phpstan-ignore property.notFound
         }
 
         return $subject->getRolesForContext($context);

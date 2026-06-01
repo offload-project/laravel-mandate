@@ -106,8 +106,13 @@ class EntitlementsFeatureAccessHandlerTest extends TestCase
         config(['mandate.features.entitlements.enabled' => false]);
 
         $this->app->forgetInstance(FeatureAccessHandler::class);
-        $this->app->offsetUnset(FeatureAccessHandler::class);
+        $this->app->forgetInstance(EntitlementsBridge::class);
+        unset($this->app[FeatureAccessHandler::class]);
+        unset($this->app[EntitlementsBridge::class]);
+
+        $this->app->register(\OffloadProject\Mandate\MandateServiceProvider::class, force: true);
 
         $this->assertFalse($this->app->bound(FeatureAccessHandler::class));
+        $this->assertFalse($this->app->bound(EntitlementsBridge::class));
     }
 }

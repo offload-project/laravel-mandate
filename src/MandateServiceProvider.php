@@ -37,6 +37,7 @@ use OffloadProject\Mandate\Middleware\RoleOrPermissionMiddleware;
 use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
+use RuntimeException;
 
 final class MandateServiceProvider extends ServiceProvider
 {
@@ -58,6 +59,13 @@ final class MandateServiceProvider extends ServiceProvider
         $this->app->bind(WildcardHandler::class, fn () => $this->app->make(config('mandate.wildcards.handler', WildcardPermission::class)));
 
         if (config('mandate.features.entitlements.enabled', false)) {
+            if (! class_exists(\LucaLongo\LaravelEntitlements\Facades\Entitlements::class)) {
+                throw new RuntimeException(
+                    'mandate.features.entitlements.enabled is true, but the masterix21/laravel-entitlements package is not installed. '
+                    .'Run "composer require masterix21/laravel-entitlements" or disable mandate.features.entitlements.enabled.'
+                );
+            }
+
             $this->app->bind(EntitlementsBridge::class, FacadeBridge::class);
             $this->app->bind(FeatureAccessHandler::class, EntitlementsFeatureAccessHandler::class);
         }

@@ -11,6 +11,7 @@ use OffloadProject\Mandate\Attributes\Context;
 use OffloadProject\Mandate\Attributes\Description;
 use OffloadProject\Mandate\Attributes\Guard;
 use OffloadProject\Mandate\Attributes\Label;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionClassConstant;
 use Symfony\Component\Finder\Finder;
@@ -155,7 +156,12 @@ final class DefinitionDiscoverer
         $classGuard = $this->getClassGuard($class);
         $classLabel = $this->getClassAttribute($class, Label::class)?->value;
         $classDescription = $this->getClassAttribute($class, Description::class)?->value;
-        $classCapabilities = $this->getClassCapabilityNames($class);
+        $classCapabilities = $this->buildCapabilityDefinitions(
+            $class->getAttributes(CapabilityAttribute::class),
+            $classGuard,
+            $class->getName(),
+            ''
+        );
 
         foreach ($class->getReflectionConstants(ReflectionClassConstant::IS_PUBLIC) as $constant) {
             $value = $constant->getValue();
@@ -167,21 +173,89 @@ final class DefinitionDiscoverer
             $labelAttr = $this->getConstantAttribute($constant, Label::class);
             $descAttr = $this->getConstantAttribute($constant, Description::class);
             $contextAttr = $this->getConstantAttribute($constant, Context::class);
-            $constantCapabilities = $this->getCapabilityNames($constant);
+            $constantCapabilities = $this->buildCapabilityDefinitions(
+                $constant->getAttributes(CapabilityAttribute::class),
+                $classGuard,
+                $class->getName(),
+                $constant->getName()
+            );
 
-            $definitions[] = PermissionDefinition::fromAttributes([
-                'name' => $value,
-                'guard' => $classGuard,
-                'label' => $labelAttr !== null ? $labelAttr->value : $classLabel,
-                'description' => $descAttr !== null ? $descAttr->value : $classDescription,
-                'context' => $contextAttr?->modelClass,
-                'capabilities' => array_unique(array_merge($classCapabilities, $constantCapabilities)),
-                'source_class' => $class->getName(),
-                'source_constant' => $constant->getName(),
-            ]);
+            $definitions[] = new PermissionDefinition(
+                name: $value,
+                guard: $classGuard,
+                label: $labelAttr !== null ? $labelAttr->value : $classLabel,
+                description: $descAttr !== null ? $descAttr->value : $classDescription,
+                contextClass: $contextAttr?->modelClass,
+                capabilities: $this->dedupeCapabilityDefinitions(
+                    array_merge($classCapabilities, $constantCapabilities)
+                ),
+                sourceClass: $class->getName(),
+                sourceConstant: $constant->getName(),
+            );
         }
 
         return $definitions;
+    }
+
+    /**
+     * Build CapabilityDefinition DTOs from raw `#[Capability]` reflection attributes.
+     *
+     * @param  array<ReflectionAttribute<CapabilityAttribute>>  $attributes
+     * @return array<CapabilityDefinition>
+     */
+    private function buildCapabilityDefinitions(
+        array $attributes,
+        string $guard,
+        string $sourceClass,
+        string $sourceConstant,
+    ): array {
+        return array_map(
+            function ($attr) use ($guard, $sourceClass, $sourceConstant) {
+                /** @var CapabilityAttribute $instance */
+                $instance = $attr->newInstance();
+
+                return new CapabilityDefinition(
+                    name: $instance->name,
+                    guard: $guard,
+                    label: $instance->label,
+                    description: $instance->description,
+                    sourceClass: $sourceClass,
+                    sourceConstant: $sourceConstant,
+                );
+            },
+            $attributes
+        );
+    }
+
+    /**
+     * Dedupe capability definitions by name, preferring the first non-null label/description per field.
+     *
+     * @param  array<CapabilityDefinition>  $definitions
+     * @return array<CapabilityDefinition>
+     */
+    private function dedupeCapabilityDefinitions(array $definitions): array
+    {
+        $byName = [];
+
+        foreach ($definitions as $definition) {
+            if (! isset($byName[$definition->name])) {
+                $byName[$definition->name] = $definition;
+
+                continue;
+            }
+
+            $existing = $byName[$definition->name];
+            $byName[$definition->name] = new CapabilityDefinition(
+                name: $existing->name,
+                guard: $existing->guard,
+                label: $existing->label ?? $definition->label,
+                description: $existing->description ?? $definition->description,
+                sourceClass: $existing->sourceClass,
+                sourceConstant: $existing->sourceConstant,
+            );
+        }
+
+        return array_values($byName);
     }
 
     /**
@@ -307,36 +381,5 @@ final class DefinitionDiscoverer
         }
 
         return $attributes[0]->newInstance();
-    }
-
-    /**
-     * Get all capability names from a constant's Capability attributes.
-     *
-     * @return array<string>
-     */
-    private function getCapabilityNames(ReflectionClassConstant $constant): array
-    {
-        $attributes = $constant->getAttributes(CapabilityAttribute::class);
-
-        return array_map(
-            fn ($attr) => $attr->newInstance()->name,
-            $attributes
-        );
-    }
-
-    /**
-     * Get all capability names from a class's Capability attributes.
-     *
-     * @param  ReflectionClass<object>  $class
-     * @return array<string>
-     */
-    private function getClassCapabilityNames(ReflectionClass $class): array
-    {
-        $attributes = $class->getAttributes(CapabilityAttribute::class);
-
-        return array_map(
-            fn ($attr) => $attr->newInstance()->name,
-            $attributes
-        );
     }
 }

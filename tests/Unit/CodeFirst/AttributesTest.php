@@ -46,6 +46,20 @@ describe('Attributes', function () {
             $capability = new Capability('content-management');
 
             expect($capability->name)->toBe('content-management');
+            expect($capability->label)->toBeNull();
+            expect($capability->description)->toBeNull();
+        });
+
+        it('stores optional label and description', function () {
+            $capability = new Capability(
+                name: 'content-management',
+                label: 'Content Management',
+                description: 'Manage all content',
+            );
+
+            expect($capability->name)->toBe('content-management');
+            expect($capability->label)->toBe('Content Management');
+            expect($capability->description)->toBe('Manage all content');
         });
 
         it('is repeatable', function () {

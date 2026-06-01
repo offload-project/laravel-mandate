@@ -24,9 +24,13 @@ use OffloadProject\Mandate\Commands\SyncCommand;
 use OffloadProject\Mandate\Commands\TypeScriptCommand;
 use OffloadProject\Mandate\Commands\UpgradeFromSpatieCommand;
 use OffloadProject\Mandate\Contracts\Capability as CapabilityContract;
+use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\Contracts\Permission as PermissionContract;
 use OffloadProject\Mandate\Contracts\Role as RoleContract;
 use OffloadProject\Mandate\Contracts\WildcardHandler;
+use OffloadProject\Mandate\Integrations\Entitlements\EntitlementsBridge;
+use OffloadProject\Mandate\Integrations\Entitlements\EntitlementsFeatureAccessHandler;
+use OffloadProject\Mandate\Integrations\Entitlements\FacadeBridge;
 use OffloadProject\Mandate\Middleware\PermissionMiddleware;
 use OffloadProject\Mandate\Middleware\RoleMiddleware;
 use OffloadProject\Mandate\Middleware\RoleOrPermissionMiddleware;
@@ -52,6 +56,11 @@ final class MandateServiceProvider extends ServiceProvider
         $this->app->bind(RoleContract::class, fn () => $this->app->make(config('mandate.models.role', Role::class)));
         $this->app->bind(CapabilityContract::class, fn () => $this->app->make(config('mandate.models.capability', Capability::class)));
         $this->app->bind(WildcardHandler::class, fn () => $this->app->make(config('mandate.wildcards.handler', WildcardPermission::class)));
+
+        if (config('mandate.features.entitlements.enabled', false)) {
+            $this->app->bind(EntitlementsBridge::class, FacadeBridge::class);
+            $this->app->bind(FeatureAccessHandler::class, EntitlementsFeatureAccessHandler::class);
+        }
     }
 
     /**

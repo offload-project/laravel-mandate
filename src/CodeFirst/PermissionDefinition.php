@@ -15,7 +15,7 @@ final readonly class PermissionDefinition
      * @param  string|null  $label  Human-readable label
      * @param  string|null  $description  Longer description
      * @param  string|null  $contextClass  Context model class for scoped permissions
-     * @param  array<string>  $capabilities  Capability names this permission belongs to
+     * @param  array<CapabilityDefinition>  $capabilities  Inline capability definitions this permission belongs to
      * @param  string  $sourceClass  The PHP class where this was defined
      * @param  string  $sourceConstant  The constant name where this was defined
      */
@@ -37,13 +37,23 @@ final readonly class PermissionDefinition
      */
     public static function fromAttributes(array $attributes): self
     {
+        $capabilities = $attributes['capabilities'] ?? [];
+
+        if (! empty($capabilities) && is_array($capabilities[0] ?? null)) {
+            /** @var array<int, array<string, mixed>> $capabilities */
+            $capabilities = array_map(
+                fn (array $item) => CapabilityDefinition::fromAttributes($item),
+                $capabilities
+            );
+        }
+
         return new self(
             name: $attributes['name'],
             guard: $attributes['guard'] ?? 'web',
             label: $attributes['label'] ?? null,
             description: $attributes['description'] ?? null,
             contextClass: $attributes['context'] ?? null,
-            capabilities: $attributes['capabilities'] ?? [],
+            capabilities: $capabilities,
             sourceClass: $attributes['source_class'] ?? '',
             sourceConstant: $attributes['source_constant'] ?? '',
         );
@@ -55,5 +65,15 @@ final readonly class PermissionDefinition
     public function getIdentifier(): string
     {
         return "{$this->guard}:{$this->name}";
+    }
+
+    /**
+     * Get the names of capabilities this permission belongs to.
+     *
+     * @return array<string>
+     */
+    public function capabilityNames(): array
+    {
+        return array_map(fn (CapabilityDefinition $c) => $c->name, $this->capabilities);
     }
 }

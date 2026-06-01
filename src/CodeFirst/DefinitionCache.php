@@ -173,7 +173,10 @@ final class DefinitionCache
             'label' => $permission->label,
             'description' => $permission->description,
             'context' => $permission->contextClass,
-            'capabilities' => $permission->capabilities,
+            'capabilities' => array_map(
+                fn (CapabilityDefinition $c) => $this->serializeCapability($c),
+                $permission->capabilities
+            ),
             'source_class' => $permission->sourceClass,
             'source_constant' => $permission->sourceConstant,
         ];

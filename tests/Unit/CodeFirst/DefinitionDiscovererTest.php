@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use OffloadProject\Mandate\CodeFirst\CapabilityDefinition;
 use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
 use OffloadProject\Mandate\CodeFirst\PermissionDefinition;
 use OffloadProject\Mandate\CodeFirst\RoleDefinition;
@@ -71,8 +72,8 @@ describe('DefinitionDiscoverer', function () {
             $viewPermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:view');
             $editPermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:edit');
 
-            expect($viewPermission->capabilities)->toBe(['user-management']);
-            expect($editPermission->capabilities)->toBe(['user-management']);
+            expect($viewPermission->capabilityNames())->toBe(['user-management']);
+            expect($editPermission->capabilityNames())->toBe(['user-management']);
         });
 
         it('merges class-level and constant-level capabilities', function () {
@@ -80,8 +81,47 @@ describe('DefinitionDiscoverer', function () {
 
             $deletePermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'user:delete');
 
-            expect($deletePermission->capabilities)->toContain('user-management', 'admin-only');
+            expect($deletePermission->capabilityNames())->toContain('user-management', 'admin-only');
             expect(count($deletePermission->capabilities))->toBe(2);
+        });
+
+        it('extracts label and description from inline Capability attribute', function () {
+            $permissions = $this->discoverer->discoverPermissions(
+                __DIR__.'/../../Fixtures/CodeFirstInlineCapabilities'
+            );
+
+            $createPermission = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'post:create');
+            /** @var CapabilityDefinition $managePosts */
+            $managePosts = collect($createPermission->capabilities)
+                ->first(fn (CapabilityDefinition $c) => $c->name === 'manage-posts');
+
+            expect($managePosts)->not->toBeNull();
+            expect($managePosts->label)->toBe('Manage Posts');
+            expect($managePosts->description)->toBe('Create, edit, and publish posts');
+            expect($managePosts->guard)->toBe('web');
+        });
+
+        it('dedupes inline capabilities by name with first non-null wins', function () {
+            $permissions = $this->discoverer->discoverPermissions(
+                __DIR__.'/../../Fixtures/CodeFirstInlineCapabilities'
+            );
+
+            // CommentPermissions::MODERATE has #[Capability('manage-posts')] (no metadata)
+            // and #[Capability('moderation', label: 'Moderation', ...)] — both should be present.
+            // Each name appears once.
+            $moderate = $permissions->first(fn (PermissionDefinition $p) => $p->name === 'comment:moderate');
+
+            expect($moderate->capabilityNames())->toEqualCanonicalizing(['manage-posts', 'moderation']);
+
+            $managePosts = collect($moderate->capabilities)
+                ->first(fn (CapabilityDefinition $c) => $c->name === 'manage-posts');
+            // Inline-only on this constant — no label provided
+            expect($managePosts->label)->toBeNull();
+
+            $moderation = collect($moderate->capabilities)
+                ->first(fn (CapabilityDefinition $c) => $c->name === 'moderation');
+            expect($moderation->label)->toBe('Moderation');
+            expect($moderation->description)->toBe('Moderate user-generated content');
         });
     });
 

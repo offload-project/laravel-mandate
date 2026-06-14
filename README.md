@@ -1,10 +1,10 @@
-<p align="center">
-    <a href="https://packagist.org/packages/offload-project/laravel-mandate"><img src="https://img.shields.io/packagist/v/offload-project/laravel-mandate.svg?style=flat-square" alt="Latest Version on Packagist"></a>
-    <a href="https://github.com/offload-project/laravel-mandate/actions"><img src="https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/tests.yml?branch=main&style=flat-square" alt="GitHub Tests Action Status"></a>
-    <a href="https://packagist.org/packages/offload-project/laravel-mandate"><img src="https://img.shields.io/packagist/dt/offload-project/laravel-mandate.svg?style=flat-square" alt="Total Downloads"></a>
-</p>
-
 # Laravel Mandate
+
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/offload-project/laravel-mandate.svg?style=flat-square)](https://packagist.org/packages/offload-project/laravel-mandate)
+[![Tests](https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/offload-project/laravel-mandate/actions/workflows/tests.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/release.yml?label=build&style=flat-square)](https://github.com/offload-project/laravel-mandate/actions/workflows/release.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/offload-project/laravel-mandate.svg?style=flat-square)](https://packagist.org/packages/offload-project/laravel-mandate)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE.md)
 
 A role-based access control (RBAC) package for Laravel with a clean, intuitive API.
 

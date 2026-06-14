@@ -51,8 +51,6 @@ class Role extends Model implements RoleContract
     {
         parent::__construct($attributes);
 
-        $this->setTable(config('mandate.tables.roles', 'roles'));
-
         $idType = config('mandate.model_id_type', 'int');
         if (in_array($idType, ['uuid', 'ulid'], true)) {
             $this->keyType = 'string';
@@ -182,6 +180,11 @@ class Role extends Model implements RoleContract
     public static function resetLabelColumnCache(): void
     {
         self::$hasLabelColumn = null;
+    }
+
+    public function getTable(): string
+    {
+        return $this->table ?? config('mandate.tables.roles', 'roles');
     }
 
     /**

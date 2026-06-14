@@ -56,8 +56,11 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - [Events](#events)
 - [Exceptions](#exceptions)
 - [Extending Models](#extending-models)
+- [AI Coding Assistant Skill](#ai-coding-assistant-skill)
 - [Testing](#testing)
 - [Upgrading from 1.x](#upgrading-from-1x)
+- [Contributing](#contributing)
+- [Security](#security)
 - [License](#license)
 
 ## Requirements
@@ -1621,6 +1624,18 @@ class Role extends BaseRole implements RoleContract
 
 ---
 
+## AI Coding Assistant Skill
+
+This package ships a [Laravel Boost](https://skills.laravel.cloud/) skill so coding assistants (Claude Code, Cursor, etc.) follow the package's conventions when generating code. Install it in your app with:
+
+```bash
+php artisan boost:add-skill offload-project/laravel-mandate
+```
+
+The skill source lives at [`skills/SKILL.md`](skills/SKILL.md).
+
+---
+
 ## Testing
 
 In tests, reset permissions cache between tests:
@@ -1656,6 +1671,17 @@ See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please see the documents below before getting started.
+
+- [Contributing Guide](CONTRIBUTING.md) — setup, workflow, commit conventions, and PR process
+- [Code of Conduct](CODE_OF_CONDUCT.md) — expectations for participation in this project
+
+## Security
+
+- [Security Policy](SECURITY.md) — how to report a vulnerability privately
+
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.

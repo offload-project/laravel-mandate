@@ -48,8 +48,6 @@ class Permission extends Model implements PermissionContract
     {
         parent::__construct($attributes);
 
-        $this->setTable(config('mandate.tables.permissions', 'permissions'));
-
         $idType = config('mandate.model_id_type', 'int');
         if (in_array($idType, ['uuid', 'ulid'], true)) {
             $this->keyType = 'string';
@@ -179,6 +177,11 @@ class Permission extends Model implements PermissionContract
     public static function resetLabelColumnCache(): void
     {
         self::$hasLabelColumn = null;
+    }
+
+    public function getTable(): string
+    {
+        return $this->table ?? config('mandate.tables.permissions', 'permissions');
     }
 
     /**

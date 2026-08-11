@@ -183,7 +183,7 @@ describe('Orphaned Pivot Records', function () {
     });
 
     it('still passes with warning when orphaned permission pivot records exist', function () {
-        DB::table('permission_subject')->insert([
+        $this->insertOrphanedPivot('permission_subject', 'permission_id', [
             'permission_id' => 99999,
             'subject_type' => 'App\\Models\\User',
             'subject_id' => 1,
@@ -197,7 +197,7 @@ describe('Orphaned Pivot Records', function () {
     });
 
     it('still passes with warning when orphaned role pivot records exist', function () {
-        DB::table('role_subject')->insert([
+        $this->insertOrphanedPivot('role_subject', 'role_id', [
             'role_id' => 99999,
             'subject_type' => 'App\\Models\\User',
             'subject_id' => 1,
@@ -210,7 +210,7 @@ describe('Orphaned Pivot Records', function () {
     });
 
     it('fixes orphaned permission pivot records with --fix option', function () {
-        DB::table('permission_subject')->insert([
+        $this->insertOrphanedPivot('permission_subject', 'permission_id', [
             'permission_id' => 99999,
             'subject_type' => 'App\\Models\\User',
             'subject_id' => 1,
@@ -227,7 +227,7 @@ describe('Orphaned Pivot Records', function () {
     });
 
     it('fixes orphaned role pivot records with --fix option', function () {
-        DB::table('role_subject')->insert([
+        $this->insertOrphanedPivot('role_subject', 'role_id', [
             'role_id' => 99999,
             'subject_type' => 'App\\Models\\User',
             'subject_id' => 1,
@@ -268,6 +268,26 @@ describe('Context Column Checks', function () {
 
         $this->artisan('mandate:health')
             ->assertSuccessful();
+    });
+
+    it('fails when context columns cannot store a global assignment', function () {
+        config(['mandate.context.enabled' => true]);
+
+        $contextType = config('mandate.column_names.context_morph_name', 'context').'_type';
+        $contextId = config('mandate.column_names.context_morph_name', 'context').'_id';
+
+        foreach (['permission_subject', 'role_subject'] as $table) {
+            if (! Schema::hasColumn($table, $contextType)) {
+                Schema::table($table, function ($table) use ($contextType, $contextId) {
+                    $table->string($contextType)->default('');
+                    $table->unsignedBigInteger($contextId)->default(0);
+                });
+            }
+        }
+
+        $this->artisan('mandate:health')
+            ->expectsOutputToContain('mandate-migrations-context-fix')
+            ->assertFailed();
     });
 
     it('fails when context enabled but columns missing', function () {

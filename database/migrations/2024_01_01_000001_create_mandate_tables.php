@@ -48,7 +48,10 @@ return new class extends Migration
             };
 
             $table->string('name');
-            $table->string('guard');
+            // Guard names are auth guard keys, so 64 characters is generous. The length
+            // keeps the context unique index inside MySQL's 3072 byte key limit when the
+            // morph columns are uuids.
+            $table->string('guard', 64);
 
             if ($contextEnabled) {
                 $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
@@ -81,7 +84,10 @@ return new class extends Migration
             };
 
             $table->string('name');
-            $table->string('guard');
+            // Guard names are auth guard keys, so 64 characters is generous. The length
+            // keeps the context unique index inside MySQL's 3072 byte key limit when the
+            // morph columns are uuids.
+            $table->string('guard', 64);
 
             if ($contextEnabled) {
                 $contextMorphName = config('mandate.column_names.context_morph_name', 'context');
@@ -154,7 +160,10 @@ return new class extends Migration
                 $table->string($contextTypeColumn)->nullable();
                 $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
-                $table->primary([$permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'permission_subject_primary');
+                // Global assignments store a null context, and primary key columns are
+                // implicitly NOT NULL, so the row is enforced with a unique index instead
+                // of a composite primary key.
+                $table->unique([$permissionIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'permission_subject_unique');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'permission_subject_context_index');
             } else {
                 $table->primary([$permissionIdColumn, $subjectIdColumn, $subjectTypeColumn], 'permission_subject_primary');
@@ -192,7 +201,10 @@ return new class extends Migration
                 $table->string($contextTypeColumn)->nullable();
                 $this->createMorphIdColumn($table, $contextIdColumn, $morphIdType)->nullable();
 
-                $table->primary([$roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'role_subject_primary');
+                // Global assignments store a null context, and primary key columns are
+                // implicitly NOT NULL, so the row is enforced with a unique index instead
+                // of a composite primary key.
+                $table->unique([$roleIdColumn, $subjectIdColumn, $subjectTypeColumn, $contextTypeColumn, $contextIdColumn], 'role_subject_unique');
                 $table->index([$contextTypeColumn, $contextIdColumn], 'role_subject_context_index');
             } else {
                 $table->primary([$roleIdColumn, $subjectIdColumn, $subjectTypeColumn], 'role_subject_primary');

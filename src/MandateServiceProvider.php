@@ -108,6 +108,11 @@ final class MandateServiceProvider extends ServiceProvider
         $this->publishesMigrations([
             __DIR__.'/../database/migrations/2024_01_01_000003_add_label_description_to_mandate_tables.php' => database_path('migrations/2024_01_01_000003_add_label_description_to_mandate_tables.php'),
         ], 'mandate-migrations-meta');
+
+        // Context key fix (only needed by installs that migrated with context enabled)
+        $this->publishesMigrations([
+            __DIR__.'/../database/migrations/2024_01_01_000004_replace_context_pivot_primary_keys.php' => database_path('migrations/2024_01_01_000004_replace_context_pivot_primary_keys.php'),
+        ], 'mandate-migrations-context-fix');
     }
 
     /**

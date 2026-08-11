@@ -67,6 +67,20 @@ composer test-coverage
 
 Tests are written with [Pest](https://pestphp.com/) and live under `tests/`. New behavior should be covered by tests; bug fixes should include a regression test.
 
+### Running Against Postgres and MySQL
+
+The suite defaults to in-memory SQLite, which does not enforce NOT NULL on primary key columns, foreign keys, or column types. CI also runs it against Postgres and MySQL, and anything touching migrations or schema should be checked against both:
+
+```bash
+docker run -d --name mandate-pg -e POSTGRES_PASSWORD=password -e POSTGRES_DB=mandate -p 55432:5432 postgres:16
+DB_CONNECTION=pgsql DB_PORT=55432 composer test
+
+docker run -d --name mandate-mysql -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=mandate -p 33306:3306 mysql:8.0
+DB_CONNECTION=mysql DB_PORT=33306 DB_USERNAME=root composer test
+```
+
+`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` are all honored; see `tests/TestCase.php`.
+
 ### Static Analysis
 
 ```bash

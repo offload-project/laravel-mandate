@@ -47,3 +47,73 @@ jobs:
 
       - name: Execute tests
         run: composer test
+
+  # SQLite accepts nulls and duplicates in a composite primary key, and does not enforce
+  # foreign keys on the test connection, so the suite also runs against the drivers that do.
+  databases:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: pgsql
+            port: 5432
+            username: postgres
+          - database: mysql
+            port: 3306
+            username: root
+
+    name: PHP 8.4 - Laravel 13.* - ${{ matrix.database }}
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: mandate
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd=pg_isready
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: mandate
+          MYSQL_ROOT_PASSWORD: password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -ppassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, pdo_pgsql, pdo_mysql, bcmath, soap, intl, gd, exif, iconv
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require "laravel/framework:13.*" --no-interaction --no-update
+          composer update --prefer-stable --prefer-dist --no-interaction
+
+      - name: Execute tests
+        env:
+          DB_CONNECTION: ${{ matrix.database }}
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ matrix.port }}
+          DB_DATABASE: mandate
+          DB_USERNAME: ${{ matrix.username }}
+          DB_PASSWORD: password
+        run: composer test

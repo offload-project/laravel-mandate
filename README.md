@@ -1,10 +1,10 @@
-<p align="center">
-    <a href="https://packagist.org/packages/offload-project/laravel-mandate"><img src="https://img.shields.io/packagist/v/offload-project/laravel-mandate.svg?style=flat-square" alt="Latest Version on Packagist"></a>
-    <a href="https://github.com/offload-project/laravel-mandate/actions"><img src="https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/tests.yml?branch=main&style=flat-square" alt="GitHub Tests Action Status"></a>
-    <a href="https://packagist.org/packages/offload-project/laravel-mandate"><img src="https://img.shields.io/packagist/dt/offload-project/laravel-mandate.svg?style=flat-square" alt="Total Downloads"></a>
-</p>
-
 # Laravel Mandate
+
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/offload-project/laravel-mandate.svg?style=flat-square)](https://packagist.org/packages/offload-project/laravel-mandate)
+[![Tests](https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/offload-project/laravel-mandate/actions/workflows/tests.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/offload-project/laravel-mandate/release.yml?label=build&style=flat-square)](https://github.com/offload-project/laravel-mandate/actions/workflows/release.yml)
+[![Total Downloads](https://img.shields.io/packagist/dt/offload-project/laravel-mandate.svg?style=flat-square)](https://packagist.org/packages/offload-project/laravel-mandate)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE.md)
 
 A role-based access control (RBAC) package for Laravel with a clean, intuitive API.
 
@@ -56,8 +56,11 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - [Events](#events)
 - [Exceptions](#exceptions)
 - [Extending Models](#extending-models)
+- [AI Coding Assistant Skill](#ai-coding-assistant-skill)
 - [Testing](#testing)
 - [Upgrading from 1.x](#upgrading-from-1x)
+- [Contributing](#contributing)
+- [Security](#security)
 - [License](#license)
 
 ## Requirements
@@ -1715,6 +1718,18 @@ class Role extends BaseRole implements RoleContract
 
 ---
 
+## AI Coding Assistant Skill
+
+This package ships a [Laravel Boost](https://skills.laravel.cloud/) skill so coding assistants (Claude Code, Cursor, etc.) follow the package's conventions when generating code. Install it in your app with:
+
+```bash
+php artisan boost:add-skill offload-project/laravel-mandate
+```
+
+The skill source lives at [`skills/SKILL.md`](skills/SKILL.md).
+
+---
+
 ## Testing
 
 In tests, reset permissions cache between tests:
@@ -1750,6 +1765,17 @@ See [UPGRADE.md](UPGRADE.md) for detailed migration instructions.
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please see the documents below before getting started.
+
+- [Contributing Guide](CONTRIBUTING.md) — setup, workflow, commit conventions, and PR process
+- [Code of Conduct](CODE_OF_CONDUCT.md) — expectations for participation in this project
+
+## Security
+
+- [Security Policy](SECURITY.md) — how to report a vulnerability privately
+
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.

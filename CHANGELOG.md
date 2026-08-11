@@ -1,5 +1,15 @@
 # Changelog
 
+## v3.7.0 - 2026-06-14
+
+### Added
+- Update models with fillable array for typehint in Laravel Idea ([5a47110](https://github.com/offload-project/laravel-mandate/commit/5a4711069291722d59bf3f595735343f95f815bd))
+
+### Other
+- Ignore laravel 11 advisory ([1b60465](https://github.com/offload-project/laravel-mandate/commit/1b60465d387c87623bbb77e754a4aeeb5cd1cdad))
+- Update models fillable array, boost skill, readme updates [#69](https://github.com/offload-project/laravel-mandate/pull/69)
+- Add missing, update README ([dfd5686](https://github.com/offload-project/laravel-mandate/commit/dfd5686d0d1c2458b5b659f1605218359a9b3ef8))
+
 ## v3.6.0 - 2026-03-31
 
 ### Added

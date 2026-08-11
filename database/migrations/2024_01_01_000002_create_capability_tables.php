@@ -45,7 +45,10 @@ return new class extends Migration
             };
 
             $table->string('name');
-            $table->string('guard');
+            // Guard names are auth guard keys, so 64 characters is generous. The length
+            // keeps the context unique index inside MySQL's 3072 byte key limit when the
+            // morph columns are uuids.
+            $table->string('guard', 64);
             $table->timestamps();
 
             $table->unique(['name', 'guard']);

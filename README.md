@@ -96,6 +96,9 @@ php artisan vendor:publish --tag=mandate-migrations-capabilities
 
 # Metadata columns (label/description for permissions, roles, capabilities)
 php artisan vendor:publish --tag=mandate-migrations-meta
+
+# Context key fix (only for installs that migrated with context enabled on v3.7.0 or earlier)
+php artisan vendor:publish --tag=mandate-migrations-context-fix
 ```
 
 ## Quick Start
@@ -762,6 +765,18 @@ Run the context migration after enabling:
 ```bash
 php artisan migrate
 ```
+
+> [!IMPORTANT]
+> If you enabled context and migrated on **v3.7.0 or earlier**, the `permission_subject` and `role_subject` tables
+> included the context columns in their primary key. Primary key columns are implicitly `NOT NULL`, so global (no
+> context) assignments failed with a not-null violation on Postgres and MySQL. Publish and run the fix:
+>
+> ```bash
+> php artisan vendor:publish --tag=mandate-migrations-context-fix
+> php artisan migrate
+> ```
+>
+> Run `php artisan mandate:health` to check whether your installation is affected. SQLite installations are not.
 
 ### Assigning Roles and Permissions with Context
 

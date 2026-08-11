@@ -43,6 +43,10 @@ describe('Model ID Type', function () {
         });
 
         it('can assign roles to users with UUIDs', function () {
+            // The user fixture keeps an integer key, so the morph columns stay integers.
+            config(['mandate.morph_id_type' => 'int']);
+            $this->recreateTables();
+
             $user = OffloadProject\Mandate\Tests\Fixtures\User::create([
                 'name' => 'Test User',
                 'email' => 'test@example.com',
@@ -128,8 +132,8 @@ describe('Model ID Type', function () {
             $columns = collect(Schema::getColumns('role_subject'));
             $subjectIdCol = $columns->firstWhere('name', 'subject_id');
 
-            // Should fall back to model_id_type (uuid → varchar in SQLite)
-            expect($subjectIdCol['type_name'])->toBe('varchar');
+            // Should fall back to model_id_type
+            expect($subjectIdCol['type_name'])->toBe($this->expectedColumnType('uuid'));
         });
 
         it('creates uuid morph columns when morph_id_type is uuid', function () {
@@ -139,14 +143,14 @@ describe('Model ID Type', function () {
             $columns = collect(Schema::getColumns('role_subject'));
             $subjectIdCol = $columns->firstWhere('name', 'subject_id');
 
-            expect($subjectIdCol['type_name'])->toBe('varchar');
+            expect($subjectIdCol['type_name'])->toBe($this->expectedColumnType('uuid'));
         });
 
         it('creates integer morph columns by default', function () {
             $columns = collect(Schema::getColumns('role_subject'));
             $subjectIdCol = $columns->firstWhere('name', 'subject_id');
 
-            expect($subjectIdCol['type_name'])->toBe('integer');
+            expect($subjectIdCol['type_name'])->toBe($this->expectedColumnType('int'));
         });
 
         it('creates uuid context morph columns when morph_id_type is uuid', function () {
@@ -156,7 +160,7 @@ describe('Model ID Type', function () {
             $columns = collect(Schema::getColumns('permissions'));
             $contextIdCol = $columns->firstWhere('name', 'context_id');
 
-            expect($contextIdCol['type_name'])->toBe('varchar');
+            expect($contextIdCol['type_name'])->toBe($this->expectedColumnType('uuid'));
         });
 
         it('creates integer context morph columns by default', function () {
@@ -165,7 +169,7 @@ describe('Model ID Type', function () {
             $columns = collect(Schema::getColumns('permissions'));
             $contextIdCol = $columns->firstWhere('name', 'context_id');
 
-            expect($contextIdCol['type_name'])->toBe('integer');
+            expect($contextIdCol['type_name'])->toBe($this->expectedColumnType('int'));
         });
 
         it('creates uuid morph columns on capability_subject when morph_id_type is uuid', function () {
@@ -176,7 +180,7 @@ describe('Model ID Type', function () {
             $columns = collect(Schema::getColumns('capability_subject'));
             $subjectIdCol = $columns->firstWhere('name', 'subject_id');
 
-            expect($subjectIdCol['type_name'])->toBe('varchar');
+            expect($subjectIdCol['type_name'])->toBe($this->expectedColumnType('uuid'));
         });
 
         it('allows morph_id_type to differ from model_id_type', function () {
@@ -187,12 +191,12 @@ describe('Model ID Type', function () {
             // Mandate model PKs should be integer
             $permCols = collect(Schema::getColumns('permissions'));
             $idCol = $permCols->firstWhere('name', 'id');
-            expect($idCol['type_name'])->toBe('integer');
+            expect($idCol['type_name'])->toBe($this->expectedColumnType('int'));
 
-            // Subject morph should be uuid (varchar in SQLite)
+            // Subject morph should be uuid
             $pivotCols = collect(Schema::getColumns('role_subject'));
             $subjectIdCol = $pivotCols->firstWhere('name', 'subject_id');
-            expect($subjectIdCol['type_name'])->toBe('varchar');
+            expect($subjectIdCol['type_name'])->toBe($this->expectedColumnType('uuid'));
         });
     });
 

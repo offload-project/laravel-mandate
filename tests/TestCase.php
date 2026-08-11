@@ -7,6 +7,7 @@ namespace OffloadProject\Mandate\Tests;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\Concerns\InteractsWithViews;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 use OffloadProject\Mandate\MandateServiceProvider;
@@ -36,11 +37,7 @@ abstract class TestCase extends Orchestra
     protected function defineEnvironment($app): void
     {
         $app['config']->set('database.default', 'testing');
-        $app['config']->set('database.connections.testing', [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ]);
+        $app['config']->set('database.connections.testing', $this->testDatabaseConfig());
 
         $app['config']->set('auth.providers.users.model', Fixtures\User::class);
         $app['config']->set('auth.guards.web.provider', 'users');
@@ -51,8 +48,64 @@ abstract class TestCase extends Orchestra
         $app['config']->set('cache.default', 'array');
     }
 
+    /**
+     * Build the connection config for the driver under test.
+     *
+     * Defaults to in-memory SQLite. CI also runs the suite against Postgres and MySQL,
+     * which enforce constraints SQLite does not - notably NOT NULL on key columns.
+     *
+     * @return array<string, mixed>
+     */
+    protected function testDatabaseConfig(): array
+    {
+        return match (env('DB_CONNECTION', 'sqlite')) {
+            'pgsql' => [
+                'driver' => 'pgsql',
+                'host' => env('DB_HOST', '127.0.0.1'),
+                'port' => env('DB_PORT', '5432'),
+                'database' => env('DB_DATABASE', 'mandate'),
+                'username' => env('DB_USERNAME', 'postgres'),
+                'password' => env('DB_PASSWORD', 'password'),
+                'charset' => 'utf8',
+                'prefix' => '',
+                'search_path' => 'public',
+                'sslmode' => 'prefer',
+            ],
+            'mysql' => [
+                'driver' => 'mysql',
+                'host' => env('DB_HOST', '127.0.0.1'),
+                'port' => env('DB_PORT', '3306'),
+                'database' => env('DB_DATABASE', 'mandate'),
+                'username' => env('DB_USERNAME', 'root'),
+                'password' => env('DB_PASSWORD', 'password'),
+                'charset' => 'utf8mb4',
+                'collation' => 'utf8mb4_unicode_ci',
+                'prefix' => '',
+            ],
+            default => [
+                'driver' => 'sqlite',
+                'database' => ':memory:',
+                'prefix' => '',
+            ],
+        };
+    }
+
+    /**
+     * Determine whether the suite is running against a persistent database.
+     */
+    protected function usingPersistentDatabase(): bool
+    {
+        return env('DB_CONNECTION', 'sqlite') !== 'sqlite';
+    }
+
     protected function setUpDatabase(): void
     {
+        // A persistent database keeps the previous test's tables, and the suite relies on
+        // building its schema from scratch in every test.
+        if ($this->usingPersistentDatabase()) {
+            Schema::dropAllTables();
+        }
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -187,5 +240,50 @@ abstract class TestCase extends Orchestra
     protected function setFeatureMissingHandlerBehavior(string $behavior): void
     {
         config(['mandate.features.on_missing_handler' => $behavior]);
+    }
+
+    /**
+     * Get the column type name the current driver reports for a Mandate id type.
+     *
+     * Every driver names its types differently, so schema assertions resolve the
+     * expected name here instead of hard coding SQLite's.
+     */
+    protected function expectedColumnType(string $idType): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($idType) {
+            'uuid' => match ($driver) {
+                'pgsql' => 'uuid',
+                'mysql', 'mariadb' => 'char',
+                default => 'varchar',
+            },
+            'ulid' => match ($driver) {
+                'mysql', 'mariadb' => 'char',
+                default => 'varchar',
+            },
+            default => match ($driver) {
+                'pgsql' => 'int8',
+                'mysql', 'mariadb' => 'bigint',
+                default => 'integer',
+            },
+        };
+    }
+
+    /**
+     * Insert a pivot row that points at a parent that does not exist.
+     *
+     * Postgres and MySQL enforce the foreign key, so it is dropped first. The schema is
+     * rebuilt for the next test either way.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    protected function insertOrphanedPivot(string $table, string $foreignKey, array $row): void
+    {
+        Schema::table($table, function (Blueprint $blueprint) use ($foreignKey) {
+            $blueprint->dropForeign([$foreignKey]);
+        });
+
+        DB::table($table)->insert($row);
     }
 }

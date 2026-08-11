@@ -6,6 +6,7 @@ namespace OffloadProject\Mandate\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use OffloadProject\Mandate\Contracts\AuditLogger;
@@ -160,12 +161,41 @@ class HealthCheckCommand extends Command
                 if (Schema::hasTable($table)) {
                     if (Schema::hasColumns($table, [$contextType, $contextId])) {
                         $this->addPass("context_{$table}", "Context columns exist in '{$table}'");
+                        $this->checkContextColumnsAreNullable($table, [$contextType, $contextId]);
                     } else {
                         $this->addFail("context_{$table}", "Context columns missing in '{$table}'");
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Verify the context columns can still store a null (global) context.
+     *
+     * Installs migrated before the context columns were removed from the pivot primary
+     * key have them as NOT NULL, which makes every global assignment fail.
+     *
+     * @param  array<int, string>  $columns
+     */
+    private function checkContextColumnsAreNullable(string $table, array $columns): void
+    {
+        $notNullable = (new Collection(Schema::getColumns($table)))
+            ->whereIn('name', $columns)
+            ->reject(fn (array $column): bool => (bool) ($column['nullable'] ?? true))
+            ->pluck('name');
+
+        if ($notNullable->isEmpty()) {
+            $this->addPass("context_nullable_{$table}", "Context columns in '{$table}' allow global assignments");
+
+            return;
+        }
+
+        $this->addFail(
+            "context_nullable_{$table}",
+            "Context columns ({$notNullable->implode(', ')}) in '{$table}' are NOT NULL, so global "
+            .'assignments will fail - publish and run the mandate-migrations-context-fix migration'
+        );
     }
 
     private function runIntegrityChecks(): void

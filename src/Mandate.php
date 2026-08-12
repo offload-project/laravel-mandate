@@ -785,6 +785,8 @@ final class Mandate
                 $result = $this->syncDefinitionsToDatabase($discoverer, 'permissions', $guard);
                 $permissionsCreated = $result['created'];
                 $permissionsUpdated = $result['updated'];
+                $capabilitiesCreated += $result['inline_capabilities_created'];
+                $capabilitiesUpdated += $result['inline_capabilities_updated'];
             }
 
             // Sync roles
@@ -797,8 +799,8 @@ final class Mandate
             // Sync capabilities
             if ($syncCapabilities) {
                 $result = $this->syncDefinitionsToDatabase($discoverer, 'capabilities', $guard);
-                $capabilitiesCreated = $result['created'];
-                $capabilitiesUpdated = $result['updated'];
+                $capabilitiesCreated += $result['created'];
+                $capabilitiesUpdated += $result['updated'];
             }
 
             // Clear definition cache
@@ -822,7 +824,8 @@ final class Mandate
             // Create event objects
             $permissionsEvent = new PermissionsSynced($permissionsCreated, $permissionsUpdated, collect());
             $rolesEvent = new RolesSynced($rolesCreated, $rolesUpdated, collect());
-            $capabilitiesEvent = $syncCapabilities
+            $capabilitiesTouched = $syncCapabilities || ($capabilitiesCreated + $capabilitiesUpdated) > 0;
+            $capabilitiesEvent = $capabilitiesTouched
                 ? new CapabilitiesSynced($capabilitiesCreated, $capabilitiesUpdated, collect())
                 : null;
 
@@ -888,7 +891,7 @@ final class Mandate
      * Sync definitions to the database for a given entity type.
      *
      * @param  'permissions'|'roles'|'capabilities'  $entityType
-     * @return array{created: int, updated: int}
+     * @return array{created: int, updated: int, inline_capabilities_created: int, inline_capabilities_updated: int}
      */
     private function syncDefinitionsToDatabase(
         DefinitionDiscoverer $discoverer,
@@ -928,6 +931,8 @@ final class Mandate
 
         $created = 0;
         $updated = 0;
+        $inlineCapabilitiesCreated = 0;
+        $inlineCapabilitiesUpdated = 0;
 
         foreach ($definitions as $definition) {
             $existing = $modelClass::query()
@@ -974,37 +979,80 @@ final class Mandate
 
             // Sync capability-permission relationships for permissions
             if ($entityType === 'permissions' && $model instanceof Permission && $definition instanceof PermissionDefinition) {
-                $this->syncPermissionCapabilities($model, $definition->capabilities);
+                $capabilityResult = $this->syncPermissionCapabilities($model, $definition->capabilities);
+                $inlineCapabilitiesCreated += $capabilityResult['created'];
+                $inlineCapabilitiesUpdated += $capabilityResult['updated'];
             }
         }
 
-        return ['created' => $created, 'updated' => $updated];
+        return [
+            'created' => $created,
+            'updated' => $updated,
+            'inline_capabilities_created' => $inlineCapabilitiesCreated,
+            'inline_capabilities_updated' => $inlineCapabilitiesUpdated,
+        ];
     }
 
     /**
      * Sync a permission's capability relationships.
      *
-     * @param  array<string>  $capabilityNames
+     * @param  array<CodeFirst\CapabilityDefinition>  $capabilityDefinitions
+     * @return array{created: int, updated: int}
      */
-    private function syncPermissionCapabilities(Permission $permission, array $capabilityNames): void
+    private function syncPermissionCapabilities(Permission $permission, array $capabilityDefinitions): array
     {
-        if (empty($capabilityNames) || ! $this->capabilitiesEnabled()) {
-            return;
+        if (empty($capabilityDefinitions) || ! $this->capabilitiesEnabled()) {
+            return ['created' => 0, 'updated' => 0];
         }
 
         /** @var class-string<Capability> $capabilityClass */
         $capabilityClass = config('mandate.models.capability', Capability::class);
+        $hasLabelColumn = $capabilityClass::hasLabelColumn();
 
-        foreach ($capabilityNames as $capabilityName) {
-            /** @var Capability $capability */
+        $created = 0;
+        $updated = 0;
+
+        foreach ($capabilityDefinitions as $definition) {
+            /** @var Capability|null $capability */
             $capability = $capabilityClass::query()
-                ->firstOrCreate(
-                    ['name' => $capabilityName, 'guard' => $permission->guard]
-                );
+                ->where('name', $definition->name)
+                ->where('guard', $permission->guard)
+                ->first();
+
+            if ($capability === null) {
+                $attributes = [
+                    'name' => $definition->name,
+                    'guard' => $permission->guard,
+                ];
+
+                if ($hasLabelColumn) {
+                    $attributes['label'] = $definition->label;
+                    $attributes['description'] = $definition->description;
+                }
+
+                $capability = $capabilityClass::create($attributes);
+                $created++;
+            } elseif ($hasLabelColumn) {
+                $updates = [];
+
+                if ($definition->label !== null && $capability->label !== $definition->label) {
+                    $updates['label'] = $definition->label;
+                }
+                if ($definition->description !== null && $capability->description !== $definition->description) {
+                    $updates['description'] = $definition->description;
+                }
+
+                if (! empty($updates)) {
+                    $capability->update($updates);
+                    $updated++;
+                }
+            }
 
             // Grant the permission to the capability (uses syncWithoutDetaching internally)
             $capability->grantPermission($permission);
         }
+
+        return ['created' => $created, 'updated' => $updated];
     }
 
     /**

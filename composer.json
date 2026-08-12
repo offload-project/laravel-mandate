@@ -28,6 +28,7 @@
     "guzzlehttp/promises": "^2.0",
     "larastan/larastan": "^3.9.2",
     "laravel/pint": "^1.26.1",
+    "masterix21/laravel-entitlements": "^1.1",
     "mockery/mockery": "^1.6.12",
     "orchestra/testbench": "^9.0|^10.8|^11.0",
     "pestphp/pest": "^3.0|^4.0",
@@ -51,6 +52,9 @@
     "analyse-baseline": "phpstan analyse --memory-limit=-1 --generate-baseline",
     "pint": "vendor/bin/pint",
     "install-hooks": "vendor/bin/captainhook install --only-enabled"
+  },
+  "suggest": {
+    "masterix21/laravel-entitlements": "Required to use the built-in entitlements feature-access adapter (config: mandate.features.entitlements.enabled)."
   },
   "extra": {
     "laravel": {

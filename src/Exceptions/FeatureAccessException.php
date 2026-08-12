@@ -41,4 +41,17 @@ class FeatureAccessException extends Exception
             $subject,
         );
     }
+
+    /**
+     * Create exception for a Feature missing the HasEntitlementType contract.
+     */
+    public static function missingEntitlementType(Model $feature): self
+    {
+        $class = $feature::class;
+
+        return new self(
+            "Feature [{$class}] must implement OffloadProject\\Mandate\\Contracts\\HasEntitlementType to use the entitlements integration.",
+            $feature,
+        );
+    }
 }

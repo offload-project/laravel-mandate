@@ -76,6 +76,16 @@ return [
             // App\Models\Feature::class,
         ],
         'on_missing_handler' => 'deny',
+
+        /*
+        | Built-in adapter for masterix21/laravel-entitlements. When enabled,
+        | Mandate binds EntitlementsFeatureAccessHandler as the FeatureAccessHandler.
+        | Feature models must implement OffloadProject\Mandate\Contracts\HasEntitlementType
+        | to map themselves to a laravel-entitlements EntitlementType case.
+        */
+        'entitlements' => [
+            'enabled' => false,
+        ],
     ],
 
     /*

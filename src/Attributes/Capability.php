@@ -13,6 +13,11 @@ use Attribute;
  * or at the constant level for individual permissions. Multiple attributes can be applied
  * to assign a permission to multiple capabilities.
  *
+ * Optional `label` and `description` are persisted on the capability when it is created
+ * during sync, letting you define capabilities entirely inline without a dedicated class.
+ * When the same capability is referenced multiple times, the first non-null value wins
+ * per field (later non-null values are ignored).
+ *
  * @example Class-level (all permissions inherit):
  * #[Capability('user-management')]
  * class UserPermissions
@@ -20,6 +25,9 @@ use Attribute;
  *     public const VIEW = 'user:view';
  *     public const EDIT = 'user:edit';
  * }
+ * @example Inline metadata:
+ * #[Capability(name: 'user-management', label: 'User Management', description: 'Manage user accounts')]
+ * class UserPermissions { ... }
  * @example Constant-level:
  * #[Capability('user-management')]
  * public const VIEW = 'user:view';
@@ -32,6 +40,8 @@ use Attribute;
 final readonly class Capability
 {
     public function __construct(
-        public string $name
+        public string $name,
+        public ?string $label = null,
+        public ?string $description = null,
     ) {}
 }

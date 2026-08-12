@@ -13,7 +13,7 @@ A role-based access control (RBAC) package for Laravel with a clean, intuitive A
 - **Roles & Permissions** — Assign roles to users, grant permissions to roles or directly to users
 - **Capabilities** — Group permissions into semantic capabilities for cleaner authorization logic
 - **Multi-Tenancy** — Scope roles and permissions to context models (Team, Organization, Project)
-- **Feature Integration** — Delegate feature access checks to external packages (Flagged, etc.)
+- **Feature Integration** — Delegate feature access checks to external packages (Flagged, laravel-entitlements, etc.)
 - **Wildcard Permissions** — Pattern matching with `article:*` or `*.edit` syntax
 - **Multiple Guards** — Scope authorization to different authentication guards
 - **Laravel Gate** — Automatic registration with Laravel's authorization system
@@ -943,6 +943,66 @@ use OffloadProject\Mandate\Contracts\FeatureAccessHandler;
 $this->app->bind(FeatureAccessHandler::class, FlaggedFeatureHandler::class);
 ```
 
+### Built-in Adapter: Laravel Entitlements
+
+Mandate ships a built-in `FeatureAccessHandler` that delegates to
+[masterix21/laravel-entitlements](https://github.com/masterix21/laravel-entitlements). Use it when your "feature access"
+question is really a subscription/capacity question — e.g. *"does this workspace still have an AI-tokens slot available?"*
+
+**Install the entitlements package and enable the adapter:**
+
+```bash
+composer require masterix21/laravel-entitlements
+```
+
+```php
+// config/mandate.php
+'features' => [
+    'enabled' => true,
+    'models' => [App\Models\Feature::class],
+    'entitlements' => [
+        'enabled' => true,
+    ],
+],
+```
+
+When `features.entitlements.enabled` is `true`, Mandate binds `EntitlementsFeatureAccessHandler` as the
+`FeatureAccessHandler` automatically — no manual handler implementation needed.
+
+**Map each Feature model to an `EntitlementType` enum case** by implementing the `HasEntitlementType` contract:
+
+```php
+use Illuminate\Database\Eloquent\Model;
+use LucaLongo\LaravelEntitlements\Contracts\EntitlementType;
+use OffloadProject\Mandate\Contracts\HasEntitlementType;
+use UnitEnum;
+
+enum LicenseType: string implements EntitlementType
+{
+    case AiTokens = 'ai-tokens';
+    case Devices = 'devices';
+}
+
+class AiTokensFeature extends Model implements HasEntitlementType
+{
+    public function entitlementType(): UnitEnum
+    {
+        return LicenseType::AiTokens;
+    }
+}
+```
+
+**Behavior:**
+
+- `hasAccess($feature, $subject)` calls `Entitlements::can($subject, $feature->entitlementType(), 1)` — any remaining
+  capacity counts as access.
+- `isActive($feature)` always returns `true`. Laravel Entitlements has no global on/off concept; activation is per
+  subscriber via capacity. If you need a global kill-switch, compose it ahead of the adapter or bind your own handler.
+- `hasAccess()` throws `FeatureAccessException` if the Feature model does not implement `HasEntitlementType`.
+
+Feature models that haven't been migrated to entitlements can co-exist — they simply won't implement the contract and
+will throw a clear exception the first time you query them through the adapter.
+
 ### Permission Checks with Feature Context
 
 When you pass a Feature model as context, Mandate automatically checks feature access first:
@@ -1021,11 +1081,12 @@ $user->hasPermission('edit', $team);
 
 ### Feature Configuration Options
 
-| Option                        | Default  | Description                               |
-|-------------------------------|----------|-------------------------------------------|
-| `features.enabled`            | `false`  | Enable feature integration                |
-| `features.models`             | `[]`     | Model classes considered Feature contexts |
-| `features.on_missing_handler` | `'deny'` | Behavior when handler is not bound        |
+| Option                           | Default  | Description                                                          |
+|----------------------------------|----------|----------------------------------------------------------------------|
+| `features.enabled`               | `false`  | Enable feature integration                                           |
+| `features.models`                | `[]`     | Model classes considered Feature contexts                            |
+| `features.on_missing_handler`    | `'deny'` | Behavior when handler is not bound                                   |
+| `features.entitlements.enabled`  | `false`  | Bind the built-in `EntitlementsFeatureAccessHandler` (see above)     |
 
 ---
 
@@ -1109,15 +1170,48 @@ class SystemRoles
 
 ### Available Attributes
 
-| Attribute        | Target          | Description                                |
-|------------------|-----------------|--------------------------------------------|
-| `#[Guard]`       | Class           | Sets the auth guard for all constants      |
-| `#[Label]`       | Class, Constant | Human-readable name                        |
-| `#[Description]` | Class, Constant | Longer description                         |
-| `#[Context]`     | Constant        | Context model class for scoped permissions |
-| `#[Capability]`  | Constant        | Assigns permission to a capability         |
+| Attribute        | Target          | Description                                                |
+|------------------|-----------------|------------------------------------------------------------|
+| `#[Guard]`       | Class           | Sets the auth guard for all constants                      |
+| `#[Label]`       | Class, Constant | Human-readable name                                        |
+| `#[Description]` | Class, Constant | Longer description                                         |
+| `#[Context]`     | Constant        | Context model class for scoped permissions                 |
+| `#[Capability]`  | Class, Constant | Assigns permission to a capability (with optional metadata) |
 
 When `#[Label]` or `#[Description]` is on both the class and a constant, the constant-level attribute takes precedence.
+
+### Defining Capabilities Inline
+
+You don't need a separate capability class — define capabilities directly on permission classes via `#[Capability]`. Pass `label` and `description` as named arguments to set capability metadata:
+
+```php
+<?php
+
+namespace App\Permissions;
+
+use OffloadProject\Mandate\Attributes\Capability;
+use OffloadProject\Mandate\Attributes\Guard;
+use OffloadProject\Mandate\Attributes\Label;
+
+#[Guard('web')]
+#[Capability(name: 'manage-posts', label: 'Manage Posts', description: 'Create, edit, and publish posts')]
+class PostPermissions
+{
+    #[Label('View Posts')]
+    public const VIEW = 'post:view';
+
+    #[Label('Create Posts')]
+    public const CREATE = 'post:create';
+
+    #[Label('Publish Posts')]
+    #[Capability(name: 'publishing', label: 'Publishing', description: 'Publish content live')]
+    public const PUBLISH = 'post:publish';
+}
+```
+
+Running `php artisan mandate:sync` creates the `manage-posts` and `publishing` capabilities (with their labels and descriptions) and assigns each permission to its capabilities. The `app/Capabilities` directory is optional — leave it out if you only define capabilities inline.
+
+When the same capability name appears multiple times, the first non-null `label`/`description` wins per field. If you want central capability definitions, add a class in `app/Capabilities` and Mandate will sync from both sources; the dedicated class is authoritative because it's processed last.
 
 ### Syncing to Database
 

@@ -7,6 +7,7 @@ use OffloadProject\Mandate\Events\MandateSynced;
 use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
 use OffloadProject\Mandate\Facades\Mandate;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\SyncResult;
@@ -23,6 +24,7 @@ describe('Mandate::sync()', function () {
         // Reset static caches between tests
         Permission::resetLabelColumnCache();
         Role::resetLabelColumnCache();
+        Capability::resetLabelColumnCache();
     });
 
     it('throws exception when code-first is disabled', function () {

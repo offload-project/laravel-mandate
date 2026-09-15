@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.7.1 - 2026-09-15
+
+### Fixed
+- Memoise n1 query [#74](https://github.com/offload-project/laravel-mandate/pull/74)
+- Exception thrown when trying to assign a global-context-role [#72](https://github.com/offload-project/laravel-mandate/pull/72)
+
+### Documentation
+- Update badges ([ed3ad0f](https://github.com/offload-project/laravel-mandate/commit/ed3ad0f09477f7f2c1d32ccead8005f4e1d90339))
+
 ## v3.7.0 - 2026-06-14
 
 ### Added

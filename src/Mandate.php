@@ -1061,13 +1061,14 @@ final class Mandate
             ->whereIn('name', $roleNames)
             ->where('guard', $roleGuard)
             ->get()
-            ->keyBy('name');
+            ->keyBy('name')
+            ->all();
 
         // Create missing roles
         $rolesMap = [];
         foreach ($roleNames as $roleName) {
-            if ($existingRoles->has($roleName)) {
-                $rolesMap[$roleName] = $existingRoles->get($roleName);
+            if (isset($existingRoles[$roleName])) {
+                $rolesMap[$roleName] = $existingRoles[$roleName];
             } else {
                 $rolesMap[$roleName] = $roleClass::create([
                     'name' => $roleName,
@@ -1084,12 +1085,13 @@ final class Mandate
                 ->whereIn('name', $allPermissionNames)
                 ->where('guard', $roleGuard)
                 ->get()
-                ->keyBy('name');
+                ->keyBy('name')
+                ->all();
 
             // Create missing permissions
             foreach ($allPermissionNames as $permissionName) {
-                if ($existingPermissions->has($permissionName)) {
-                    $permissionsMap[$permissionName] = $existingPermissions->get($permissionName);
+                if (isset($existingPermissions[$permissionName])) {
+                    $permissionsMap[$permissionName] = $existingPermissions[$permissionName];
                 } else {
                     $permissionsMap[$permissionName] = $permissionClass::create([
                         'name' => $permissionName,
@@ -1107,11 +1109,12 @@ final class Mandate
                 ->whereIn('name', $allCapabilityNames)
                 ->where('guard', $roleGuard)
                 ->get()
-                ->keyBy('name');
+                ->keyBy('name')
+                ->all();
 
             foreach ($allCapabilityNames as $capabilityName) {
-                if ($existingCapabilities->has($capabilityName)) {
-                    $capabilitiesMap[$capabilityName] = $existingCapabilities->get($capabilityName);
+                if (isset($existingCapabilities[$capabilityName])) {
+                    $capabilitiesMap[$capabilityName] = $existingCapabilities[$capabilityName];
                 } else {
                     $capabilitiesMap[$capabilityName] = $capabilityClass::create([
                         'name' => $capabilityName,

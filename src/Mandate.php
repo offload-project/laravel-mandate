@@ -1056,7 +1056,7 @@ final class Mandate
         $allCapabilityNames = array_unique($allCapabilityNames);
 
         // Batch fetch existing roles
-        /** @var Collection<int, Role> $existingRoles */
+        /** @var array<string, Role> $existingRoles */
         $existingRoles = $roleClass::query()
             ->whereIn('name', $roleNames)
             ->where('guard', $roleGuard)
@@ -1080,7 +1080,7 @@ final class Mandate
         // Batch fetch existing permissions (skip if none needed)
         $permissionsMap = [];
         if (! empty($allPermissionNames)) {
-            /** @var Collection<int, Permission> $existingPermissions */
+            /** @var array<string, Permission> $existingPermissions */
             $existingPermissions = $permissionClass::query()
                 ->whereIn('name', $allPermissionNames)
                 ->where('guard', $roleGuard)
@@ -1104,7 +1104,7 @@ final class Mandate
         // Batch fetch existing capabilities (if enabled)
         $capabilitiesMap = [];
         if ($this->capabilitiesEnabled() && ! empty($allCapabilityNames)) {
-            /** @var Collection<int, Capability> $existingCapabilities */
+            /** @var array<string, Capability> $existingCapabilities */
             $existingCapabilities = $capabilityClass::query()
                 ->whereIn('name', $allCapabilityNames)
                 ->where('guard', $roleGuard)

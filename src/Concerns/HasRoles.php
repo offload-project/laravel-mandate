@@ -82,6 +82,8 @@ trait HasRoles
      */
     public function assignRole(string|int|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
 
@@ -107,6 +109,8 @@ trait HasRoles
      */
     public function assignRoles(array $roles, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         return $this->assignRole($roles, $context);
     }
 
@@ -119,6 +123,8 @@ trait HasRoles
      */
     public function removeRole(string|int|BackedEnum|RoleContract|array $roles, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $roleNames = $this->collectRoleNames($roles);
         $normalizedIds = $this->normalizeRoles($roles);
 
@@ -144,6 +150,8 @@ trait HasRoles
      */
     public function removeRoles(array $roles, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         return $this->removeRole($roles, $context);
     }
 
@@ -156,6 +164,8 @@ trait HasRoles
      */
     public function syncRoles(array $roles, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $normalized = $this->normalizeRoles($roles);
 
         $this->syncWithContext($this->roles(), $normalized, $context);
@@ -413,6 +423,8 @@ trait HasRoles
      */
     public function assignCapability(string|int|BackedEnum|CapabilityContract|array $capabilities): static
     {
+        $this->forgetMandateAnswers();
+
         if (! config('mandate.capabilities.enabled', false) || ! config('mandate.capabilities.direct_assignment', false)) {
             return $this;
         }
@@ -441,6 +453,8 @@ trait HasRoles
      */
     public function removeCapability(string|int|BackedEnum|CapabilityContract|array $capabilities): static
     {
+        $this->forgetMandateAnswers();
+
         if (! config('mandate.capabilities.enabled', false) || ! config('mandate.capabilities.direct_assignment', false)) {
             return $this;
         }
@@ -469,6 +483,8 @@ trait HasRoles
      */
     public function syncCapabilities(array $capabilities): static
     {
+        $this->forgetMandateAnswers();
+
         if (! config('mandate.capabilities.enabled', false) || ! config('mandate.capabilities.direct_assignment', false)) {
             $this->capabilities()->sync([]);
 

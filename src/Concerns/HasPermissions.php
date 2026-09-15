@@ -32,6 +32,30 @@ trait HasPermissions
     use LogsAuthorization;
 
     /**
+     * Answers already given for this model instance, keyed by permission and
+     * context. Not by the feature-check flag: that check happens before the
+     * memo is consulted, and it is the only thing the flag changes.
+     *
+     * This saves repeating the set lookup for a permission already asked
+     * about. It is not what fixed the N+1 — see `mandateGrantedNames()`, since
+     * the checks on a page are typically all different permissions.
+     *
+     * The memo lives on the instance, so it cannot outlive the request that
+     * built the model. Anything in this package that changes what the answer
+     * would be clears it — see `forgetMandateAnswers()`.
+     *
+     * @var array<string, bool>
+     */
+    private array $mandateAnswers = [];
+
+    /**
+     * The granted-permission set per context, loaded at most once each.
+     *
+     * @var array<string, array<string, true>>
+     */
+    private array $mandateGranted = [];
+
+    /**
      * Boot the trait.
      */
     public static function bootHasPermissions(): void
@@ -80,6 +104,8 @@ trait HasPermissions
      */
     public function grantPermission(string|int|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
 
@@ -105,6 +131,8 @@ trait HasPermissions
      */
     public function grantPermissions(array $permissions, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         return $this->grantPermission($permissions, $context);
     }
 
@@ -117,6 +145,8 @@ trait HasPermissions
      */
     public function revokePermission(string|int|BackedEnum|PermissionContract|array $permissions, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $permissionNames = $this->collectPermissionNames($permissions);
         $normalizedIds = $this->normalizePermissions($permissions);
 
@@ -142,6 +172,8 @@ trait HasPermissions
      */
     public function revokePermissions(array $permissions, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         return $this->revokePermission($permissions, $context);
     }
 
@@ -154,11 +186,41 @@ trait HasPermissions
      */
     public function syncPermissions(array $permissions, ?Model $context = null): static
     {
+        $this->forgetMandateAnswers();
+
         $normalized = $this->normalizePermissions($permissions);
 
         $this->syncWithContext($this->permissions(), $normalized, $context);
 
         $this->forgetPermissionCache();
+
+        return $this;
+    }
+
+    /**
+     * Forget the memoised answers, so the next check asks the database again.
+     *
+     * Called by every grant, revoke, sync, assign and remove in this package.
+     * Call it by hand after changing what a *role* or *capability* carries
+     * while holding a subject instance: that write happens on another model
+     * and cannot reach this one.
+     */
+    public function forgetMandateAnswers(): static
+    {
+        $this->mandateAnswers = [];
+        $this->mandateGranted = [];
+
+        /*
+         * The set is built from the relations, and a loaded relation is a
+         * snapshot: the `exists` queries this replaced always asked the
+         * database, so a grant was visible to the very next check. Dropping
+         * them keeps that true.
+         */
+        foreach (['permissions', 'roles', 'capabilities'] as $relation) {
+            if ($this->relationLoaded($relation)) {
+                $this->unsetRelation($relation);
+            }
+        }
 
         return $this;
     }
@@ -171,31 +233,21 @@ trait HasPermissions
      */
     public function hasPermission(string|BackedEnum|PermissionContract $permission, ?Model $context = null, bool $bypassFeatureCheck = false): bool
     {
-        // Check feature access first if context is a Feature
+        /*
+         * Feature access is not this model's state — a handler decides it, and
+         * it can flip between two checks without anything here being touched.
+         * It stays outside the memo, which is also why `$bypassFeatureCheck`
+         * is not part of the key: it changes nothing below this line.
+         */
         if (! $this->checkFeatureAccess($context, $bypassFeatureCheck)) {
             return false;
         }
 
         $permissionName = $this->getPermissionName($permission);
 
-        // Check wildcard permissions if enabled
-        if (config('mandate.wildcards.enabled', false)) {
-            if ($this->hasWildcardPermission($permissionName, $context)) {
-                return true;
-            }
-        }
+        $key = $permissionName.'|'.($context === null ? '' : $context::class.':'.$context->getKey());
 
-        // Check direct permissions
-        if ($this->hasDirectPermission($permissionName, $context)) {
-            return true;
-        }
-
-        // Check permissions via roles (if model uses HasRoles)
-        if (method_exists($this, 'hasPermissionViaRole')) {
-            return $this->hasPermissionViaRole($permissionName, $context);
-        }
-
-        return false;
+        return $this->mandateAnswers[$key] ??= $this->resolvePermission($permissionName, $context);
     }
 
     /**
@@ -531,5 +583,54 @@ trait HasPermissions
     protected function forgetPermissionCache(): void
     {
         app(MandateRegistrar::class)->forgetCachedPermissions();
+    }
+
+    /**
+     * Work out the answer from the database.
+     *
+     * @param  Model|null  $context  Optional context model for scoped permission check
+     */
+    private function resolvePermission(string $permissionName, ?Model $context = null): bool
+    {
+        // Check wildcard permissions if enabled
+        if (config('mandate.wildcards.enabled', false)) {
+            if ($this->hasWildcardPermission($permissionName, $context)) {
+                return true;
+            }
+        }
+
+        return isset($this->mandateGrantedNames($context)[$permissionName]);
+    }
+
+    /**
+     * Every permission name this subject holds, by whatever route, as a set.
+     *
+     * Asking per permission cost three `exists` queries each — direct, then via
+     * roles, then via capabilities — and a page that gates sixteen different
+     * abilities asked sixteen different questions, so memoising answers bought
+     * nothing. The union is the same few joins whether one permission is
+     * checked or fifty, so it is loaded once per context and answered from
+     * memory after that.
+     *
+     * Guard is part of the filter because a name is only unique within one.
+     *
+     * @return array<string, true>
+     */
+    private function mandateGrantedNames(?Model $context = null): array
+    {
+        $key = $context === null ? '' : $context::class.':'.$context->getKey();
+
+        if (isset($this->mandateGranted[$key])) {
+            return $this->mandateGranted[$key];
+        }
+
+        $guardName = $this->getGuardName();
+
+        $names = $this->getAllPermissions($context)
+            ->filter(fn ($permission): bool => $permission->guard === $guardName)
+            ->pluck('name')
+            ->all();
+
+        return $this->mandateGranted[$key] = array_fill_keys($names, true);
     }
 }

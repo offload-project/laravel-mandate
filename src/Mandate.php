@@ -1056,18 +1056,19 @@ final class Mandate
         $allCapabilityNames = array_unique($allCapabilityNames);
 
         // Batch fetch existing roles
-        /** @var Collection<int, Role> $existingRoles */
+        /** @var array<string, Role> $existingRoles */
         $existingRoles = $roleClass::query()
             ->whereIn('name', $roleNames)
             ->where('guard', $roleGuard)
             ->get()
-            ->keyBy('name');
+            ->keyBy('name')
+            ->all();
 
         // Create missing roles
         $rolesMap = [];
         foreach ($roleNames as $roleName) {
-            if ($existingRoles->has($roleName)) {
-                $rolesMap[$roleName] = $existingRoles->get($roleName);
+            if (isset($existingRoles[$roleName])) {
+                $rolesMap[$roleName] = $existingRoles[$roleName];
             } else {
                 $rolesMap[$roleName] = $roleClass::create([
                     'name' => $roleName,
@@ -1079,17 +1080,18 @@ final class Mandate
         // Batch fetch existing permissions (skip if none needed)
         $permissionsMap = [];
         if (! empty($allPermissionNames)) {
-            /** @var Collection<int, Permission> $existingPermissions */
+            /** @var array<string, Permission> $existingPermissions */
             $existingPermissions = $permissionClass::query()
                 ->whereIn('name', $allPermissionNames)
                 ->where('guard', $roleGuard)
                 ->get()
-                ->keyBy('name');
+                ->keyBy('name')
+                ->all();
 
             // Create missing permissions
             foreach ($allPermissionNames as $permissionName) {
-                if ($existingPermissions->has($permissionName)) {
-                    $permissionsMap[$permissionName] = $existingPermissions->get($permissionName);
+                if (isset($existingPermissions[$permissionName])) {
+                    $permissionsMap[$permissionName] = $existingPermissions[$permissionName];
                 } else {
                     $permissionsMap[$permissionName] = $permissionClass::create([
                         'name' => $permissionName,
@@ -1102,16 +1104,17 @@ final class Mandate
         // Batch fetch existing capabilities (if enabled)
         $capabilitiesMap = [];
         if ($this->capabilitiesEnabled() && ! empty($allCapabilityNames)) {
-            /** @var Collection<int, Capability> $existingCapabilities */
+            /** @var array<string, Capability> $existingCapabilities */
             $existingCapabilities = $capabilityClass::query()
                 ->whereIn('name', $allCapabilityNames)
                 ->where('guard', $roleGuard)
                 ->get()
-                ->keyBy('name');
+                ->keyBy('name')
+                ->all();
 
             foreach ($allCapabilityNames as $capabilityName) {
-                if ($existingCapabilities->has($capabilityName)) {
-                    $capabilitiesMap[$capabilityName] = $existingCapabilities->get($capabilityName);
+                if (isset($existingCapabilities[$capabilityName])) {
+                    $capabilitiesMap[$capabilityName] = $existingCapabilities[$capabilityName];
                 } else {
                     $capabilitiesMap[$capabilityName] = $capabilityClass::create([
                         'name' => $capabilityName,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use OffloadProject\Mandate\Events\MandateSynced;
 use OffloadProject\Mandate\Events\PermissionsSynced;
 use OffloadProject\Mandate\Events\RolesSynced;
+use OffloadProject\Mandate\Models\Capability;
 use OffloadProject\Mandate\Models\Permission;
 use OffloadProject\Mandate\Models\Role;
 use OffloadProject\Mandate\Tests\Fixtures\CodeFirst\ArticlePermissions;
@@ -20,6 +21,7 @@ describe('SyncCommand', function () {
         // Reset static caches between tests
         Permission::resetLabelColumnCache();
         Role::resetLabelColumnCache();
+        Capability::resetLabelColumnCache();
     });
 
     it('fails when code-first is disabled', function () {
@@ -401,5 +403,84 @@ describe('SyncCommand --seed', function () {
         $userManagement->load('permissions');
         expect($userManagement->permissions)->toHaveCount(3);
         expect($userManagement->permissions->pluck('name')->toArray())->toContain('user:view', 'user:edit', 'user:delete');
+    });
+
+    it('persists inline capability label and description from #[Capability] attributes', function () {
+        $this->enableCapabilities();
+
+        $migrationPath = __DIR__.'/../../../database/migrations';
+        $migration = include $migrationPath.'/2024_01_01_000003_add_label_description_to_mandate_tables.php';
+        $migration->up();
+
+        Capability::resetLabelColumnCache();
+
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirstInlineCapabilities']);
+
+        $this->artisan('mandate:sync', ['--permissions' => true])
+            ->assertSuccessful();
+
+        $managePosts = Capability::where('name', 'manage-posts')->first();
+        expect($managePosts)->not->toBeNull();
+        expect($managePosts->label)->toBe('Manage Posts');
+        expect($managePosts->description)->toBe('Create, edit, and publish posts');
+
+        $publishing = Capability::where('name', 'publishing')->first();
+        expect($publishing)->not->toBeNull();
+        expect($publishing->label)->toBe('Publishing');
+        expect($publishing->description)->toBe('Publish content live');
+    });
+
+    it('updates inline capability metadata when re-synced with new values', function () {
+        $this->enableCapabilities();
+
+        $migrationPath = __DIR__.'/../../../database/migrations';
+        $migration = include $migrationPath.'/2024_01_01_000003_add_label_description_to_mandate_tables.php';
+        $migration->up();
+
+        Capability::resetLabelColumnCache();
+
+        // Pre-existing capability with stale metadata
+        Capability::create([
+            'name' => 'manage-posts',
+            'guard' => 'web',
+            'label' => 'Old Label',
+            'description' => 'Old description',
+        ]);
+
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirstInlineCapabilities']);
+
+        $this->artisan('mandate:sync', ['--permissions' => true])
+            ->assertSuccessful();
+
+        $managePosts = Capability::where('name', 'manage-posts')->first();
+        expect($managePosts->label)->toBe('Manage Posts');
+        expect($managePosts->description)->toBe('Create, edit, and publish posts');
+    });
+
+    it('syncs inline capabilities when no Capabilities directory is configured', function () {
+        $this->enableCapabilities();
+
+        $migrationPath = __DIR__.'/../../../database/migrations';
+        $migration = include $migrationPath.'/2024_01_01_000003_add_label_description_to_mandate_tables.php';
+        $migration->up();
+
+        Capability::resetLabelColumnCache();
+
+        config(['mandate.code_first.enabled' => true]);
+        config(['mandate.code_first.paths.permissions' => __DIR__.'/../../Fixtures/CodeFirstInlineCapabilities']);
+        // Point capabilities path to a directory that doesn't exist
+        config(['mandate.code_first.paths.capabilities' => '/non/existent/capabilities/path']);
+
+        $this->artisan('mandate:sync')
+            ->assertSuccessful();
+
+        $managePosts = Capability::where('name', 'manage-posts')->first();
+        expect($managePosts)->not->toBeNull();
+        expect($managePosts->label)->toBe('Manage Posts');
+        expect($managePosts->hasPermission('post:view'))->toBeTrue();
+        expect($managePosts->hasPermission('post:create'))->toBeTrue();
+        expect($managePosts->hasPermission('post:publish'))->toBeTrue();
     });
 });

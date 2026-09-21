@@ -238,29 +238,52 @@ final class SyncCommand extends Command
     /**
      * Sync a permission's capability relationships.
      *
-     * @param  array<string>  $capabilityNames
+     * @param  array<CapabilityDefinition>  $capabilityDefinitions
      */
-    private function syncPermissionCapabilities(Permission $permission, array $capabilityNames): void
+    private function syncPermissionCapabilities(Permission $permission, array $capabilityDefinitions): void
     {
         /** @var class-string<Capability> $capabilityClass */
         $capabilityClass = config('mandate.models.capability', Capability::class);
+        $hasLabelColumn = $capabilityClass::hasLabelColumn();
 
-        foreach ($capabilityNames as $capabilityName) {
+        foreach ($capabilityDefinitions as $definition) {
             /** @var Capability|null $capability */
             $capability = $capabilityClass::query()
-                ->where('name', $capabilityName)
+                ->where('name', $definition->name)
                 ->where('guard', $permission->guard)
                 ->first();
 
             if ($capability === null) {
-                $capability = $capabilityClass::create([
-                    'name' => $capabilityName,
+                $attributes = [
+                    'name' => $definition->name,
                     'guard' => $permission->guard,
-                ]);
+                ];
+
+                if ($hasLabelColumn) {
+                    $attributes['label'] = $definition->label;
+                    $attributes['description'] = $definition->description;
+                }
+
+                $capability = $capabilityClass::create($attributes);
+                $this->capabilitiesCreated++;
                 $this->components->twoColumnDetail(
                     '  <fg=green>Created capability</>',
-                    $capabilityName
+                    $definition->name
                 );
+            } elseif ($hasLabelColumn) {
+                $updates = [];
+
+                if ($definition->label !== null && $capability->label !== $definition->label) {
+                    $updates['label'] = $definition->label;
+                }
+                if ($definition->description !== null && $capability->description !== $definition->description) {
+                    $updates['description'] = $definition->description;
+                }
+
+                if (! empty($updates)) {
+                    $capability->update($updates);
+                    $this->capabilitiesUpdated++;
+                }
             }
 
             // Grant the permission to the capability (uses syncWithoutDetaching internally)

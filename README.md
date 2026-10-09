@@ -402,6 +402,25 @@ Gate::denies('article:edit');
 @endcan
 ```
 
+### Policies still decide for a record
+
+When a check names a record and its policy has a method for the permission's
+action, holding the permission is not enough — the policy decides. The action
+after the last `:` names the method, in camel case:
+
+```php
+// Needs `article:edit` *and* ArticlePolicy::edit($user, $article) to allow it.
+$user->can('article:edit', $article);
+
+// `user:update_status` asks UserPolicy::updateStatus($user, $target).
+#[Authorize('user:update_status', [User::class, 'user'])]
+```
+
+Checks without a record (`can('article:edit')`, or a class name such as
+`Article::class`), records without a policy, and policies without a matching
+method are decided by the permission alone. Set `mandate.gate.defer_to_policies`
+to `false` to grant on the permission everywhere, as before.
+
 ---
 
 ## Query Scopes
@@ -492,6 +511,7 @@ php artisan vendor:publish --tag=mandate-config
 | `features.models`                 | `[]`                | Model classes considered Feature contexts        |
 | `features.on_missing_handler`     | `'deny'`            | Behavior when handler is not bound               |
 | `register_gate`                   | `true`              | Register with Laravel Gate                       |
+| `gate.defer_to_policies`          | `true`              | Let a record's policy decide record checks       |
 | `events`                          | `false`             | Fire events on changes                           |
 | `column_names.subject_morph_name` | `'subject'`         | Base name for subject morph columns              |
 | `column_names.context_morph_name` | `'context'`         | Base name for context morph columns              |

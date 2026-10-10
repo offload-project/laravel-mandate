@@ -9,6 +9,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use OffloadProject\Mandate\CodeFirst\DefinitionCache;
 use OffloadProject\Mandate\CodeFirst\DefinitionDiscoverer;
 use OffloadProject\Mandate\Commands\AssignCapabilityCommand;
@@ -331,7 +332,7 @@ final class MandateServiceProvider extends ServiceProvider
             return;
         }
 
-        Gate::before(function ($subject, string $ability) {
+        Gate::before(function ($subject, string $ability, array $arguments = []) {
             if (! $subject instanceof Model || ! method_exists($subject, 'hasPermission')) {
                 return null;
             }
@@ -340,12 +341,61 @@ final class MandateServiceProvider extends ServiceProvider
             $registrar = app(MandateRegistrar::class);
 
             // Try to find the permission in cache/database
-            if ($registrar->permissionExists($ability, Guard::getNameForModel($subject))) {
-                return $subject->hasPermission($ability) ?: null;
+            if (! $registrar->permissionExists($ability, Guard::getNameForModel($subject))) {
+                // Not a Mandate permission, let other gates handle it
+                return null;
             }
 
-            // Not a Mandate permission, let other gates handle it
-            return null;
+            // Without the permission, stay out of the way: a policy may still
+            // grant, and Laravel denies when nothing does.
+            if (! $subject->hasPermission($ability)) {
+                return null;
+            }
+
+            return $this->policyVerdict($subject, $ability, $arguments) ?? true;
         });
+    }
+
+    /**
+     * The policy's answer, when the check names a record whose policy has a
+     * method for this permission's action.
+     *
+     * A `before` callback that returns `true` ends the check, so granting on the
+     * permission alone meant a record's policy never ran — `user:update_status`
+     * on your own account passed even though `UserPolicy::updateStatus` refuses
+     * it. Holding a permission says the user may do this kind of thing; the
+     * policy says whether to this record. The action after the last `:` names
+     * the method (`update_status` → `updateStatus`).
+     *
+     * Null — fall back to the permission — when no argument is a record (a
+     * class name alone has no row to judge, and a method expecting one would
+     * be called without it), no policy, no matching method, or when the method has the
+     * permission's own name and asking it would only ask this callback again.
+     *
+     * @param  array<int, mixed>  $arguments
+     */
+    private function policyVerdict(Model $subject, string $ability, array $arguments): ?bool
+    {
+        if (! config('mandate.gate.defer_to_policies', true)) {
+            return null;
+        }
+
+        // `#[Authorize('x', [Post::class, 'post'])]` arrives as the class, then
+        // the bound record: Laravel picks the policy from the first argument
+        // and hands the rest to the method, so a record anywhere counts.
+        $records = array_filter($arguments, fn (mixed $argument): bool => $argument instanceof Model);
+
+        if ($records === []) {
+            return null;
+        }
+
+        $policy = Gate::getPolicyFor($arguments[0]);
+        $method = Str::camel(Str::afterLast($ability, ':'));
+
+        if ($policy === null || $method === $ability || ! method_exists($policy, $method)) {
+            return null;
+        }
+
+        return Gate::forUser($subject)->inspect($method, $arguments)->allowed();
     }
 }

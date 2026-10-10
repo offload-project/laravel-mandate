@@ -182,7 +182,7 @@ class HealthCheckCommand extends Command
     {
         $notNullable = (new Collection(Schema::getColumns($table)))
             ->whereIn('name', $columns)
-            ->reject(fn (array $column): bool => (bool) ($column['nullable'] ?? true))
+            ->reject(fn (array $column): bool => $column['nullable'])
             ->pluck('name');
 
         if ($notNullable->isEmpty()) {

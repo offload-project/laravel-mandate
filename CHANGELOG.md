@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.2 - 2026-10-10
+
+### Fixed
+- Gate to defer to policies [#77](https://github.com/offload-project/laravel-mandate/pull/77)
+
 ## v3.7.1 - 2026-09-15
 
 ### Fixed

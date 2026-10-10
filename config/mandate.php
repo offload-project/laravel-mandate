@@ -220,6 +220,19 @@ return [
     'register_gate' => true,
 
     /*
+    | When a Gate check names a record — `$user->can('article:edit', $article)`
+    | or `#[Authorize('article:edit', [Article::class, 'article'])]` — and the
+    | record's policy has a method for the permission's action (`edit`), that
+    | method decides. Holding the permission no longer skips the policy's own
+    | rules, such as "not your own account". Checks without a record, and
+    | records without a matching policy method, are decided by the permission.
+    */
+
+    'gate' => [
+        'defer_to_policies' => true,
+    ],
+
+    /*
     |==========================================================================
     | ADVANCED OPTIONS (most apps use defaults)
     |==========================================================================
